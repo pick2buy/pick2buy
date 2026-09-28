@@ -1,0 +1,26 @@
+{
+  "name": "pick2buy-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pick2Buy - Complete Full-Stack Ecommerce Platform",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "npm run dev:backend",
+    "build:shared": "npm --prefix shared run build",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "db:generate": "npm --prefix backend run db:generate",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "db:seed": "npm --prefix backend run db:seed"
+  },
+  "keywords": ["ecommerce", "fullstack", "react", "express", "prisma", "pick2buy"],
+  "author": "Pick2Buy Team <pick2buy.in@gmail.com>",
+  "license": "ISC"
+}
