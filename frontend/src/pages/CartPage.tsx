@@ -131,7 +131,7 @@ export const CartPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-50">
+                  <div className="flex flex-wrap gap-3 items-center justify-between mt-3 pt-2 border-t border-slate-50">
                     <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -202,7 +202,7 @@ export const CartPage: React.FC = () => {
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                     placeholder="Enter coupon code"
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono uppercase outline-none focus:border-brand-primary"
+                    className="min-w-0 flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono uppercase outline-none focus:border-brand-primary"
                   />
                   <button
                     onClick={() => handleApplyCoupon(couponInput)}

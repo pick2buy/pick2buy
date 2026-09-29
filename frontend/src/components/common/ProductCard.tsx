@@ -68,9 +68,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const activeWishlist = isWishlisted(product.id);
 
   return (
-    <div className="group relative bg-white rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-soft transition-all duration-300 flex flex-col overflow-hidden">
+    <div className="product-card group relative bg-white rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-soft transition-all duration-300 flex flex-col overflow-hidden">
       {/* Product Image Area */}
-      <Link to={`/product/${product.slug}`} className="relative block aspect-square overflow-hidden bg-slate-50">
+      <div className="relative block aspect-square overflow-hidden bg-slate-50">
+      <Link to={`/product/${product.slug}`} aria-label={product.name}>
         <img
           src={primaryImage}
           alt={product.name}
@@ -78,6 +79,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           loading="lazy"
         />
 
+      </Link>
         {/* Badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
           {discount > 0 && (
@@ -113,18 +115,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </span>
           </div>
         )}
-      </Link>
+      </div>
 
       {/* Product Content Details */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
+      <div className="product-info p-4 flex-1 flex flex-col justify-between">
         <div>
           {/* Category / Brand label */}
-          <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
+          <div className="product-meta flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
             <span className="truncate">{product.brand?.name || product.category?.name || 'Pick2Buy Exclusive'}</span>
             <div className="flex items-center gap-1 text-amber-500 font-bold">
               <Star className="w-3 h-3 fill-amber-400 stroke-amber-400" />
-              <span>{product.averageRating || 4.8}</span>
-              <span className="text-slate-500 text-[10px]">({product.reviewCount || 12})</span>
+              <span>{product.reviewCount ? product.averageRating : "New"}</span>
+              <span className="text-slate-500 text-[10px]">({product.reviewCount || 0})</span>
             </div>
           </div>
 
@@ -138,9 +140,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
 
         {/* Pricing & Add to Cart button */}
-        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+        <div className="product-pricing mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
           <div>
-            <div className="flex items-baseline gap-1.5">
+            <div className="product-prices flex items-baseline gap-1.5">
               <span className="text-sm sm:text-base font-extrabold text-slate-900">
                 {formatINR(product.price)}
               </span>

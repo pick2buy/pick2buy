@@ -1,276 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  ArrowRight, 
-  Sparkles, 
-  Flame, 
-  Award, 
-  Star, 
-  CheckCircle2, 
-  TrendingUp,
-  Package,
-  Layers
-} from 'lucide-react';
+import { ArrowRight, Headphones, Shirt, Home, Watch, Footprints, Dumbbell, Sparkles, Package, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 import { HeroBanner } from '../components/storefront/HeroBanner';
-import { TrustBadges } from '../components/storefront/TrustBadges';
-import { FlashDeals } from '../components/storefront/FlashDeals';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
 
-export const HomePage: React.FC = () => {
+const categoryIcons = [Headphones, Watch, Shirt, Footprints, Home, Dumbbell, Sparkles, Package];
+const questions = [
+  ['How can I track my order?', 'Sign in and open Account & Orders to see your order status and available tracking updates.'],
+  ['Can I pay with Cash on Delivery?', 'Cash on Delivery is available for eligible orders. Check your PIN code on the product page and review the available payment methods at checkout.'],
+  ['How much does delivery cost?', 'Shipping is calculated for your cart and shown before you place your order. Orders above ₹499 qualify for free shipping.'],
+  ['Need a hand choosing or ordering?', 'Email pick2buy.in@gmail.com with your question or order number. Our team will help you with the next step.'],
+];
+
+export const HomePage = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    Promise.all([
-      api.getCategories(),
-      api.getProducts({ limit: 30 }),
-    ])
-      .then(([catRes, prodRes]) => {
-        setCategories(catRes.data || []);
-        setProducts(prodRes.data || []);
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const trendingProducts = products.filter((p) => p.isTrending).slice(0, 8);
-  const bestSellerProducts = products.filter((p) => p.isBestSeller).slice(0, 8);
-
-  const testimonials = [
-    {
-      name: 'Rohan Deshmukh',
-      role: 'Tech Consultant, Bengaluru',
-      rating: 5,
-      comment: 'Ordered the 65W GaN charger and ANC earbuds. Delivered to Indiranagar within 24 hours! Genuine build quality and best pricing online.',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
-    },
-    {
-      name: 'Sneha Kulkarni',
-      role: 'Architect, Pune',
-      rating: 5,
-      comment: 'The French linen shirts and bamboo notebook exceeded my expectations. Smooth checkout and seamless Cash on Delivery support.',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120',
-    },
-    {
-      name: 'Arjun Mehta',
-      role: 'Fitness Enthusiast, Delhi',
-      rating: 5,
-      comment: 'The CloudStride running shoes and percussion massage gun have become daily essentials. Pick2Buy customer service is extraordinarily responsive.',
-      avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120',
-    },
+    let active = true;
+    setLoading(true); setError(false);
+    Promise.all([api.getCategories(), api.getProducts({ limit: 50 })])
+      .then(([cats, items]) => { if (active) { setCategories(cats.data || []); setProducts(items.data || []); } })
+      .catch(() => { if (active) setError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [attempt]);
+  const sections = [
+    { title: 'Good finds. ', accent: 'Great favourites.', label: 'THE TRENDING EDIT', link: '/shop?trending=true', products: products.filter(p => p.isTrending).slice(0, 4) },
+    { title: 'More to love. ', accent: 'Less to spend.', label: 'PICKS WITH A LITTLE EXTRA VALUE', link: '/shop?flashDeal=true', products: products.filter(p => p.isFlashDeal).slice(0, 4) },
+    { title: 'Meet the ', accent: 'best sellers.', label: 'EXPLORE THE COLLECTION', link: '/shop?sort=bestseller', products: products.filter(p => p.isBestSeller).slice(0, 4) },
   ];
-
-  return (
-    <div className="space-y-4 pb-12">
-      {/* 1. Hero Carousel */}
-      <HeroBanner />
-
-      {/* 2. Trust Badges */}
-      <TrustBadges />
-
-      {/* 3. Featured Categories Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 my-12">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <span className="text-xs font-bold text-brand-primary uppercase tracking-wider">
-              Browse Collections
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
-              Shop by Category
-            </h2>
-          </div>
-          <Link
-            to="/shop"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-brand-primary transition-colors"
-          >
-            <span>All Categories</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {categories.map((cat) => (
-            <Link
-              key={cat.id}
-              to={`/category/${cat.slug}`}
-              className="group bg-white p-3.5 rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-soft transition-all duration-300 flex flex-col items-center text-center"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-indigo-50 group-hover:bg-brand-primary text-brand-primary group-hover:text-white flex items-center justify-center font-black text-lg transition-colors mb-2.5">
-                {cat.name.charAt(0)}
-              </div>
-              <h3 className="text-xs font-bold text-slate-800 group-hover:text-brand-primary transition-colors line-clamp-1">
-                {cat.name}
-              </h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">Explore</p>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* 4. Flash Sale Deals */}
-      <FlashDeals products={products} />
-
-      {/* 5. Trending Products */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 my-14">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <div className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 uppercase tracking-wider">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Customer Favorites</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
-              Trending Products This Week
-            </h2>
-          </div>
-          <Link
-            to="/shop?trending=true"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-brand-primary transition-colors"
-          >
-            <span>See All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-72 rounded-2xl bg-slate-100 animate-pulse" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {trendingProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 6. Promotional Mid-Season Feature Banner */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 my-12">
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 shadow-soft">
-          <div className="max-w-xl space-y-4">
-            <span className="bg-brand-accent text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
-              Pick2Buy Guarantee
-            </span>
-            <h3 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-              Fast, Reliable & Transparent Shopping. Direct to Your Doorstep.
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              We partner with verified manufacturing hubs to bring you premium tech, apparel, and lifestyle upgrades without bloated retail markups. Enjoy verified reviews and instant COD verification.
-            </p>
-            <div className="pt-2 flex items-center gap-3">
-              <Link
-                to="/shop"
-                className="bg-white hover:bg-slate-100 text-slate-900 text-xs sm:text-sm font-bold px-6 py-3 rounded-full transition-all shadow-md"
-              >
-                Shop All Deals
-              </Link>
-              <Link
-                to="/category/electronics"
-                className="bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold px-6 py-3 rounded-full transition-colors border border-white/20"
-              >
-                Explore Tech
-              </Link>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 w-full md:w-auto">
-            <div className="bg-white/10 backdrop-blur-md border border-white/10 p-4 rounded-2xl text-center">
-              <span className="text-2xl sm:text-3xl font-black text-amber-300">50K+</span>
-              <p className="text-[11px] text-slate-300 mt-1">Happy Shoppers</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md border border-white/10 p-4 rounded-2xl text-center">
-              <span className="text-2xl sm:text-3xl font-black text-emerald-400">19K+</span>
-              <p className="text-[11px] text-slate-300 mt-1">Pincodes Served</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md border border-white/10 p-4 rounded-2xl text-center">
-              <span className="text-2xl sm:text-3xl font-black text-sky-300">4.8/5</span>
-              <p className="text-[11px] text-slate-300 mt-1">Average Rating</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md border border-white/10 p-4 rounded-2xl text-center">
-              <span className="text-2xl sm:text-3xl font-black text-indigo-300">24h</span>
-              <p className="text-[11px] text-slate-300 mt-1">Dispatch Speed</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. Best Sellers Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 my-14">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <div className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 uppercase tracking-wider">
-              <Award className="w-3.5 h-3.5" />
-              <span>Top Rated</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
-              Pick2Buy Best Sellers
-            </h2>
-          </div>
-          <Link
-            to="/shop?sort=bestseller"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-brand-primary transition-colors"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {bestSellerProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </section>
-
-      {/* 8. Customer Testimonials */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 my-16">
-        <div className="text-center max-w-xl mx-auto mb-10">
-          <span className="text-xs font-bold text-brand-primary uppercase tracking-wider">
-            Verified Experiences
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
-            Loved by Customers Across India
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-2">
-            Read real feedback from shoppers who made Pick2Buy their preferred online store.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((t, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-1 text-amber-400 mb-3">
-                  {[...Array(t.rating)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400" />
-                  ))}
-                </div>
-                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed italic">
-                  "{t.comment}"
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
-                <img
-                  src={t.avatar}
-                  alt={t.name}
-                  className="w-10 h-10 rounded-full object-cover border border-slate-200"
-                />
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1">
-                    {t.name}
-                    <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary" />
-                  </h4>
-                  <p className="text-[11px] text-slate-400">{t.role}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+  return <div className="home-page">
+    <HeroBanner />
+    <div className="service-strip page-width">
+      {[[Truck, 'Delivery across India'], [CreditCard, 'Cash on Delivery'], [ShieldCheck, 'Secure checkout']].map(([Icon, text]: any) => <div key={text}><Icon size={20} /><span>{text}</span></div>)}
     </div>
-  );
+    <section className="page-width home-section" id="collections">
+      <div className="section-heading"><div><span className="eyebrow">A WORLD OF EVERYDAY POSSIBILITIES</span><h2>Find your <em>kind of thing.</em></h2></div><Link className="text-link" to="/shop">Shop everything <ArrowRight size={16} /></Link></div>
+      {error ? <div role="alert" className="catalog-message"><h3>We couldn't load the collection.</h3><p>Check your connection and try again.</p><button className="primary-pill" onClick={() => setAttempt(n => n + 1)}>Try again</button></div> :
+        <div className="category-tiles">{loading ? Array.from({ length: 8 }, (_, i) => <div key={i} className="h-36 rounded-2xl bg-slate-100 animate-pulse" />) : categories.map((cat, i) => { const Icon = categoryIcons[i % categoryIcons.length]; return <Link key={cat.id} to={`/category/${cat.slug}`}><span className="category-icon"><Icon size={28} strokeWidth={1.4} /></span><strong>{cat.name}</strong><span className="category-explore">Explore <ArrowRight size={12} /></span></Link>; })}</div>}
+    </section>
+    {sections.map((section, index) => <section key={section.label} className={`page-width home-section ${index === 1 ? 'value-section' : ''}`}>
+      <div className="section-heading"><div><span className="eyebrow">{section.label}</span><h2>{section.title}<em>{section.accent}</em></h2></div><Link to={section.link} className="text-link">View collection <ArrowRight size={16} /></Link></div>
+      <div className="home-product-grid">{loading ? Array.from({ length: 4 }, (_, i) => <div key={i} className="h-80 rounded-2xl bg-slate-100 animate-pulse" />) : section.products.map(product => <ProductCard key={product.id} product={product} />)}</div>
+      {!loading && !error && !section.products.length && <p className="catalog-message">New picks are on their way. <Link to="/shop">Explore the full collection →</Link></p>}
+    </section>)}
+    <section className="page-width home-section"><div className="discovery-banner"><span className="eyebrow">LESS SEARCHING. MORE DISCOVERING.</span><h2>A fresh pick for<br /><em>every part of your day.</em></h2><p>From the first song of the morning to the comforts of home.<br />Make room for something you'll love.</p><Link to="/shop?sort=newest" className="primary-pill">Discover what's new <ArrowRight size={17} /></Link></div></section>
+    <section className="page-width home-section faq-section"><div><span className="eyebrow">A LITTLE HELP GOES A LONG WAY</span><h2>Good questions.<br /><em>Simple answers.</em></h2><a className="text-link" href="mailto:pick2buy.in@gmail.com">Talk to our team <ArrowRight size={16} /></a></div><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
+  </div>;
 };

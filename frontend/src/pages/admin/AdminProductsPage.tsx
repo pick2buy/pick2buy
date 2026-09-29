@@ -1,3 +1,4 @@
+import { useModal } from '../../hooks/useModal';
 import React, { useState, useEffect } from 'react';
 import { Package, Plus, Trash2, Edit3, Search, Check } from 'lucide-react';
 import { api } from '../../services/api';
@@ -60,6 +61,7 @@ export const AdminProductsPage: React.FC = () => {
     p.sku.toLowerCase().includes(search.toLowerCase())
   );
 
+  const modalRef = useModal(isModalOpen, () => setIsModalOpen(false));
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -145,7 +147,7 @@ export const AdminProductsPage: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="relative bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl z-10 space-y-4">
+          <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Products form" className="max-h-[calc(100dvh-2rem)] overflow-y-auto relative bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl z-10 space-y-4">
             <h3 className="text-lg font-black text-slate-900">Add New Product to Catalog</h3>
 
             <form onSubmit={handleCreateProduct} className="space-y-3 text-xs">

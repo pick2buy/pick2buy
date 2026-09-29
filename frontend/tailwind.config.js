@@ -14,14 +14,14 @@ export default {
           300: '#c4b5fd',
           400: '#a78bfa',
           500: '#8b5cf6',
-          600: '#6d28d9',
+          600: '#082477',
           700: '#5b21b6',
           800: '#4c1d95',
           900: '#3b0764',
-          primary: '#4f46e5', // Signature EcomBold-inspired modern vibrant indigo
-          hover: '#4338ca',
+          primary: '#082477', // Signature EcomBold-inspired modern vibrant indigo
+          hover: '#153c9b',
           dark: '#1e1b4b',
-          accent: '#f97316', // High-converting orange accent for deals & flash sales
+          accent: '#9a5c2b', // High-converting orange accent for deals & flash sales
         },
         slate: {
           850: '#151f32',

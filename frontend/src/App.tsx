@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
@@ -27,9 +27,15 @@ import { AdminCouponsPage } from './pages/admin/AdminCouponsPage';
 import { AdminAuditPage } from './pages/admin/AdminAuditPage';
 import { useAuthStore } from './store/useAuthStore';
 
+const ScrollToTop = () => {
+  const { pathname, search } = useLocation();
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [pathname, search]);
+  return null;
+};
+
 const StorefrontLayout: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfdfd]">
+    <div className="storefront min-h-screen flex flex-col">
       <Header />
       <CartDrawer />
       <main className="flex-1">
@@ -50,11 +56,12 @@ export const App: React.FC = () => {
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         {/* Customer Storefront Routes */}
         <Route element={<StorefrontLayout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/shop" element={<ShopPage />} />
+          <Route path="/shop" element={<ShopPage />} /><Route path="/search" element={<ShopPage />} />
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path="/product/:slug" element={<ProductPage />} />
           <Route path="/cart" element={<CartPage />} />

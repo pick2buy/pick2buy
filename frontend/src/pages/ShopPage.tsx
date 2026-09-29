@@ -1,3 +1,4 @@
+import { useModal } from '../hooks/useModal';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Filter, SlidersHorizontal, ArrowUpDown, X, Star } from 'lucide-react';
@@ -18,6 +19,9 @@ export const ShopPage: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => { setSortOption(querySort); setSelectedCategory(queryCategory); }, [querySort, queryCategory]);
 
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState(queryCategory);
@@ -32,6 +36,8 @@ export const ShopPage: React.FC = () => {
 
   useEffect(() => {
     setIsLoading(true);
+    setError(false);
+    let active = true;
     const params: any = {
       q: queryQ,
       category: selectedCategory || undefined,
@@ -45,12 +51,16 @@ export const ShopPage: React.FC = () => {
 
     api.getProducts(params)
       .then((res) => {
+        if (!active) return;
         setProducts(res.data || []);
         setTotalCount(res.meta?.total || (res.data?.length || 0));
       })
-      .finally(() => setIsLoading(false));
-  }, [queryQ, selectedCategory, maxPrice, inStockOnly, sortOption, queryFlash, queryTrending]);
+      .catch(() => { if (active) setError(true); })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [queryQ, selectedCategory, maxPrice, inStockOnly, sortOption, queryFlash, queryTrending, retry]);
 
+  const filterRef = useModal(isMobileFilterOpen, () => setIsMobileFilterOpen(false));
   const clearAllFilters = () => {
     setSelectedCategory('');
     setMaxPrice(5000);
@@ -73,7 +83,7 @@ export const ShopPage: React.FC = () => {
         </div>
 
         {/* Mobile Filter Toggle & Sort Dropdown */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setIsMobileFilterOpen(true)}
             className="lg:hidden flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm"
@@ -85,7 +95,7 @@ export const ShopPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-slate-500 hidden sm:inline">Sort By:</span>
             <select
-              value={sortOption}
+              aria-label="Sort products" value={sortOption}
               onChange={(e) => setSortOption(e.target.value)}
               className="bg-white border border-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl outline-none focus:border-brand-primary"
             >
@@ -188,7 +198,7 @@ export const ShopPage: React.FC = () => {
                 <div key={i} className="h-80 rounded-2xl bg-slate-100 animate-pulse" />
               ))}
             </div>
-          ) : products.length === 0 ? (
+          ) : error ? (<div role="alert" className="catalog-message"><p>Unable to load products. Please check your connection.</p><button className="primary-pill" onClick={() => setRetry(n => n + 1)}>Try again</button></div>) : products.length === 0 ? (
             <div className="text-center py-16 px-4 bg-white rounded-2xl border border-slate-100 space-y-3">
               <div className="w-16 h-16 rounded-full bg-slate-100 mx-auto flex items-center justify-center text-slate-400">
                 <SlidersHorizontal className="w-8 h-8" />
@@ -221,11 +231,11 @@ export const ShopPage: React.FC = () => {
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => setIsMobileFilterOpen(false)}
           />
-          <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto">
+          <div ref={filterRef} role="dialog" aria-modal="true" aria-label="Product filters" className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto">
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="font-bold text-slate-900 text-sm">Filters</h3>
-                <button onClick={() => setIsMobileFilterOpen(false)}>
+                <button aria-label="Close filters" onClick={() => setIsMobileFilterOpen(false)}>
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>

@@ -28,7 +28,7 @@ export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
   if (product.stock <= 0) return null;
 
   return (
-    <div className="lg:hidden fixed bottom-14 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 shadow-elevated">
+    <div className="mobile-buy-bar lg:hidden fixed left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 shadow-elevated">
       <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5">
@@ -36,7 +36,7 @@ export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
               {formatINR(product.price)}
             </span>
             {product.mrp > product.price && (
-              <span className="text-xs text-slate-400 line-through">
+              <span className="buy-price-mrp text-xs text-slate-400 line-through">
                 {formatINR(product.mrp)}
               </span>
             )}
@@ -46,8 +46,8 @@ export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toggleWishlist(product.id)}
-            className={`p-2.5 rounded-xl border border-slate-200 ${
+            onClick={() => toggleWishlist(product.id).catch((error) => alert(error.message))}
+            className={`buy-wishlist p-2.5 rounded-xl border border-slate-200 ${
               wishlisted ? 'text-rose-500 bg-rose-50 border-rose-200' : 'text-slate-600 bg-slate-50'
             }`}
             title="Wishlist"

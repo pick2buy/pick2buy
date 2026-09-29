@@ -19,9 +19,9 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { formatINR } from '../lib/utils';
-import { useCartStore } from '../../store/useCartStore';
-import { useWishlistStore } from '../../store/useWishlistStore';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useCartStore } from '../store/useCartStore';
+import { useWishlistStore } from '../store/useWishlistStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { ProductCard } from '../components/common/ProductCard';
 import { StickyMobileBuyBar } from '../components/storefront/StickyMobileBuyBar';
 
@@ -258,10 +258,10 @@ export const ProductPage: React.FC = () => {
             <div className="flex items-center gap-3 mt-3">
               <div className="flex items-center gap-1 bg-amber-50 text-amber-800 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-200/50">
                 <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
-                <span>{product.averageRating || 4.8}</span>
+                <span>{reviews.length ? (reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length).toFixed(1) : "New"}</span>
               </div>
               <span className="text-xs text-slate-500">
-                Based on <strong>{product.reviewCount || reviews.length || 24}</strong> customer reviews
+                Based on <strong>{reviews.length}</strong> customer reviews
               </span>
               <span className="text-slate-300">•</span>
               <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
@@ -361,7 +361,7 @@ export const ProductPage: React.FC = () => {
                 className="bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50"
               >
                 <Zap className="w-4 h-4 fill-white" />
-                <span>Buy Now (Instant COD)</span>
+                <span>Buy Now</span>
               </button>
             </div>
           </div>
@@ -473,7 +473,7 @@ export const ProductPage: React.FC = () => {
             <p className="text-xs text-slate-500 mt-0.5">Real verified purchase opinions</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-3xl font-black text-slate-900">{product.averageRating || 4.8}</div>
+            <div className="text-3xl font-black text-slate-900">{reviews.length ? (reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length).toFixed(1) : "New"}</div>
             <div>
               <div className="flex text-amber-400">
                 {[...Array(5)].map((_, i) => (

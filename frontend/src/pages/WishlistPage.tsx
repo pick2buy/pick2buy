@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingBag, Trash2, ArrowRight } from 'lucide-react';
-import { useWishlistStore } from '../../store/useWishlistStore';
-import { useCartStore } from '../../store/useCartStore';
-import { useAuthStore } from '../../store/useAuthStore';
-import { formatINR } from '../../lib/utils';
+import { useWishlistStore } from '../store/useWishlistStore';
+import { useCartStore } from '../store/useCartStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { formatINR } from '../lib/utils';
 
 export const WishlistPage: React.FC = () => {
   const navigate = useNavigate();
@@ -73,7 +73,7 @@ export const WishlistPage: React.FC = () => {
       </h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {items.map((item) => (
+        {items.map((item: any) => (
           <div
             key={item.id}
             className="bg-white rounded-3xl border border-slate-100 p-4 shadow-sm flex flex-col justify-between hover:shadow-soft transition-all"
