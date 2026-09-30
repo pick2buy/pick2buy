@@ -64,7 +64,7 @@ export const Header: React.FC = () => {
             <span className="sm:hidden">Free India shipping over ₹499</span>
           </div>
           <div className="announcement-contact flex items-center gap-4 text-[11px] text-slate-300">
-            <span className="hidden md:inline">Use code <strong className="text-white">WELCOME10</strong> for 10% off</span>
+            <span className="hidden md:inline">First order? Use <strong className="text-white">WELCOME10</strong> when signed in</span>
             <span className="text-slate-400">|</span>
             <a href="mailto:pick2buy.in@gmail.com" className="hover:text-white transition-colors">
               pick2buy.in@gmail.com
@@ -319,7 +319,7 @@ export const Header: React.FC = () => {
               <Truck className="w-3.5 h-3.5 text-emerald-600" /> Express Dispatch
             </span>
             <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" /> 100% Genuine
+              <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" /> Support available
             </span>
           </div>
         </div>

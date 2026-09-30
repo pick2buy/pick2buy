@@ -128,7 +128,7 @@ export const ProductPage: React.FC = () => {
         title: newTitle,
         comment: newComment,
       });
-      setReviewMessage('Thank you! Your verified review has been posted.');
+      setReviewMessage('Thank you! Your review has been posted.');
       setNewComment('');
       setNewTitle('');
       // Reload product data to show new review
@@ -265,7 +265,7 @@ export const ProductPage: React.FC = () => {
               </span>
               <span className="text-slate-300">•</span>
               <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 100% Genuine
+                <CheckCircle2 className="w-3.5 h-3.5" /> Product details below
               </span>
             </div>
           </div>
@@ -370,7 +370,7 @@ export const ProductPage: React.FC = () => {
           <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
               <MapPin className="w-4 h-4 text-brand-primary" />
-              <span>Check Delivery Availability</span>
+              <span>Check PIN for Cash on Delivery</span>
             </div>
 
             <form onSubmit={handleCheckPincode} className="flex gap-2">
@@ -392,17 +392,9 @@ export const ProductPage: React.FC = () => {
             </form>
 
             {pincodeResult && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 space-y-1">
-                <p className="font-bold flex items-center gap-1.5">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  Delivery Available to PIN {pincodeResult.pincode}
-                </p>
-                <p className="text-[11px] text-emerald-800">
-                  Estimated Delivery: <strong>{pincodeResult.estimatedDeliveryDate}</strong>
-                </p>
-                <p className="text-[11px] text-emerald-800">
-                  Cash on Delivery: <strong>Eligible</strong> • Courier: <strong>{pincodeResult.courier}</strong>
-                </p>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 space-y-1">
+                <p className="font-bold">PIN {pincodeResult.pincode}: {pincodeResult.isCodPincodeAllowed ? 'COD may be available' : 'COD is unavailable'}</p>
+                <p>Final COD eligibility depends on your order total. Delivery options are confirmed at checkout.</p>
               </div>
             )}
           </div>
@@ -415,7 +407,7 @@ export const ProductPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
               <RefreshCw className="w-4 h-4 text-emerald-600" />
-              <span>7-Day Return Policy</span>
+              <span>Need help? Contact support</span>
             </div>
           </div>
         </div>
@@ -470,7 +462,7 @@ export const ProductPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">Customer Reviews & Ratings</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Real verified purchase opinions</p>
+            <p className="text-xs text-slate-500 mt-0.5">Customer opinions</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="text-3xl font-black text-slate-900">{reviews.length ? (reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length).toFixed(1) : "New"}</div>

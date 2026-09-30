@@ -25,8 +25,19 @@ export const AdminDashboardPage: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const handleDownloadReport = (type: string) => {
-    window.open(`/api/admin/reports/${type}`, '_blank');
+  const handleDownloadReport = async (type: string) => {
+    try {
+      const response = await fetch(`/api/admin/reports/${type}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('pick2buy_token') || ''}` },
+      });
+      if (!response.ok) throw new Error('Report download failed');
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pick2buy_${type}_report.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) { alert(error instanceof Error ? error.message : 'Report download failed'); }
   };
 
   if (isLoading || !metrics) {
@@ -43,12 +54,11 @@ export const AdminDashboardPage: React.FC = () => {
   }
 
   const statCards = [
-    { label: 'Total Revenue', value: formatINR(metrics.totalRevenue), change: '+18.4%', icon: TrendingUp, color: 'text-indigo-600 bg-indigo-50' },
-    { label: "Today's Revenue", value: formatINR(metrics.todayRevenue || 6890), change: 'Live', icon: Clock, color: 'text-emerald-600 bg-emerald-50' },
+    { label: 'Recent Revenue', value: formatINR(metrics.totalRevenue), change: 'Last 50 orders', icon: TrendingUp, color: 'text-indigo-600 bg-indigo-50' },
+    { label: "Today's Revenue", value: formatINR(metrics.todayRevenue || 0), change: 'Today', icon: Clock, color: 'text-emerald-600 bg-emerald-50' },
     { label: 'Total Orders', value: metrics.totalOrders, change: `${metrics.pendingOrders} pending`, icon: ShoppingBag, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Total Customers', value: metrics.totalCustomers, change: '+12 this week', icon: Users, color: 'text-sky-600 bg-sky-50' },
+    { label: 'Total Customers', value: metrics.totalCustomers, change: 'Registered', icon: Users, color: 'text-sky-600 bg-sky-50' },
     { label: 'Live Products', value: metrics.totalProducts, change: `${metrics.lowStockCount} low stock`, icon: Package, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Conversion Rate', value: `${metrics.conversionRate}%`, change: '+0.6% vs benchmark', icon: ArrowUpRight, color: 'text-rose-600 bg-rose-50' },
   ];
 
   return (
@@ -106,7 +116,7 @@ export const AdminDashboardPage: React.FC = () => {
             <p className="text-[11px] text-slate-400">Daily gross merchandise value</p>
           </div>
           <span className="text-xs font-extrabold text-brand-primary bg-indigo-50 px-2.5 py-1 rounded-full">
-            Live Stream
+            Last 7 days
           </span>
         </div>
 

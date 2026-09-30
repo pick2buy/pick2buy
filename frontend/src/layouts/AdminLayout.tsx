@@ -1,6 +1,6 @@
 import { useModal } from '../hooks/useModal';
 import React, { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
@@ -19,8 +19,7 @@ export const AdminLayout: React.FC = () => {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
-  const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, hasCheckedAuth } = useAuthStore();
 
   const menuRef = useModal<HTMLElement>(menuOpen, () => setMenuOpen(false));
   const navItems = [
@@ -33,6 +32,10 @@ export const AdminLayout: React.FC = () => {
     { label: 'Promos & Coupons', icon: Tag, path: '/admin/coupons' },
     { label: 'Security & Audit Logs', icon: ShieldAlert, path: '/admin/audit' },
   ];
+
+  if (!hasCheckedAuth) return <div className="p-8 text-sm text-slate-600">Checking admin access…</div>;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!['ADMIN', 'MANAGER', 'STAFF', 'SUPPORT_AGENT'].includes(user.role)) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen bg-slate-50 flex">

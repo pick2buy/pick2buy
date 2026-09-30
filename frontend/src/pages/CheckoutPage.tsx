@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
@@ -18,6 +18,25 @@ import { useAuthStore } from '../store/useAuthStore';
 import { formatINR } from '../lib/utils';
 import { api } from '../services/api';
 
+type RazorpayResult = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, callback: (response: any) => void) => void };
+  }
+}
+
+const loadRazorpay = async () => {
+  if (window.Razorpay) return;
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Razorpay checkout could not load. Please check your connection.'));
+    document.head.appendChild(script);
+  });
+  if (!window.Razorpay) throw new Error('Razorpay checkout is unavailable');
+};
+
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { cart, fetchCart } = useCartStore();
@@ -26,6 +45,8 @@ export const CheckoutPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [onlineAvailable, setOnlineAvailable] = useState(false);
+  useEffect(() => { api.getPaymentOptions().then(res => setOnlineAvailable(Boolean(res.data?.onlineAvailable))).catch(() => setOnlineAvailable(false)); }, []);
 
   // Shipping Address Form
   const [address, setAddress] = useState({
@@ -35,9 +56,9 @@ export const CheckoutPage: React.FC = () => {
     addressLine: '',
     apartment: '',
     landmark: '',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    pincode: '560001',
+    city: '',
+    state: '',
+    pincode: '',
     isDefault: true,
   });
 
@@ -45,6 +66,7 @@ export const CheckoutPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY_UPI' | 'RAZORPAY_CARD'>('COD');
 
   const items = cart?.items || [];
+  const payableTotal = (cart?.grandTotal || 0) + (paymentMethod === 'COD' ? 49 : 0);
   if (items.length === 0) {
     return (
       <div className="max-w-md mx-auto text-center py-20 px-4">
@@ -61,7 +83,7 @@ export const CheckoutPage: React.FC = () => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!address.fullName || !address.mobile || !address.addressLine || !address.pincode) {
+    if (address.fullName.trim().length < 2 || !/^[6-9]\d{9}$/.test(address.mobile) || address.addressLine.trim().length < 5 || address.city.trim().length < 2 || address.state.trim().length < 2 || !address.pincode) {
       setErrorMessage('Please fill in all required shipping address fields');
       setCurrentStep(1);
       return;
@@ -74,7 +96,9 @@ export const CheckoutPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
+    let createdOrderNumber = '';
     try {
+      if (paymentMethod !== 'COD') await loadRazorpay();
       const payload = {
         shippingAddress: address,
         paymentMethod,
@@ -83,21 +107,40 @@ export const CheckoutPage: React.FC = () => {
 
       const res = await api.checkout(payload);
       const order = res.data?.order;
+      createdOrderNumber = order.orderNumber;
+      if (res.data?.orderAccessToken) localStorage.setItem(`pick2buy_order_${order.orderNumber}`, res.data.orderAccessToken);
 
-      // If Razorpay simulated, auto-verify for instant successful order demonstration
       if (paymentMethod !== 'COD' && res.data?.paymentOrder) {
+        const paymentOrder = res.data.paymentOrder;
+        if (!window.Razorpay) throw new Error('Razorpay checkout is unavailable');
+        const result = await new Promise<RazorpayResult>((resolve, reject) => {
+          const checkout = new window.Razorpay!({
+            key: paymentOrder.keyId,
+            amount: paymentOrder.amount,
+            currency: paymentOrder.currency,
+            order_id: paymentOrder.gatewayOrderId,
+            name: 'Pick2Buy',
+            description: `Order ${order.orderNumber}`,
+            prefill: { name: address.fullName, email: address.email, contact: address.mobile },
+            theme: { color: '#082c82' },
+            handler: (response: RazorpayResult) => resolve(response),
+            modal: { ondismiss: () => reject(new Error(`Payment was cancelled. Your order ${order.orderNumber} is pending; contact support to retry.`)) },
+          });
+          checkout.on('payment.failed', (response: any) => reject(new Error(response.error?.description || 'Payment failed. Please try again.')));
+          checkout.open();
+        });
         await api.verifyPayment({
           orderNumber: order.orderNumber,
-          razorpayOrderId: res.data.paymentOrder.gatewayOrderId,
-          razorpayPaymentId: `pay_${Date.now()}`,
-          razorpaySignature: 'simulated_signature_valid',
+          razorpayOrderId: result.razorpay_order_id,
+          razorpayPaymentId: result.razorpay_payment_id,
+          razorpaySignature: result.razorpay_signature,
         });
       }
 
       await fetchCart(); // Refresh cart (will now be empty)
       navigate(`/order-success/${order.orderNumber}`);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Checkout failed. Please review your details and try again.');
+      setErrorMessage(`${err.message || 'Checkout failed. Please review your details and try again.'}${createdOrderNumber ? ` Order reference: ${createdOrderNumber}.` : ''}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -193,7 +236,7 @@ export const CheckoutPage: React.FC = () => {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-slate-700 font-medium mb-1">Email Address (for invoice & tracking)</label>
+                  <label className="block text-slate-700 font-medium mb-1">Email Address (optional)</label>
                   <input
                     type="email"
                     value={address.email}
@@ -266,7 +309,7 @@ export const CheckoutPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!address.fullName || !address.mobile || !address.addressLine || !address.pincode) {
+                    if (address.fullName.trim().length < 2 || !/^[6-9]\d{9}$/.test(address.mobile) || address.addressLine.trim().length < 5 || address.city.trim().length < 2 || address.state.trim().length < 2 || !/^\d{6}$/.test(address.pincode)) {
                       setErrorMessage('Please fill in all required shipping address fields');
                       return;
                     }
@@ -323,6 +366,8 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 </label>
 
+                {!onlineAvailable && <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800">Online payment is unavailable until Razorpay keys are configured. Cash on Delivery remains available for eligible orders.</p>}
+                {onlineAvailable && <>
                 {/* Razorpay UPI */}
                 <label
                   onClick={() => setPaymentMethod('RAZORPAY_UPI')}
@@ -380,6 +425,7 @@ export const CheckoutPage: React.FC = () => {
                     </p>
                   </div>
                 </label>
+                </>}
               </div>
 
               <div className="pt-4 flex justify-between items-center">
@@ -449,7 +495,7 @@ export const CheckoutPage: React.FC = () => {
                   className="bg-brand-primary hover:bg-brand-hover text-white text-xs sm:text-sm font-bold px-8 py-4 rounded-2xl flex items-center gap-2 shadow-lg shadow-brand-primary/20 transition-all hover:scale-[1.02] disabled:opacity-50"
                 >
                   <Lock className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Placing Order...' : `Confirm & Place Order (${formatINR(cart?.grandTotal || 0)})`}</span>
+                  <span>{isSubmitting ? 'Placing Order...' : `Confirm & Place Order (${formatINR(payableTotal)})`}</span>
                 </button>
               </div>
             </div>
@@ -478,13 +524,14 @@ export const CheckoutPage: React.FC = () => {
                   {cart?.shipping === 0 ? <strong className="text-emerald-600">FREE</strong> : formatINR(cart?.shipping || 0)}
                 </span>
               </div>
+              {paymentMethod === 'COD' && <div className="flex justify-between text-slate-600"><span>Cash on Delivery fee</span><span>{formatINR(49)}</span></div>}
               <div className="flex justify-between text-slate-600">
                 <span>Taxes & GST (18%)</span>
                 <span>Included</span>
               </div>
               <div className="pt-3 border-t border-slate-200 flex justify-between items-baseline text-sm font-black text-slate-900">
                 <span>Total Payable</span>
-                <span className="text-xl text-brand-primary">{formatINR(cart?.grandTotal || 0)}</span>
+                <span className="text-xl text-brand-primary">{formatINR(payableTotal)}</span>
               </div>
             </div>
 
@@ -493,7 +540,7 @@ export const CheckoutPage: React.FC = () => {
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <span>Pick2Buy Trust Commitment</span>
               </div>
-              <p>Your order is protected by our 7-day return guarantee and doorstep damage protection.</p>
+              <p>Review your shipping details and total before placing the order.</p>
             </div>
           </div>
         </div>

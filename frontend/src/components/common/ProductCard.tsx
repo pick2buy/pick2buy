@@ -25,16 +25,15 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { addItem, isLoading: isCartLoading } = useCartStore();
+  const { addItem } = useCartStore();
   const { toggleWishlist, isWishlisted } = useWishlistStore();
   const { user } = useAuthStore();
 
   const [isAdding, setIsAdding] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
 
-  const discount = product.discountPercentage || Math.round(((product.mrp - product.price) / product.mrp) * 100);
-  const primaryImage = product.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600';
-  const secondaryImage = product.images?.[1]?.url || primaryImage;
+  const discount = product.discountPercentage ?? (product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0);
+  const primaryImage = product.images?.[0]?.url || '/product-placeholder.svg';
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -68,15 +67,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const activeWishlist = isWishlisted(product.id);
 
   return (
-    <div className="product-card group relative bg-white rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-soft transition-all duration-300 flex flex-col overflow-hidden">
+    <article className="product-card group relative bg-white border border-slate-100 hover:border-slate-200 transition-all duration-300 flex flex-col overflow-hidden">
       {/* Product Image Area */}
-      <div className="relative block aspect-square overflow-hidden bg-slate-50">
+      <div className="product-card-image relative block aspect-square overflow-hidden bg-slate-50">
       <Link to={`/product/${product.slug}`} aria-label={product.name}>
         <img
           src={primaryImage}
           alt={product.name}
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/product-placeholder.svg'; }}
         />
 
       </Link>
@@ -103,6 +103,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               : 'bg-white/80 backdrop-blur-sm text-slate-600 hover:bg-white hover:text-rose-500 shadow-sm'
           }`}
           title="Save to Wishlist"
+          aria-label={activeWishlist ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
         >
           <Heart className={`w-4 h-4 ${activeWishlist ? 'fill-rose-500' : ''}`} />
         </button>
@@ -123,11 +124,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {/* Category / Brand label */}
           <div className="product-meta flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
             <span className="truncate">{product.brand?.name || product.category?.name || 'Pick2Buy Exclusive'}</span>
-            <div className="flex items-center gap-1 text-amber-500 font-bold">
+            {Boolean(product.reviewCount) && <div className="flex items-center gap-1 text-amber-500 font-bold">
               <Star className="w-3 h-3 fill-amber-400 stroke-amber-400" />
-              <span>{product.reviewCount ? product.averageRating : "New"}</span>
-              <span className="text-slate-500 text-[10px]">({product.reviewCount || 0})</span>
-            </div>
+              <span>{product.averageRating}</span>
+              <span className="text-slate-500 text-[10px]">({product.reviewCount})</span>
+            </div>}
           </div>
 
           {/* Product Title */}
@@ -152,7 +153,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-emerald-600 font-bold">Free Delivery</p>
+            <p className="text-[10px] text-slate-500 font-medium">Shipping shown at checkout</p>
           </div>
 
           <button
@@ -164,6 +165,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 : 'bg-brand-primary hover:bg-brand-hover text-white shadow-sm hover:shadow'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title="Add to Cart"
+            aria-label={`Add ${product.name} to cart`}
           >
             {justAdded ? (
               <Check className="w-4 h-4 stroke-[3]" />
@@ -173,6 +175,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </button>
         </div>
       </div>
-    </div>
+    </article>
   );
 };

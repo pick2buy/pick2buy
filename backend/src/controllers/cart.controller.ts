@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
+import { calculateCoupon } from '../lib/coupon';
 
 export class CartController {
   private static async getOrCreateCart(userId?: string, sessionId?: string) {
@@ -104,31 +105,11 @@ export class CartController {
       // Free shipping on orders over ₹499
       const shipping = subtotal > 499 || subtotal === 0 ? 0 : 49;
       const tax = Math.round(subtotal * 0.18); // 18% GST estimate
-      let couponDiscount = 0;
-
-      if (couponCode) {
-        const coupon = await prisma.coupon.findUnique({
-          where: { code: couponCode.toUpperCase() },
-        });
-
-        if (coupon && coupon.isActive) {
-          if (!coupon.minOrderValue || subtotal >= coupon.minOrderValue) {
-            if (coupon.type === 'PERCENTAGE') {
-              couponDiscount = Math.round((subtotal * coupon.value) / 100);
-              if (coupon.maxDiscount && couponDiscount > coupon.maxDiscount) {
-                couponDiscount = coupon.maxDiscount;
-              }
-            } else if (coupon.type === 'FIXED') {
-              couponDiscount = Math.min(coupon.value, subtotal);
-            } else if (coupon.type === 'FREE_SHIPPING') {
-              couponDiscount = shipping;
-            }
-          }
-        }
-      }
+      const coupon = await calculateCoupon(couponCode, subtotal, shipping, req.user?.id, cart.items.map(item => item.product.categoryId));
+      const couponDiscount = coupon.discountAmount + coupon.shippingDiscount;
 
       const discount = Math.max(0, totalMrp - subtotal);
-      const grandTotal = Math.max(0, subtotal - couponDiscount + (couponDiscount === shipping ? 0 : shipping));
+      const grandTotal = Math.max(0, subtotal - coupon.discountAmount + shipping - coupon.shippingDiscount);
 
       res.json({
         success: true,
@@ -140,8 +121,8 @@ export class CartController {
           totalMrp,
           discount,
           tax,
-          shipping: couponDiscount === shipping ? 0 : shipping,
-          couponCode: couponDiscount > 0 ? couponCode : null,
+          shipping: shipping - coupon.shippingDiscount,
+          couponCode: coupon.code,
           couponDiscount,
           grandTotal,
         },
@@ -159,6 +140,9 @@ export class CartController {
       if (!productId) {
         return res.status(400).json({ success: false, message: 'Product ID is required' });
       }
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+        return res.status(400).json({ success: false, message: 'Quantity must be between 1 and 99' });
+      }
 
       const product = await prisma.product.findUnique({
         where: { id: productId },
@@ -168,6 +152,7 @@ export class CartController {
       if (!product) {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
+      if (product.status !== 'ACTIVE') return res.status(400).json({ success: false, message: 'Product is unavailable' });
 
       // Check stock
       let availableStock = product.stock;
@@ -175,10 +160,9 @@ export class CartController {
 
       if (variantId) {
         const variant = product.variants.find((v) => v.id === variantId);
-        if (variant) {
-          availableStock = variant.stock;
-          unitPrice = variant.price;
-        }
+        if (!variant) return res.status(400).json({ success: false, message: 'Invalid product variant' });
+        availableStock = variant.stock;
+        unitPrice = variant.price;
       }
 
       if (availableStock < quantity) {
@@ -200,7 +184,7 @@ export class CartController {
 
       if (existingItem) {
         const newQty = existingItem.quantity + quantity;
-        if (availableStock < newQty) {
+        if (availableStock < newQty || newQty > 99) {
           return res.status(400).json({
             success: false,
             message: `Cannot add more. Total in cart exceeds available stock (${availableStock})`,
@@ -232,6 +216,16 @@ export class CartController {
     try {
       const { itemId } = req.params;
       const { quantity } = req.body;
+      const sessionId = req.headers['x-session-id'] as string;
+      if (!Number.isInteger(quantity) || quantity < 0 || quantity > 99) {
+        return res.status(400).json({ success: false, message: 'Quantity must be between 0 and 99' });
+      }
+      const cart = await CartController.getOrCreateCart(req.user?.id, sessionId);
+      const item = await prisma.cartItem.findFirst({ where: { id: itemId, cartId: cart.id }, include: { product: true, variant: true } });
+      if (!item) return res.status(404).json({ success: false, message: 'Cart item not found' });
+      if (quantity > (item.variant?.stock ?? item.product.stock)) {
+        return res.status(400).json({ success: false, message: 'Requested quantity exceeds available stock' });
+      }
 
       if (quantity <= 0) {
         await prisma.cartItem.delete({ where: { id: itemId } });
@@ -251,7 +245,10 @@ export class CartController {
   public static async removeItem(req: Request, res: Response, next: NextFunction) {
     try {
       const { itemId } = req.params;
-      await prisma.cartItem.delete({ where: { id: itemId } });
+      const sessionId = req.headers['x-session-id'] as string;
+      const cart = await CartController.getOrCreateCart(req.user?.id, sessionId);
+      const removed = await prisma.cartItem.deleteMany({ where: { id: itemId, cartId: cart.id } });
+      if (!removed.count) return res.status(404).json({ success: false, message: 'Cart item not found' });
       return CartController.getCart(req, res, next);
     } catch (error) {
       next(error);

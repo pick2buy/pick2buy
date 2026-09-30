@@ -32,7 +32,7 @@ export const CartPage: React.FC = () => {
   const [isApplying, setIsApplying] = useState(false);
 
   const availableCoupons = [
-    { code: 'WELCOME10', desc: '10% off for all shoppers' },
+    { code: 'WELCOME10', desc: '10% off your first order (sign in required)' },
     { code: 'PICK2BUY100', desc: 'Flat ₹100 off on ₹999+' },
     { code: 'FREESHIP', desc: 'Free Shipping' },
   ];
@@ -164,7 +164,7 @@ export const CartPage: React.FC = () => {
           <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/60 flex items-center gap-3 text-xs text-indigo-950">
             <Truck className="w-5 h-5 text-brand-primary flex-shrink-0" />
             <span>
-              Orders dispatched within 24 hours via Express Courier with live tracking updates.
+              Tracking details will appear in your order timeline after dispatch.
             </span>
           </div>
         </div>
@@ -292,7 +292,7 @@ export const CartPage: React.FC = () => {
 
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 pt-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Safe & Encrypted 256-Bit Checkout</span>
+              <span>Review payment and delivery details at checkout</span>
             </div>
           </div>
         </div>

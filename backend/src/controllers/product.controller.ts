@@ -2,8 +2,31 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { productCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
+import { z } from 'zod';
+import { config } from '../config';
+
+const productUpdateSchema = z.object({
+  name: z.string().min(3).optional(),
+  sku: z.string().min(2).optional(),
+  description: z.string().min(10).optional(),
+  categoryId: z.string().min(1).optional(),
+  price: z.number().min(0).optional(),
+  mrp: z.number().min(0).optional(),
+  status: z.enum(['DRAFT', 'ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED']).optional(),
+  imageUrl: z.string().url().optional().or(z.literal('')),
+}).strict();
 
 export class ProductController {
+  public static async getAdminProducts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const products = await prisma.product.findMany({
+        include: { images: { orderBy: { displayOrder: 'asc' } }, category: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      res.json({ success: true, data: products });
+    } catch (error) { next(error); }
+  }
+
   public static async getProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const {
@@ -85,7 +108,7 @@ export class ProductController {
             variants: true,
             category: true,
             brand: true,
-            reviews: { select: { rating: true } },
+            reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
           },
           orderBy,
           skip,
@@ -96,7 +119,7 @@ export class ProductController {
 
       const formatted = products.map((p) => {
         const ratings = p.reviews.map((r) => r.rating);
-        const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 4.8;
+        const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
         return {
           ...p,
           averageRating: Number(avg.toFixed(1)),
@@ -128,6 +151,7 @@ export class ProductController {
       const product = await prisma.product.findFirst({
         where: {
           OR: [{ slug: slugOrId }, { id: slugOrId }],
+          ...(!['ADMIN', 'MANAGER', 'STAFF', 'SUPPORT_AGENT'].includes(req.user?.role || '') ? { status: 'ACTIVE' } : {}),
         },
         include: {
           images: { orderBy: { displayOrder: 'asc' } },
@@ -135,6 +159,7 @@ export class ProductController {
           category: true,
           brand: true,
           reviews: {
+            where: { status: 'APPROVED' },
             include: {
               user: { select: { name: true, avatarUrl: true } },
             },
@@ -152,7 +177,7 @@ export class ProductController {
 
       // Compute average rating
       const ratings = product.reviews.map((r) => r.rating);
-      const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 4.8;
+      const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
       // Find related products in same category
       const relatedProducts = await prisma.product.findMany({
@@ -194,24 +219,11 @@ export class ProductController {
         });
       }
 
-      // Calculate estimated delivery
-      const today = new Date();
-      const deliveryDate = new Date(today);
-      deliveryDate.setDate(today.getDate() + 3);
-
-      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const formattedDate = `${days[deliveryDate.getDay()]}, ${deliveryDate.getDate()} ${months[deliveryDate.getMonth()]}`;
-
       res.json({
         success: true,
         data: {
           pincode,
-          available: true,
-          estimatedDeliveryDate: formattedDate,
-          isCodAvailable: true,
-          shippingFee: 0,
-          courier: 'Pick2Buy Express / BlueDart / Delhivery',
+          isCodPincodeAllowed: config.cod.enabled && !config.cod.restrictedPincodes.includes(pincode),
         },
       });
     } catch (error) {
@@ -222,6 +234,7 @@ export class ProductController {
   public static async createProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const data = productCreateSchema.parse(req.body);
+      if (data.mrp < data.price) return res.status(400).json({ success: false, message: 'MRP cannot be lower than selling price' });
       const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
       const discountPercentage = data.mrp > data.price
@@ -306,9 +319,21 @@ export class ProductController {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
 
-      const updated = await prisma.product.update({
-        where: { id },
-        data: req.body,
+      const { imageUrl, ...data } = productUpdateSchema.parse(req.body);
+      if (!Object.keys(data).length && imageUrl === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
+      const price = data.price ?? existing.price;
+      const mrp = data.mrp ?? existing.mrp;
+      if (mrp < price) return res.status(400).json({ success: false, message: 'MRP cannot be lower than selling price' });
+      const updated = await prisma.$transaction(async tx => {
+        const result = await tx.product.update({ where: { id }, data: {
+          ...data, discountPercentage: mrp > price ? Math.round((mrp - price) / mrp * 100) : 0,
+        } });
+        if (imageUrl) {
+          const firstImage = await tx.productImage.findFirst({ where: { productId: id }, orderBy: { displayOrder: 'asc' } });
+          if (firstImage) await tx.productImage.update({ where: { id: firstImage.id }, data: { url: imageUrl, altText: result.name } });
+          else await tx.productImage.create({ data: { productId: id, url: imageUrl, altText: result.name, isPrimary: true } });
+        }
+        return result;
       });
 
       await createAuditLog({
@@ -339,12 +364,12 @@ export class ProductController {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
 
-      await prisma.product.delete({ where: { id } });
+      await prisma.product.update({ where: { id }, data: { status: 'ARCHIVED' } });
 
       await createAuditLog({
         userId: req.user?.id,
         userEmail: req.user?.email,
-        action: 'DELETE_PRODUCT',
+        action: 'ARCHIVE_PRODUCT',
         resource: 'Product',
         resourceId: id,
         oldValue: existing,
@@ -352,7 +377,7 @@ export class ProductController {
 
       res.json({
         success: true,
-        message: 'Product deleted successfully',
+        message: 'Product archived successfully',
       });
     } catch (error) {
       next(error);

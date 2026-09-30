@@ -91,7 +91,10 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .category-tiles strong { font-size: 11px; font-weight: 600; }
 .category-explore { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #7a8190; margin-top: 9px; }
 .home-product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
-.product-card { border-radius: 18px; }
+.product-card { border-radius: 22px; padding: 8px; box-shadow: 0 8px 24px #17213e0b, 0 2px 5px #17213e06; }
+.product-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px #17213e15, 0 4px 8px #17213e0a; }
+.product-card-image { border-radius: 16px; }
+.product-card-image img { display: block; }
 .product-card .product-info { padding: 16px; }
 .product-card .product-meta { flex-wrap: wrap; gap: 5px; }
 .product-card .product-pricing { flex-wrap: wrap; }

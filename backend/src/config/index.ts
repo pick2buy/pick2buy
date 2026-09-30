@@ -1,6 +1,12 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+if (process.env.NODE_ENV === 'production' &&
+    (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET ||
+     process.env.JWT_SECRET.includes('change_in_production') || process.env.JWT_REFRESH_SECRET.includes('change_in_production'))) {
+  throw new Error('JWT secrets must be configured for production');
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',

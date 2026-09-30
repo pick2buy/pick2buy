@@ -98,7 +98,8 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   applyCoupon: async (code) => {
-    await get().fetchCart(code);
+    const res = await api.getCart(code);
+    set({ cart: res.data, couponInput: code });
   },
 
   removeCoupon: async () => {

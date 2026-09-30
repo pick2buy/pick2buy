@@ -29,7 +29,7 @@ export class ReviewController {
       });
 
       const total = reviews.length;
-      const avg = total > 0 ? reviews.reduce((a, b) => a + b.rating, 0) / total : 4.8;
+      const avg = total > 0 ? reviews.reduce((a, b) => a + b.rating, 0) / total : 0;
 
       res.json({
         success: true,
@@ -69,6 +69,9 @@ export class ReviewController {
           },
         },
       });
+
+      const existing = await prisma.review.findFirst({ where: { productId, userId: req.user.id } });
+      if (existing) return res.status(409).json({ success: false, message: 'You have already reviewed this product' });
 
       const review = await prisma.review.create({
         data: {

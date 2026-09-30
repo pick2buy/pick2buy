@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" role="img" aria-label="Product image unavailable">
+  <rect width="600" height="600" fill="#edf0f6"/>
+  <rect x="92" y="120" width="416" height="360" rx="32" fill="#fff" stroke="#dce2ee" stroke-width="4"/>
+  <path d="M180 390l90-108 62 68 52-55 65 95" fill="none" stroke="#a8b6cf" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="224" cy="222" r="28" fill="#c5d1e5"/>
+  <text x="300" y="535" fill="#082477" font-family="Arial,sans-serif" font-size="24" font-weight="700" text-anchor="middle">Pick2Buy</text>
+</svg>

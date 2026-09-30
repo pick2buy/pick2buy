@@ -70,6 +70,14 @@ class ApiClient {
     return this.request('/products', { method: 'POST', body: JSON.stringify(payload) });
   }
 
+  public updateProduct(id: string, payload: any) {
+    return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  }
+
+  public archiveProduct(id: string) {
+    return this.request(`/products/${id}`, { method: 'DELETE' });
+  }
+
   public checkPincode(pincode: string) {
     return this.request(`/products/check-pincode/${pincode}`);
   }
@@ -127,6 +135,10 @@ class ApiClient {
   }
 
   // Checkout & Orders
+  public getPaymentOptions() {
+    return this.request('/orders/payment-options');
+  }
+
   public checkout(payload: any) {
     return this.request('/orders/checkout', {
       method: 'POST',
@@ -146,7 +158,10 @@ class ApiClient {
   }
 
   public getOrderByNumber(orderNumber: string) {
-    return this.request(`/orders/${orderNumber}`);
+    const guestToken = localStorage.getItem(`pick2buy_order_${orderNumber}`);
+    return this.request(`/orders/${encodeURIComponent(orderNumber)}`, {
+      headers: guestToken ? { 'x-order-access': guestToken } : {},
+    });
   }
 
   // Reviews
@@ -165,6 +180,12 @@ class ApiClient {
   public getAdminDashboard() {
     return this.request('/admin/dashboard');
   }
+
+  public getAdminOrders(params: { page: number; q: string; status: string }) {
+    return this.request(`/admin/orders?${new URLSearchParams({ page: String(params.page), q: params.q, status: params.status })}`);
+  }
+
+  public getAdminProducts() { return this.request('/admin/products'); }
 
   public getAdminInventory() {
     return this.request('/admin/inventory');

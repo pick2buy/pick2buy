@@ -207,7 +207,7 @@ export const CartDrawer: React.FC = () => {
 
               <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500 pt-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>100% Secure Checkout • Cash on Delivery Available</span>
+                <span>Shipping and payment options shown at checkout</span>
               </div>
             </div>
           )}

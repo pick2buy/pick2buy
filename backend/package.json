@@ -10,7 +10,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx src/database/seed.ts",
     "db:setup": "prisma generate && prisma db push && tsx src/database/seed.ts",
-    "test": "tsx test/api.test.ts"
+    "test": "npm run build && node --test test/*.test.cjs"
   },
   "dependencies": {
     "@pick2buy/shared": "*",

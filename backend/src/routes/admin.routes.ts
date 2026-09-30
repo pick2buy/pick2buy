@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/admin.controller';
+import { ProductController } from '../controllers/product.controller';
 import { requireAdmin, requireStaff } from '../middlewares/auth';
 
 const router = Router();
 
 // Dashboard & Analytics
 router.get('/dashboard', requireStaff, AdminController.getDashboardMetrics);
+router.get('/orders', requireStaff, AdminController.getOrders);
+router.get('/products', requireStaff, ProductController.getAdminProducts);
 router.get('/reports/:type', requireAdmin, AdminController.exportReport);
 
 // Inventory

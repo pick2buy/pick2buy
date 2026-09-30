@@ -4,6 +4,26 @@ import { couponCreateSchema, leadCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
 
 export class AdminController {
+  public static async getOrders(req: Request, res: Response, next: NextFunction) {
+    try {
+      const page = Math.max(1, Number.parseInt(String(req.query.page || '1'), 10) || 1);
+      const q = String(req.query.q || '').trim().slice(0, 100);
+      const status = String(req.query.status || 'ALL');
+      const where = {
+        ...(status !== 'ALL' ? { status } : {}),
+        ...(q ? { OR: [
+          { orderNumber: { contains: q } },
+          { customerName: { contains: q } },
+        ] } : {}),
+      };
+      const [total, orders] = await Promise.all([
+        prisma.order.count({ where }),
+        prisma.order.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 20, take: 20 }),
+      ]);
+      res.json({ success: true, data: orders, meta: { page, pageSize: 20, total } });
+    } catch (error) { next(error); }
+  }
+
   public static async getDashboardMetrics(req: Request, res: Response, next: NextFunction) {
     try {
       const [
@@ -26,12 +46,13 @@ export class AdminController {
         }),
       ]);
 
-      const totalRevenue = orders.reduce((sum, o) => sum + o.grandTotal, 0);
+      const paidOrders = orders.filter(o => o.paymentMethod === 'COD' || o.paymentStatus === 'COMPLETED');
+      const totalRevenue = paidOrders.reduce((sum, o) => sum + o.grandTotal, 0);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayOrders = orders.filter((o) => new Date(o.createdAt) >= today);
-      const todayRevenue = todayOrders.reduce((sum, o) => sum + o.grandTotal, 0);
+      const todayRevenue = todayOrders.filter(o => o.paymentMethod === 'COD' || o.paymentStatus === 'COMPLETED').reduce((sum, o) => sum + o.grandTotal, 0);
 
       // Revenue grouped by last 7 days
       const daysMap: Record<string, { revenue: number; orders: number }> = {};
@@ -42,7 +63,7 @@ export class AdminController {
         daysMap[key] = { revenue: 0, orders: 0 };
       }
 
-      orders.forEach((o) => {
+      paidOrders.forEach((o) => {
         const key = new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if (daysMap[key]) {
           daysMap[key].revenue += o.grandTotal;
@@ -68,7 +89,7 @@ export class AdminController {
 
       // Top products sold
       const productSalesMap: Record<string, { name: string; sales: number; revenue: number }> = {};
-      orders.forEach((o) => {
+      paidOrders.forEach((o) => {
         o.items.forEach((item) => {
           if (!productSalesMap[item.productId]) {
             productSalesMap[item.productId] = { name: item.productName, sales: 0, revenue: 0 };
@@ -90,10 +111,10 @@ export class AdminController {
           todayRevenue,
           totalOrders,
           pendingOrders,
-          totalCustomers: totalCustomers || 12,
+          totalCustomers,
           totalProducts,
           lowStockCount: lowStockProducts,
-          conversionRate: 3.4, // Industry benchmark ecommerce conversion rate
+          conversionRate: null,
           revenueChart,
           statusDistribution,
           topProducts,
@@ -131,30 +152,34 @@ export class AdminController {
   public static async adjustStock(req: Request, res: Response, next: NextFunction) {
     try {
       const { productId, variantId, quantityChange, reason = 'ADJUSTMENT' } = req.body;
+      if (!Number.isInteger(quantityChange) || quantityChange === 0 || Math.abs(quantityChange) > 10000) {
+        return res.status(400).json({ success: false, message: 'Stock change must be a non-zero whole number within 10,000 units' });
+      }
+      if (typeof reason !== 'string' || !reason.trim() || reason.length > 100) {
+        return res.status(400).json({ success: false, message: 'A short adjustment reason is required' });
+      }
 
       const product = await prisma.product.findUnique({ where: { id: productId } });
       if (!product) {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
 
-      await prisma.product.update({
-        where: { id: productId },
-        data: { stock: { increment: quantityChange } },
-      });
-
-      if (variantId) {
-        await prisma.productVariant.update({
-          where: { id: variantId },
-          data: { stock: { increment: quantityChange } },
-        });
-      }
-
-      await prisma.inventoryTransaction.create({
-        data: {
-          productId,
-          quantity: quantityChange,
-          reason,
-        },
+      await prisma.$transaction(async tx => {
+        let variantSku: string | null = null;
+        if (variantId) {
+          const variant = await tx.productVariant.findFirst({ where: { id: variantId, productId } });
+          if (!variant) throw Object.assign(new Error('Variant does not belong to this product'), { statusCode: 400 });
+          variantSku = variant.sku;
+          const changed = await tx.productVariant.updateMany({ where: {
+            id: variantId, ...(quantityChange < 0 ? { stock: { gte: -quantityChange } } : {}),
+          }, data: { stock: { increment: quantityChange } } });
+          if (!changed.count) throw Object.assign(new Error('Not enough variant stock'), { statusCode: 400 });
+        }
+        const changed = await tx.product.updateMany({ where: {
+          id: productId, ...(quantityChange < 0 ? { stock: { gte: -quantityChange } } : {}),
+        }, data: { stock: { increment: quantityChange } } });
+        if (!changed.count) throw Object.assign(new Error('Not enough product stock'), { statusCode: 400 });
+        await tx.inventoryTransaction.create({ data: { productId, variantSku, quantity: quantityChange, reason: reason.trim() } });
       });
 
       await createAuditLog({

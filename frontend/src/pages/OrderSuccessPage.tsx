@@ -20,14 +20,13 @@ export const OrderSuccessPage: React.FC = () => {
             Thank You for Shopping with Pick2Buy!
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-md mx-auto">
-            Your order has been recorded in our dispatch fulfillment queue. We've sent a detailed invoice & confirmation receipt to your email.
+            Your order has been recorded. You can follow its status from the order page below.
           </p>
         </div>
 
         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 inline-block text-left text-xs space-y-1">
           <p className="text-slate-500">Pick2Buy Order Reference:</p>
           <p className="text-base font-black font-mono text-brand-primary">{orderNumber}</p>
-          <p className="text-slate-500 pt-1">Estimated Delivery: <strong>3-4 Business Days</strong></p>
         </div>
 
         <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">

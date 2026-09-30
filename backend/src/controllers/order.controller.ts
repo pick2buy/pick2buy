@@ -4,6 +4,10 @@ import { checkoutSchema, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHODS } fro
 import { PaymentService } from '../lib/payment';
 import { EmailService } from '../lib/email';
 import { createAuditLog } from '../lib/audit';
+import jwt from 'jsonwebtoken';
+import { config } from '../config';
+import { calculateCoupon } from '../lib/coupon';
+import { randomUUID } from 'crypto';
 
 export class OrderController {
   public static async checkout(req: Request, res: Response, next: NextFunction) {
@@ -48,25 +52,9 @@ export class OrderController {
 
       const shippingFee = subtotal > 499 ? 0 : 49;
       const taxAmount = Math.round(subtotal * 0.18);
-      let discountAmount = 0;
-
-      if (data.couponCode) {
-        const coupon = await prisma.coupon.findUnique({
-          where: { code: data.couponCode.toUpperCase() },
-        });
-        if (coupon && coupon.isActive) {
-          if (!coupon.minOrderValue || subtotal >= coupon.minOrderValue) {
-            if (coupon.type === 'PERCENTAGE') {
-              discountAmount = Math.round((subtotal * coupon.value) / 100);
-              if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
-                discountAmount = coupon.maxDiscount;
-              }
-            } else if (coupon.type === 'FIXED') {
-              discountAmount = Math.min(coupon.value, subtotal);
-            }
-          }
-        }
-      }
+      const coupon = await calculateCoupon(data.couponCode, subtotal, shippingFee, userId, cart.items.map(item => item.product.categoryId));
+      const discountAmount = coupon.discountAmount;
+      const effectiveShippingFee = shippingFee - coupon.shippingDiscount;
 
       const isCod = data.paymentMethod === PAYMENT_METHODS.COD;
       let codFee = 0;
@@ -82,9 +70,14 @@ export class OrderController {
         codFee = 49;
       }
 
-      const grandTotal = Math.max(0, subtotal - discountAmount + shippingFee + codFee);
-      const randomSuffix = Math.floor(100000 + Math.random() * 900000);
-      const orderNumber = `P2B-${new Date().getFullYear()}-${randomSuffix}`;
+      const grandTotal = Math.max(0, subtotal - discountAmount + effectiveShippingFee + codFee);
+      const orderNumber = `P2B-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const paymentOrder = isCod ? null : await PaymentService.createPaymentOrder({
+        orderNumber, amount: grandTotal,
+        customerName: data.shippingAddress.fullName,
+        customerEmail: data.shippingAddress.email || req.user?.email || '',
+        customerPhone: data.shippingAddress.mobile,
+      });
 
       // Run transactional order placement and stock deduction
       const order = await prisma.$transaction(async (tx) => {
@@ -94,7 +87,7 @@ export class OrderController {
             orderNumber,
             userId: userId || null,
             customerName: data.shippingAddress.fullName,
-            customerEmail: data.shippingAddress.email || req.user?.email || 'customer@pick2buy.in',
+            customerEmail: data.shippingAddress.email || req.user?.email || '',
             customerPhone: data.shippingAddress.mobile,
             shippingAddressJson: JSON.stringify(data.shippingAddress),
             status: isCod ? ORDER_STATUSES.CONFIRMED : ORDER_STATUSES.PENDING,
@@ -102,9 +95,9 @@ export class OrderController {
             paymentStatus: isCod ? PAYMENT_STATUSES.PENDING : PAYMENT_STATUSES.PENDING,
             subtotal,
             taxAmount,
-            shippingFee,
+            shippingFee: effectiveShippingFee,
             discountAmount,
-            couponCode: data.couponCode || null,
+            couponCode: coupon.code,
             codFee,
             grandTotal,
             notes: data.notes || null,
@@ -136,6 +129,9 @@ export class OrderController {
                 total: (item.variant ? item.variant.price : item.product.price) * item.quantity,
               })),
             },
+            payments: paymentOrder ? {
+              create: { amount: grandTotal, method: data.paymentMethod, status: PAYMENT_STATUSES.PENDING, gatewayOrder: paymentOrder.gatewayOrderId },
+            } : undefined,
           },
           include: {
             items: true,
@@ -145,15 +141,17 @@ export class OrderController {
         // Deduct inventory
         for (const item of cart.items) {
           if (item.variantId) {
-            await tx.productVariant.update({
-              where: { id: item.variantId },
+            const variantUpdated = await tx.productVariant.updateMany({
+              where: { id: item.variantId, stock: { gte: item.quantity } },
               data: { stock: { decrement: item.quantity } },
             });
+            if (variantUpdated.count !== 1) throw Object.assign(new Error(`Insufficient stock for ${item.product.name}`), { statusCode: 400 });
           }
-          await tx.product.update({
-            where: { id: item.productId },
+          const productUpdated = await tx.product.updateMany({
+            where: { id: item.productId, stock: { gte: item.quantity } },
             data: { stock: { decrement: item.quantity } },
           });
+          if (productUpdated.count !== 1) throw Object.assign(new Error(`Insufficient stock for ${item.product.name}`), { statusCode: 400 });
 
           await tx.inventoryTransaction.create({
             data: {
@@ -170,21 +168,18 @@ export class OrderController {
         await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
         // Update coupon usage if applicable
-        if (data.couponCode && userId) {
-          const coupon = await tx.coupon.findUnique({ where: { code: data.couponCode.toUpperCase() } });
-          if (coupon) {
+        if (coupon.couponId) {
             await tx.coupon.update({
-              where: { id: coupon.id },
+              where: { id: coupon.couponId },
               data: { usedCount: { increment: 1 } },
             });
-            await tx.couponUsage.create({
+            if (userId) await tx.couponUsage.create({
               data: {
-                couponId: coupon.id,
+                couponId: coupon.couponId,
                 userId,
                 orderId: createdOrder.id,
               },
             });
-          }
         }
 
         // Save address to user profile if user is logged in
@@ -210,21 +205,7 @@ export class OrderController {
         return createdOrder;
       });
 
-      // Prepare payment order if Razorpay
-      let paymentOrder = null;
-      if (!isCod) {
-        paymentOrder = await PaymentService.createPaymentOrder({
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          amount: order.grandTotal,
-          customerName: order.customerName,
-          customerEmail: order.customerEmail,
-          customerPhone: order.customerPhone,
-        });
-      }
-
-      // Send order confirmation email
-      EmailService.sendOrderConfirmation(
+      if (isCod && order.customerEmail) EmailService.sendOrderConfirmation(
         order.orderNumber,
         order.customerName,
         order.customerEmail,
@@ -244,6 +225,7 @@ export class OrderController {
             paymentStatus: order.paymentStatus,
           },
           paymentOrder,
+          orderAccessToken: userId ? null : jwt.sign({ orderId: order.id, purpose: 'guest-order' }, config.jwt.secret, { expiresIn: '30d' }),
         },
       });
     } catch (error) {
@@ -253,7 +235,10 @@ export class OrderController {
 
   public static async verifyPayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const { orderNumber, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+      const { orderNumber, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body || {};
+      if (![orderNumber, razorpayOrderId, razorpayPaymentId, razorpaySignature].every(v => typeof v === 'string' && v.length > 0)) {
+        return res.status(400).json({ success: false, message: 'Invalid payment details' });
+      }
 
       const order = await prisma.order.findUnique({
         where: { orderNumber },
@@ -261,6 +246,20 @@ export class OrderController {
 
       if (!order) {
         return res.status(404).json({ success: false, message: 'Order not found' });
+      }
+      if (order.paymentMethod === PAYMENT_METHODS.COD) {
+        return res.status(400).json({ success: false, message: 'This order does not require online payment' });
+      }
+      if (order.status === ORDER_STATUSES.CANCELLED) {
+        return res.status(409).json({ success: false, message: 'This order has been cancelled' });
+      }
+      const pendingPayment = await prisma.payment.findFirst({ where: { orderId: order.id, gatewayOrder: razorpayOrderId } });
+      if (!pendingPayment) return res.status(400).json({ success: false, message: 'Payment order does not match' });
+      if (order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
+        return res.status(order.paymentId === razorpayPaymentId ? 200 : 409).json({
+          success: order.paymentId === razorpayPaymentId,
+          message: order.paymentId === razorpayPaymentId ? 'Payment already verified' : 'Order already paid',
+        });
       }
 
       const isValid = PaymentService.verifySignature({
@@ -270,27 +269,37 @@ export class OrderController {
       });
 
       if (!isValid) {
-        await prisma.order.update({
-          where: { id: order.id },
-          data: { paymentStatus: PAYMENT_STATUSES.FAILED },
-        });
         return res.status(400).json({ success: false, message: 'Payment verification failed' });
       }
 
-      const updated = await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: ORDER_STATUSES.CONFIRMED,
-          paymentStatus: PAYMENT_STATUSES.COMPLETED,
-          paymentId: razorpayPaymentId,
-          statusHistory: {
-            create: {
-              status: ORDER_STATUSES.CONFIRMED,
-              comment: `Payment verified successfully (ID: ${razorpayPaymentId})`,
-            },
-          },
-        },
+      const gatewayResponse = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(razorpayPaymentId)}`, {
+        headers: { Authorization: PaymentService.authorizationHeader() },
+        signal: AbortSignal.timeout(10000),
       });
+      if (!gatewayResponse.ok) return res.status(502).json({ success: false, message: 'Could not confirm payment with Razorpay' });
+      const gatewayPayment = await gatewayResponse.json() as { order_id?: string; amount?: number; currency?: string; status?: string };
+      if (gatewayPayment.order_id !== razorpayOrderId || gatewayPayment.amount !== Math.round(order.grandTotal * 100) ||
+          gatewayPayment.currency !== 'INR' || gatewayPayment.status !== 'captured') {
+        return res.status(400).json({ success: false, message: 'Payment has not been captured for this order' });
+      }
+
+      const updated = await prisma.$transaction(async tx => {
+        const result = await tx.order.updateMany({
+          where: { id: order.id, status: ORDER_STATUSES.PENDING, paymentStatus: PAYMENT_STATUSES.PENDING },
+          data: { status: ORDER_STATUSES.CONFIRMED, paymentStatus: PAYMENT_STATUSES.COMPLETED, paymentId: razorpayPaymentId },
+        });
+        if (result.count !== 1) throw new Error('Payment was already processed');
+        await tx.payment.update({ where: { id: pendingPayment.id }, data: {
+          status: PAYMENT_STATUSES.COMPLETED, transactionId: razorpayPaymentId,
+        } });
+        await tx.orderStatusHistory.create({ data: {
+          orderId: order.id, status: ORDER_STATUSES.CONFIRMED,
+          comment: `Payment verified successfully (ID: ${razorpayPaymentId})`,
+        } });
+        return tx.order.findUniqueOrThrow({ where: { id: order.id } });
+      });
+      if (order.customerEmail) EmailService.sendOrderConfirmation(order.orderNumber, order.customerName, order.customerEmail, order.grandTotal)
+        .catch(err => console.error('[Order] Email failed:', err));
 
       res.json({
         success: true,
@@ -346,7 +355,16 @@ export class OrderController {
       }
 
       // Check authorization if user order
-      if (order.userId && req.user && order.userId !== req.user.id && req.user.role === 'CUSTOMER') {
+      const isStaff = ['ADMIN', 'MANAGER', 'STAFF', 'SUPPORT_AGENT'].includes(req.user?.role || '');
+      let guestAccess = false;
+      const accessToken = req.headers['x-order-access'];
+      if (!order.userId && typeof accessToken === 'string') {
+        try {
+          const claim = jwt.verify(accessToken, config.jwt.secret) as { orderId?: string; purpose?: string };
+          guestAccess = claim.orderId === order.id && claim.purpose === 'guest-order';
+        } catch { guestAccess = false; }
+      }
+      if (!isStaff && order.userId !== req.user?.id && !guestAccess) {
         return res.status(403).json({ success: false, message: 'Access denied' });
       }
 
@@ -368,12 +386,64 @@ export class OrderController {
       const { orderId } = req.params;
       const { status, comment, trackingNumber, courierName } = req.body;
 
+      if (!Object.values(ORDER_STATUSES).includes(status)) {
+        return res.status(400).json({ success: false, message: 'Invalid order status' });
+      }
+      if ([ORDER_STATUSES.RETURNED, ORDER_STATUSES.REFUNDED].includes(status)) {
+        return res.status(400).json({ success: false, message: 'Returns and refunds require a separate verified workflow' });
+      }
+
       const order = await prisma.order.findUnique({ where: { id: orderId } });
       if (!order) {
         return res.status(404).json({ success: false, message: 'Order not found' });
       }
+      if (order.paymentMethod !== PAYMENT_METHODS.COD && order.paymentStatus !== PAYMENT_STATUSES.COMPLETED && status !== ORDER_STATUSES.CANCELLED) {
+        return res.status(400).json({ success: false, message: 'Unpaid orders cannot be fulfilled' });
+      }
+      if (order.status === ORDER_STATUSES.CANCELLED && status !== ORDER_STATUSES.CANCELLED) {
+        return res.status(400).json({ success: false, message: 'Cancelled orders cannot be fulfilled' });
+      }
+      const nextStatuses: Record<string, string[]> = {
+        PENDING: ['CONFIRMED', 'CANCELLED'],
+        CONFIRMED: ['PROCESSING', 'CANCELLED'],
+        PROCESSING: ['PACKED', 'CANCELLED'],
+        PACKED: ['SHIPPED', 'CANCELLED'],
+        SHIPPED: ['OUT_FOR_DELIVERY', 'DELIVERED'],
+        OUT_FOR_DELIVERY: ['DELIVERED'],
+      };
+      if (status !== order.status && !(nextStatuses[order.status] || []).includes(status)) {
+        return res.status(400).json({ success: false, message: 'Invalid order status transition' });
+      }
+      if (status === ORDER_STATUSES.SHIPPED && (!String(trackingNumber || order.trackingNumber || '').trim() || !String(courierName || order.courierName || '').trim())) {
+        return res.status(400).json({ success: false, message: 'Courier and tracking number are required to mark an order shipped' });
+      }
+      if (status === ORDER_STATUSES.CANCELLED && order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
+        return res.status(400).json({ success: false, message: 'Paid orders require a refund before cancellation' });
+      }
 
-      const updated = await prisma.order.update({
+      const updated = await prisma.$transaction(async tx => {
+        const claim = await tx.order.updateMany({ where: { id: orderId, status: order.status }, data: { status } });
+        if (claim.count !== 1) throw Object.assign(new Error('Order status changed; reload and try again'), { statusCode: 409 });
+        if (status === ORDER_STATUSES.CANCELLED && order.status !== ORDER_STATUSES.CANCELLED) {
+          const items = await tx.orderItem.findMany({ where: { orderId } });
+          for (const item of items) {
+            await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+            if (item.variantName) {
+              const variant = await tx.productVariant.findFirst({ where: { productId: item.productId, sku: item.sku } });
+              if (variant) await tx.productVariant.update({ where: { id: variant.id }, data: { stock: { increment: item.quantity } } });
+            }
+            await tx.inventoryTransaction.create({ data: {
+              productId: item.productId, variantSku: item.variantName ? item.sku : null,
+              quantity: item.quantity, reason: 'ORDER_CANCELLED', referenceId: orderId,
+            } });
+          }
+          if (order.couponCode) {
+            const coupon = await tx.coupon.findUnique({ where: { code: order.couponCode } });
+            if (coupon) await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { decrement: 1 } } });
+            await tx.couponUsage.deleteMany({ where: { orderId } });
+          }
+        }
+        return tx.order.update({
         where: { id: orderId },
         data: {
           status,
@@ -389,6 +459,7 @@ export class OrderController {
         include: {
           statusHistory: true,
         },
+      });
       });
 
       if (status === ORDER_STATUSES.SHIPPED && trackingNumber) {

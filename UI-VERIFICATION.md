@@ -1,5 +1,17 @@
 # Pick2Buy UI update — 29 September 2026
 
+## Follow-up audit — 30 September 2026
+
+- Compared the storefront with the current EcomBold landing page. EcomBold sells a course and has no ecommerce product card pattern, so Pick2Buy uses its light background, soft white panels, rounded corners, navy actions, and spacious typography while retaining shopping controls.
+- Updated product cards and added a local fallback for broken catalog images.
+- Replaced simulated Razorpay order IDs and automatic success with real Orders API creation, Checkout callback handling, signature validation, and gateway capture verification. Online methods are hidden when keys are absent. No real or test Razorpay transaction was run because valid keys are not configured.
+- Added customer and guest order access checks, cart item ownership and quantity checks, coupon validity checks, stock-safe checkout updates, cancellation restocking, admin access gating, authenticated report download, searchable paginated admin orders, and shipping tracking entry.
+- Verified TypeScript for frontend and backend, production Vite build, Razorpay signature unit test, API smoke checks for catalog, auth, cart, coupon, admin, and payment-unavailable behavior. An isolated SQLite copy confirmed COD order creation, guest order token access, stock deduction, cancellation, and stock restoration. The copy was removed after testing.
+- Added admin product listing across statuses, edit controls, and recoverable archiving. An isolated API test created a draft, rejected an unauthorized update field, edited pricing, published it, archived it, and confirmed the archived product disappeared from the storefront while remaining in admin. The test database was removed.
+- Replaced the PIN checker’s fabricated courier/date promise with an accurate COD restriction check. Inventory adjustments now validate quantities and prevent stock from dropping below zero within a transaction.
+- An isolated inventory API test rejected an adjustment below zero and accepted a valid two-unit restock; the temporary database was removed.
+- Remaining production work: configure Razorpay test/live keys and exercise gateway payment and webhook/recovery flows; add actual email transport; implement refund/return processing and carrier integration; replace demo catalog imagery/data; run broad automated end-to-end and device testing. Online orders currently reserve stock while payment is pending, with no automatic expiry/release for abandoned payments. Do not claim full production readiness until those are handled.
+
 This update adapts the light canvas, navy pill buttons, generous spacing, rounded panels, and mixed sans/italic-serif headings observed at https://ecombold.com/ to Pick2Buy's existing storefront. Ecombold is currently a course landing page; its branding, text, assets, and implementation were not copied.
 
 ## Delivered

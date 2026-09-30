@@ -18,7 +18,7 @@ import { formatINR } from '../lib/utils';
 
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout, fetchMe } = useAuthStore();
+  const { user, logout, hasCheckedAuth } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'support'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
@@ -31,18 +31,18 @@ export const AccountPage: React.FC = () => {
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
 
   useEffect(() => {
+    if (!hasCheckedAuth) return;
     if (!user) {
       navigate('/login');
       return;
     }
-    fetchMe();
     setIsLoading(true);
 
     api.getOrders()
       .then((res: any) => setOrders(res.data || []))
       .catch(() => {})
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [user?.id, hasCheckedAuth, navigate]);
 
   const handleLogout = () => {
     logout();

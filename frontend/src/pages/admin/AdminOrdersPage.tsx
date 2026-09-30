@@ -4,33 +4,51 @@ import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
 import { ORDER_STATUSES } from '@pick2buy/shared';
 
+const fulfillmentStatuses = Object.values(ORDER_STATUSES).filter(status =>
+  status !== ORDER_STATUSES.RETURNED && status !== ORDER_STATUSES.REFUNDED);
+const nextStatuses: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'], CONFIRMED: ['PROCESSING', 'CANCELLED'],
+  PROCESSING: ['PACKED', 'CANCELLED'], PACKED: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['OUT_FOR_DELIVERY', 'DELIVERED'], OUT_FOR_DELIVERY: ['DELIVERED'],
+};
+
 export const AdminOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [shipmentDraft, setShipmentDraft] = useState<{ orderId: string; trackingNumber: string; courierName: string } | null>(null);
 
   const loadOrders = () => {
     setIsLoading(true);
-    api.getAdminDashboard()
+    setLoadError('');
+    api.getAdminOrders({ page, q: search, status: statusFilter })
       .then((res) => {
-        setOrders(res.data?.recentOrders || []);
+        setOrders(res.data || []);
+        setTotal(res.meta?.total || 0);
       })
+      .catch((err) => setLoadError(err.message || 'Could not load orders'))
       .finally(() => setIsLoading(false));
   };
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    const timer = window.setTimeout(loadOrders, search ? 250 : 0);
+    return () => window.clearTimeout(timer);
+  }, [page, search, statusFilter]);
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
+  const handleStatusChange = async (orderId: string, newStatus: string, shipping?: { trackingNumber: string; courierName: string }) => {
     setUpdatingId(orderId);
     try {
       await api.updateOrderStatus(orderId, {
         status: newStatus,
         comment: `Order status changed to ${newStatus} by admin`,
+        ...shipping,
       });
+      setShipmentDraft(null);
       loadOrders();
     } catch (err: any) {
       alert(err.message || 'Failed to update order status');
@@ -38,14 +56,6 @@ export const AdminOrdersPage: React.FC = () => {
       setUpdatingId(null);
     }
   };
-
-  const filteredOrders = orders.filter((o) => {
-    const matchesSearch =
-      o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-      o.customerName.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || o.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
 
   return (
     <div className="space-y-6">
@@ -62,7 +72,7 @@ export const AdminOrdersPage: React.FC = () => {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search order # or customer..."
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:border-brand-primary"
           />
@@ -73,11 +83,11 @@ export const AdminOrdersPage: React.FC = () => {
           <span className="text-xs font-semibold text-slate-500">Status:</span>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none"
           >
             <option value="ALL">All Statuses</option>
-            {Object.values(ORDER_STATUSES).map((st) => (
+            {fulfillmentStatuses.map((st) => (
               <option key={st} value={st}>{st}</option>
             ))}
           </select>
@@ -85,6 +95,21 @@ export const AdminOrdersPage: React.FC = () => {
       </div>
 
       {/* Orders Table */}
+      {shipmentDraft && <form className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm" onSubmit={(e) => {
+        e.preventDefault();
+        if (!shipmentDraft.trackingNumber.trim() || !shipmentDraft.courierName.trim()) return;
+        handleStatusChange(shipmentDraft.orderId, ORDER_STATUSES.SHIPPED, {
+          trackingNumber: shipmentDraft.trackingNumber.trim(), courierName: shipmentDraft.courierName.trim(),
+        });
+      }}>
+        <h2 className="mb-3 font-bold text-slate-900">Shipping details</h2>
+        <div className="flex flex-wrap gap-3">
+          <input required aria-label="Courier name" placeholder="Courier name" className="rounded-xl border border-slate-300 px-3 py-2" value={shipmentDraft.courierName} onChange={e => setShipmentDraft({ ...shipmentDraft, courierName: e.target.value })} />
+          <input required aria-label="Tracking number" placeholder="Tracking number" className="rounded-xl border border-slate-300 px-3 py-2" value={shipmentDraft.trackingNumber} onChange={e => setShipmentDraft({ ...shipmentDraft, trackingNumber: e.target.value })} />
+          <button disabled={Boolean(updatingId)} className="rounded-xl bg-brand-primary px-4 py-2 font-bold text-white">Mark shipped</button>
+          <button type="button" onClick={() => setShipmentDraft(null)} className="rounded-xl border border-slate-300 px-4 py-2">Cancel</button>
+        </div>
+      </form>}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -99,14 +124,14 @@ export const AdminOrdersPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredOrders.length === 0 ? (
+              {orders.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-8 text-slate-400">
-                    No orders found matching filters.
+                    {isLoading ? 'Loading orders…' : loadError || 'No orders found matching filters.'}
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((ord) => (
+                orders.map((ord) => (
                   <tr key={ord.id} className="hover:bg-slate-50/50">
                     <td className="py-3.5 px-4">
                       <span className="font-mono font-bold text-slate-900 block">{ord.orderNumber}</span>
@@ -148,10 +173,12 @@ export const AdminOrdersPage: React.FC = () => {
                       <select
                         value={ord.status}
                         disabled={updatingId === ord.id}
-                        onChange={(e) => handleStatusChange(ord.id, e.target.value)}
+                        onChange={(e) => e.target.value === ORDER_STATUSES.SHIPPED
+                          ? setShipmentDraft({ orderId: ord.id, trackingNumber: ord.trackingNumber || '', courierName: ord.courierName || '' })
+                          : handleStatusChange(ord.id, e.target.value)}
                         className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-brand-primary"
                       >
-                        {Object.values(ORDER_STATUSES).map((st) => (
+                        {[ord.status, ...(nextStatuses[ord.status] || [])].map((st) => (
                           <option key={st} value={st}>{st}</option>
                         ))}
                       </select>
@@ -161,6 +188,13 @@ export const AdminOrdersPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-xs text-slate-600">
+        <span>{total} orders · Page {page} of {Math.max(1, Math.ceil(total / 20))}</span>
+        <div className="flex gap-2">
+          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-40" disabled={page <= 1 || isLoading} onClick={() => setPage(p => p - 1)}>Previous</button>
+          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-40" disabled={page * 20 >= total || isLoading} onClick={() => setPage(p => p + 1)}>Next</button>
         </div>
       </div>
     </div>

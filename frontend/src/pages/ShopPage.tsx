@@ -78,7 +78,7 @@ export const ShopPage: React.FC = () => {
             {queryQ ? `Results for "${queryQ}"` : 'All Products'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Showing <strong className="text-slate-900">{totalCount}</strong> items with verified pricing and fast dispatch
+            Showing <strong className="text-slate-900">{totalCount}</strong> items
           </p>
         </div>
 

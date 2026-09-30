@@ -21,8 +21,11 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow localhost dev servers or matching frontend
-      callback(null, true);
+      if (!origin || origin === config.frontendUrl ||
+          (config.nodeEnv !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin))) {
+        return callback(null, true);
+      }
+      callback(new Error('Origin not allowed'));
     },
     credentials: true,
   })
