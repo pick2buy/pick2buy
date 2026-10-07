@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Lock, Mail, User, Phone, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { GoogleSignIn } from '../components/common/GoogleSignIn';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register: registerUser, isLoading } = useAuthStore();
+  const { register: registerUser, googleLogin, isLoading } = useAuthStore();
 
   const [form, setForm] = useState({
     name: '',
@@ -114,6 +115,11 @@ export const RegisterPage: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
+          <div className="flex items-center gap-3 text-xs text-slate-400"><span className="h-px bg-slate-200 flex-1" />or<span className="h-px bg-slate-200 flex-1" /></div>
+          <GoogleSignIn text="signup_with" onCredential={async (credential) => { await googleLogin(credential); navigate('/'); }} />
+        </>}
 
         <div className="text-center pt-2 text-xs text-slate-500">
           <span>Already registered? </span>

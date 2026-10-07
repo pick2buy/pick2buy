@@ -45,6 +45,14 @@ class ApiClient {
     return this.request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
   }
 
+  public googleLogin(credential: string) {
+    return this.request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
+  }
+
+  public linkGoogle(credential: string) {
+    return this.request('/auth/google/link', { method: 'POST', body: JSON.stringify({ credential }) });
+  }
+
   public getMe() {
     return this.request('/auth/me');
   }

@@ -16,6 +16,7 @@ model User {
   name            String
   phone           String?
   passwordHash    String
+  googleSub       String?     @unique
   role            String      @default("CUSTOMER") // CUSTOMER, ADMIN, MANAGER, STAFF, SUPPORT_AGENT
   avatarUrl       String?
   isEmailVerified Boolean     @default(false)

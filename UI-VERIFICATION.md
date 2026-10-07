@@ -1,5 +1,14 @@
 # Pick2Buy UI update — 29 September 2026
 
+## Google authentication — 7 October 2026
+
+- Added Google Identity Services buttons to sign-in and registration, with backend verification of the ID token against the configured Google Web client ID.
+- New Google users get customer accounts. Returning users are identified by Google's stable `sub`. Existing email/password accounts must sign in first and connect Google from Profile & Account; email alone never links accounts.
+- Configure `GOOGLE_CLIENT_ID` on the backend and matching `VITE_GOOGLE_CLIENT_ID` on the frontend, authorize the storefront origin in Google Cloud, then apply the Prisma schema update (`prisma db push` for the existing deployment setup). Google sign-in remains hidden when the frontend client ID is absent.
+- Backend and frontend build checks passed. A real Google sign-in and account linking test remain pending until a client ID is configured.
+- The local SQLite schema was updated additively for `googleSub`. The Google endpoint returned 503 with no client ID and rejected an invalid credential with 401 when a test client ID was supplied. A live Google credential was unavailable.
+- Other pending items found during this review: the customer support form currently shows a success alert without creating a ticket, and demo sign-in buttons were visible in production builds; the buttons are now limited to development builds. Email remains a log-only stub.
+
 ## Follow-up audit — 30 September 2026
 
 - Compared the storefront with the current EcomBold landing page. EcomBold sells a course and has no ecommerce product card pattern, so Pick2Buy uses its light background, soft white panels, rounded corners, navy actions, and spacious typography while retaining shopping controls.
@@ -37,6 +46,6 @@ This update adapts the light canvas, navy pill buttons, generous spacing, rounde
 
 ## Scope and remaining platform work
 
-This is a UI and responsive-layout update, not certification that the complete original 58-section platform specification is implemented. Existing demo product images and seeded data remain. Online checkout still contains simulated payment verification; real payment integration and production readiness need separate implementation and validation. Homepage configuration is still in source code, not an admin homepage builder. The package's backend test command points to a missing test file. Physical-device testing, payment processing, and the full backend feature set were not verified in this pass.
+This was a UI and responsive-layout update, not certification that the complete original 58-section platform specification is implemented. Existing demo product images and seeded data remain. Subsequent work replaced simulated Razorpay verification and added a backend test. Real payment testing and production readiness still need separate validation. Homepage configuration is still in source code, not an admin homepage builder. Physical-device testing, payment processing, and the full backend feature set were not verified in this pass.
 
 The machine's npm launcher points to a missing npm CLI. Verification used installed Node/TypeScript/Vite entry points directly. The local frontend runs at http://127.0.0.1:5173 with the API on port 5000.

@@ -1,4 +1,6 @@
 import dotenv from 'dotenv';
+// Local OAuth settings stay out of the tracked backend/.env file.
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 if (process.env.NODE_ENV === 'production' &&
@@ -12,6 +14,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   backendUrl: process.env.BACKEND_URL || 'http://localhost:5000',
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
 
   jwt: {
     secret: process.env.JWT_SECRET || 'super_secret_pick2buy_jwt_access_key_2026',

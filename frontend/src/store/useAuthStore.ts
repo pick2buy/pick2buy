@@ -9,6 +9,7 @@ export interface User {
   role: string;
   avatarUrl?: string | null;
   addresses?: any[];
+  googleLinked?: boolean;
 }
 
 interface AuthState {
@@ -18,6 +19,7 @@ interface AuthState {
   hasCheckedAuth: boolean;
   login: (credentials: any) => Promise<void>;
   register: (payload: any) => Promise<void>;
+  googleLogin: (credential: string) => Promise<void>;
   logout: () => void;
   fetchMe: () => Promise<void>;
 }
@@ -45,6 +47,19 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const res = await api.register(payload);
+      const { user, accessToken } = res.data;
+      localStorage.setItem('pick2buy_token', accessToken);
+      set({ user, token: accessToken, isLoading: false, hasCheckedAuth: true });
+    } catch (err) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  googleLogin: async (credential) => {
+    set({ isLoading: true });
+    try {
+      const res = await api.googleLogin(credential);
       const { user, accessToken } = res.data;
       localStorage.setItem('pick2buy_token', accessToken);
       set({ user, token: accessToken, isLoading: false, hasCheckedAuth: true });

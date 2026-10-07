@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { GoogleSignIn } from '../components/common/GoogleSignIn';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuthStore();
+  const { login, googleLogin, isLoading } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,8 +44,8 @@ export const LoginPage: React.FC = () => {
           <p className="text-xs text-slate-500">Sign in to access your Pick2Buy orders & wishlist</p>
         </div>
 
-        {/* Demo Credentials Quick Fill Banner */}
-        <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-2">
+        {/* Local development accounts only */}
+        {import.meta.env.DEV && <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-brand-primary">
             <ShieldCheck className="w-4 h-4" />
             <span>Development Quick-Login:</span>
@@ -65,7 +66,7 @@ export const LoginPage: React.FC = () => {
               Demo Customer 👤
             </button>
           </div>
-        </div>
+        </div>}
 
         {errorMessage && (
           <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-semibold">
@@ -115,6 +116,11 @@ export const LoginPage: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
+          <div className="flex items-center gap-3 text-xs text-slate-400"><span className="h-px bg-slate-200 flex-1" />or<span className="h-px bg-slate-200 flex-1" /></div>
+          <GoogleSignIn onCredential={async (credential) => { await googleLogin(credential); navigate('/'); }} />
+        </>}
 
         <div className="text-center pt-2 text-xs text-slate-500">
           <span>Don't have an account? </span>

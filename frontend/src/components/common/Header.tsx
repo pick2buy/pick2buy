@@ -1,5 +1,6 @@
 import { useModal } from '../../hooks/useModal';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, 
@@ -326,13 +327,13 @@ export const Header: React.FC = () => {
       </nav>
 
       {/* Mobile Drawer Menu */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+      {isMobileMenuOpen && createPortal(
+        <div className="lg:hidden fixed inset-0 z-[60] flex h-screen h-[100dvh]">
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <div ref={menuRef} role="dialog" aria-modal="true" aria-label="Navigation" className="relative w-4/5 max-w-sm bg-white h-full shadow-2xl flex flex-col p-6 z-10 overflow-y-auto">
+          <div ref={menuRef} role="dialog" aria-modal="true" aria-label="Navigation" className="relative z-10 flex h-full w-4/5 max-w-sm flex-col overflow-y-auto bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-brand-primary text-white font-bold flex items-center justify-center">
@@ -434,7 +435,8 @@ export const Header: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );

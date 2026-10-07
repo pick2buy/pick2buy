@@ -15,10 +15,12 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
 import { formatINR } from '../lib/utils';
+import { GoogleSignIn } from '../components/common/GoogleSignIn';
 
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout, hasCheckedAuth } = useAuthStore();
+  const { user, logout, fetchMe, hasCheckedAuth } = useAuthStore();
+  const [googleMessage, setGoogleMessage] = useState('');
 
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'support'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
@@ -228,6 +230,18 @@ export const AccountPage: React.FC = () => {
                   <label className="text-slate-500 block mb-1">Account Role</label>
                   <p className="font-bold text-brand-primary text-sm">{user.role}</p>
                 </div>
+              </div>
+              <div className="border-t border-slate-100 pt-5 space-y-3">
+                <h3 className="text-sm font-bold text-slate-900">Google sign-in</h3>
+                {user.googleLinked ? <p className="text-xs text-emerald-700">Google is connected to this account.</p> : import.meta.env.VITE_GOOGLE_CLIENT_ID ? <>
+                  <p className="text-xs text-slate-500">Connect the Google account with the same email to sign in with Google next time.</p>
+                  <GoogleSignIn text="continue_with" onCredential={async (credential) => {
+                    setGoogleMessage('');
+                    try { await api.linkGoogle(credential); await fetchMe(); setGoogleMessage('Google account connected.'); }
+                    catch (err: any) { setGoogleMessage(err?.message || 'Could not connect Google.'); }
+                  }} />
+                </> : <p className="text-xs text-slate-500">Google sign-in is not configured yet.</p>}
+                {googleMessage && <p role="status" className="text-xs text-slate-700">{googleMessage}</p>}
               </div>
             </div>
           )}
