@@ -6,11 +6,13 @@ import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../lib/prisma';
 import { config } from '../config';
 import { EmailService } from '../lib/email';
+import { startAuthChallenge, resendAuthChallenge, consumeAuthChallenge } from '../lib/authChallenge';
+import { z } from 'zod';
 import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, ROLES } from '@pick2buy/shared';
 
-const generateTokens = (user: { id: string; email: string; role: string }) => {
+const generateTokens = (user: { id: string; email: string; role: string; tokenVersion: number }) => {
   const accessToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion },
     config.jwt.secret,
     { expiresIn: '7d' } // comfortable session for smooth testing & dev
   );
@@ -51,6 +53,17 @@ async function verifyGoogleCredential(credential: unknown) {
 }
 
 export class AuthController {
+  public static async checkEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = forgotPasswordSchema.parse(req.body);
+      const user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase().trim() },
+        select: { id: true },
+      });
+      res.json({ success: true, data: { exists: Boolean(user) } });
+    } catch (error) { next(error); }
+  }
+
   public static async google(req: Request, res: Response, next: NextFunction) {
     try {
       const identity = await verifyGoogleCredential(req.body?.credential);
@@ -120,10 +133,17 @@ export class AuthController {
       });
 
       if (existing) {
-        return res.status(400).json({
-          success: false,
-          message: 'An account with this email address already exists.',
-        });
+        if (!existing.isEmailVerified && await bcrypt.compare(data.password, existing.passwordHash)) {
+          const pending = await startAuthChallenge(existing, 'SIGNUP');
+          return res.json({ success: true, message: 'Verification code sent', data: pending });
+        }
+        return res.status(409).json({ success: false, message: 'An account with this email address already exists. Please sign in.' });
+      }
+
+      if (!EmailService.isConfigured) {
+        throw Object.assign(new Error(config.nodeEnv === 'production'
+          ? 'Email registration is temporarily unavailable. Please contact support.'
+          : 'Email registration needs SMTP setup. Add a valid SMTP_PASSWORD to backend/.env.local, restart the backend, and use an email inbox you can access.'), { statusCode: 503 });
       }
 
       const passwordHash = await bcrypt.hash(data.password, 10);
@@ -140,34 +160,11 @@ export class AuthController {
         },
       });
 
-      const { accessToken, refreshToken } = generateTokens(user);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken },
-      });
-
-      // Send welcome email asynchronously
-      EmailService.sendWelcome(user.name, user.email).catch((err) =>
-        console.error('[Auth] Failed to send welcome email:', err)
-      );
-
+      const pending = await startAuthChallenge(user, 'SIGNUP');
       res.status(201).json({
         success: true,
-        message: 'Account registered successfully',
-        data: {
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            avatarUrl: user.avatarUrl,
-            isEmailVerified: user.isEmailVerified,
-            googleLinked: Boolean(user.googleSub),
-            createdAt: user.createdAt.toISOString(),
-          },
-          accessToken,
-        },
+        message: 'Verification code sent',
+        data: pending,
       });
     } catch (error) {
       next(error);
@@ -198,33 +195,46 @@ export class AuthController {
         });
       }
 
-      const { accessToken, refreshToken } = generateTokens(user);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken },
-      });
-
+      const pending = await startAuthChallenge(user, user.isEmailVerified ? 'LOGIN' : 'SIGNUP');
       res.json({
         success: true,
-        message: 'Logged in successfully',
-        data: {
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            avatarUrl: user.avatarUrl,
-            isEmailVerified: user.isEmailVerified,
-            googleLinked: Boolean(user.googleSub),
-            createdAt: user.createdAt.toISOString(),
-          },
-          accessToken,
-        },
+        message: 'Verification code sent',
+        data: pending,
       });
     } catch (error) {
       next(error);
     }
+  }
+
+  public static async verifyCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { challengeId, code } = z.object({ challengeId: z.string().uuid(), code: z.string().regex(/^\d{6}$/) }).parse(req.body);
+      const { user, purpose } = await consumeAuthChallenge(challengeId, code);
+      const { accessToken, refreshToken } = generateTokens(user);
+      const verified = await prisma.user.update({
+        where: { id: user.id },
+        data: { isEmailVerified: true, refreshToken },
+      });
+      if (purpose === 'SIGNUP') {
+        EmailService.sendWelcome(user.name, user.email).catch(() => console.error('[Auth] Welcome email failed'));
+      }
+      res.json({ success: true, data: {
+        user: {
+          id: verified.id, name: verified.name, email: verified.email, phone: verified.phone,
+          role: verified.role, avatarUrl: verified.avatarUrl, isEmailVerified: verified.isEmailVerified,
+          googleLinked: Boolean(verified.googleSub), createdAt: verified.createdAt.toISOString(),
+        },
+        accessToken,
+      } });
+    } catch (error) { next(error); }
+  }
+
+  public static async resendCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { challengeId } = z.object({ challengeId: z.string().uuid() }).parse(req.body);
+      const pending = await resendAuthChallenge(challengeId);
+      res.json({ success: true, message: 'A new verification code was sent', data: pending });
+    } catch (error) { next(error); }
   }
 
   public static async me(req: Request, res: Response, next: NextFunction) {
@@ -278,15 +288,27 @@ export class AuthController {
   public static async forgotPassword(req: Request, res: Response, next: NextFunction) {
     try {
       const { email } = forgotPasswordSchema.parse(req.body);
-      const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-      if (user) {
-        const resetToken = jwt.sign({ id: user.id }, config.jwt.secret, { expiresIn: '1h' });
-        await EmailService.sendPasswordReset(user.email, resetToken);
+      if (!EmailService.isConfigured) {
+        throw Object.assign(new Error('Password recovery is temporarily unavailable. Please contact support.'), { statusCode: 503 });
       }
-
+      const normalizedEmail = email.toLowerCase().trim();
+      // Sending happens after the generic response so request timing does not reveal account existence.
+      void (async () => {
+        const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+        if (!user) return;
+        const existing = await prisma.authChallenge.findUnique({ where: { userId: user.id } });
+        const now = new Date();
+        if (existing?.purpose === 'RESET' && existing.expiresAt > now) {
+          if (existing.lastSentAt.getTime() + 60_000 <= now.getTime()) {
+            await resendAuthChallenge(existing.id);
+          }
+          return;
+        }
+        await startAuthChallenge(user, 'RESET');
+      })().catch(() => console.error('[Auth] Password recovery email could not be sent'));
       res.json({
         success: true,
-        message: 'If an account exists with that email, password reset instructions have been sent.',
+        message: 'If an account exists with that email, a verification code will be sent.',
       });
     } catch (error) {
       next(error);
@@ -295,18 +317,29 @@ export class AuthController {
 
   public static async resetPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      const { token, newPassword } = resetPasswordSchema.parse(req.body);
-      const payload = jwt.verify(token, config.jwt.secret) as { id: string };
-      const passwordHash = await bcrypt.hash(newPassword, 10);
-
-      await prisma.user.update({
-        where: { id: payload.id },
-        data: { passwordHash },
+      const { email, code, newPassword } = resetPasswordSchema.parse(req.body);
+      const user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase().trim() },
+        include: { authChallenge: true },
       });
-
+      if (!user?.authChallenge || user.authChallenge.purpose !== 'RESET') {
+        return res.status(400).json({ success: false, message: 'Incorrect or expired verification code.' });
+      }
+      await consumeAuthChallenge(user.authChallenge.id, code, ['RESET']);
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash, refreshToken: null, tokenVersion: { increment: 1 } },
+      });
+      EmailService.sendMail({
+        to: user.email,
+        subject: 'Your Pick2Buy password was changed',
+        text: 'Your Pick2Buy password was changed. If you did not make this change, contact support immediately.',
+        html: '<p>Your Pick2Buy password was changed. If you did not make this change, contact support immediately.</p>',
+      }).catch(() => console.error('[Auth] Password change notification could not be sent'));
       res.json({
         success: true,
-        message: 'Password has been successfully updated. Please log in.',
+        message: 'Password updated. Please sign in with your new password.',
       });
     } catch (error) {
       next(error);

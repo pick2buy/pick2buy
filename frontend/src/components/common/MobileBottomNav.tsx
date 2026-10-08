@@ -6,10 +6,13 @@ import { useWishlistStore } from '../../store/useWishlistStore';
 
 export const MobileBottomNav: React.FC = () => {
   const location = useLocation();
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password';
   const { cart } = useCartStore();
   const { items: wishlist } = useWishlistStore();
 
   const totalCartCount = cart?.items.reduce((sum, i) => sum + i.quantity, 0) || 0;
+
+  if (isAuthPage) return null;
 
   const navItems = [
     { label: 'Home', icon: Home, path: '/' },

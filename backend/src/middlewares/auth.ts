@@ -27,13 +27,13 @@ export const authenticateJwt = async (req: Request, res: Response, next: NextFun
 
   const token = authHeader.split(' ')[1];
   try {
-    const payload = jwt.verify(token, config.jwt.secret) as { id: string; role: string };
+    const payload = jwt.verify(token, config.jwt.secret) as { id: string; role: string; tokenVersion?: number };
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, role: true },
+      select: { id: true, email: true, name: true, role: true, tokenVersion: true },
     });
 
-    if (user) {
+    if (user && (payload.tokenVersion ?? 0) === user.tokenVersion) {
       req.user = {
         id: user.id,
         email: user.email,

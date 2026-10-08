@@ -37,12 +37,35 @@ class ApiClient {
   }
 
   // Auth
+  public checkEmail(email: string): Promise<{ success: boolean; data: { exists: boolean } }> {
+    return this.request('/auth/check-email', { method: 'POST', body: JSON.stringify({ email }) });
+  }
+
   public login(credentials: any) {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
   }
 
   public register(payload: any) {
     return this.request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  public verifyCode(challengeId: string, code: string) {
+    return this.request('/auth/verify-code', { method: 'POST', body: JSON.stringify({ challengeId, code }) });
+  }
+
+  public resendCode(challengeId: string) {
+    return this.request('/auth/resend-code', { method: 'POST', body: JSON.stringify({ challengeId }) });
+  }
+
+  public requestPasswordReset(email: string) {
+    return this.request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+  }
+
+  public resetPassword(email: string, code: string, newPassword: string) {
+    return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    });
   }
 
   public googleLogin(credential: string) {

@@ -1,4 +1,5 @@
 import { config } from '../config';
+import nodemailer from 'nodemailer';
 
 export interface EmailOptions {
   to: string;
@@ -8,16 +9,34 @@ export interface EmailOptions {
 }
 
 export class EmailService {
-  /**
-   * Send an email or log it in development mode
-   */
+  public static get isConfigured(): boolean {
+    return Boolean(config.email.user && config.email.password &&
+      !config.email.password.startsWith('dummy_') &&
+      !config.email.password.startsWith('your_app_'));
+  }
+
   public static async sendMail(options: EmailOptions): Promise<boolean> {
-    console.log(`[EmailService] Sending email to: ${options.to}`);
-    console.log(`[EmailService] From: ${config.email.from}`);
-    console.log(`[EmailService] Subject: ${options.subject}`);
-    // In production with actual SMTP credentials, nodemailer would transport this.
-    // For now, logging the template generation ensures robust offline/dev operation without crashing.
+    if (!this.isConfigured) {
+      throw Object.assign(new Error('Email delivery is not configured. Add SMTP credentials to the backend environment.'), { statusCode: 503 });
+    }
+    const transport = nodemailer.createTransport({
+      host: config.email.host,
+      port: config.email.port,
+      secure: config.email.port === 465,
+      auth: { user: config.email.user, pass: config.email.password },
+    });
+    await transport.sendMail({ from: config.email.from, ...options });
     return true;
+  }
+
+  public static async sendVerificationCode(to: string, code: string, purpose: 'LOGIN' | 'SIGNUP' | 'RESET') {
+    const action = purpose === 'LOGIN' ? 'sign in' : purpose === 'SIGNUP' ? 'create your account' : 'reset your password';
+    return this.sendMail({
+      to,
+      subject: 'Your Pick2Buy verification code',
+      text: `Your Pick2Buy code is ${code}. Enter it to ${action}. It expires in 10 minutes. If you did not request this, ignore this email.`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px"><h2>Verify your Pick2Buy email</h2><p>Enter this code to ${action}:</p><p style="font-size:32px;font-weight:bold;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not request this, ignore this email.</p></div>`,
+    });
   }
 
   public static async sendWelcome(name: string, to: string) {

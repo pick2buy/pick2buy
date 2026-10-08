@@ -1,7 +1,7 @@
 import { useModal } from '../../hooks/useModal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Search, 
   ShoppingBag, 
@@ -23,6 +23,8 @@ import { api } from '../../services/api';
 
 export const Header: React.FC = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
   const { user, logout } = useAuthStore();
   const { cart, setCartDrawerOpen, fetchCart } = useCartStore();
   const { items: wishlistItems, fetchWishlist } = useWishlistStore();
@@ -238,7 +240,7 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Mobile Search input */}
-        <div className="mt-3 md:hidden">
+        <div className={`${isAuthPage ? 'hidden' : 'mt-3'} md:hidden`}>
           <form onSubmit={handleSearchSubmit} className="relative w-full">
             <input
               aria-label="Search products" type="text"

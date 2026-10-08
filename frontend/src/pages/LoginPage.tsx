@@ -1,134 +1,142 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
-import { useAuthStore } from '../store/useAuthStore';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { AuthChallenge, useAuthStore } from '../store/useAuthStore';
 import { GoogleSignIn } from '../components/common/GoogleSignIn';
+import { EmailCodeForm } from '../components/common/EmailCodeForm';
+import { api } from '../services/api';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialEmail = searchParams.get('email') || '';
   const { login, googleLogin, isLoading } = useAuthStore();
-
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState<'email' | 'password' | 'code'>(initialEmail ? 'password' : 'email');
+  const [challenge, setChallenge] = useState<AuthChallenge | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setCheckingEmail(true);
     try {
-      await login({ email, password });
-      navigate('/');
+      const normalizedEmail = email.trim().toLowerCase();
+      const response = await api.checkEmail(normalizedEmail);
+      if (response.data.exists) {
+        setEmail(normalizedEmail);
+        setStep('password');
+      } else {
+        navigate(`/register?email=${encodeURIComponent(normalizedEmail)}`);
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Login failed. Please check credentials.');
+      setErrorMessage(err.message || 'Could not check this email. Please try again.');
+    } finally {
+      setCheckingEmail(false);
     }
   };
 
-  const fillAdmin = () => {
-    setEmail('admin@pick2buy.in');
-    setPassword('ChangeMe123!');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    try {
+      const pending = await login({ email, password });
+      setPassword('');
+      setChallenge(pending);
+      setStep('code');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Sign in failed. Please check your password.');
+    }
   };
 
-  const fillCustomer = () => {
-    setEmail('aarav.sharma@example.com');
-    setPassword('Password123!');
+  const useDemo = (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setErrorMessage('');
+    setStep('password');
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16">
-      <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-soft space-y-6">
-        <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-brand-primary font-black text-xl flex items-center justify-center mx-auto mb-3">
-            P2B
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back</h1>
-          <p className="text-xs text-slate-500">Sign in to access your Pick2Buy orders & wishlist</p>
+    <div className="login-page">
+      <div className="login-card bg-white rounded-3xl border border-slate-100 shadow-soft">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Log in</h1>
+          <p className="text-sm text-slate-600">Continue to Pick2Buy</p>
         </div>
 
-        {/* Local development accounts only */}
-        {import.meta.env.DEV && <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-brand-primary">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Development Quick-Login:</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
-              type="button"
-              onClick={fillAdmin}
-              className="text-[11px] font-bold bg-white text-indigo-950 border border-indigo-200 py-1.5 px-2 rounded-xl hover:bg-indigo-50 transition-colors text-center"
-            >
-              Demo Admin ⚡
-            </button>
-            <button
-              type="button"
-              onClick={fillCustomer}
-              className="text-[11px] font-bold bg-white text-slate-800 border border-slate-200 py-1.5 px-2 rounded-xl hover:bg-slate-50 transition-colors text-center"
-            >
-              Demo Customer 👤
-            </button>
-          </div>
-        </div>}
+        {errorMessage && <div role="alert" className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-xl">{errorMessage}</div>}
 
-        {errorMessage && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-semibold">
-            {errorMessage}
-          </div>
+        {step === 'code' && challenge ? (
+          <EmailCodeForm challenge={challenge} onVerified={() => navigate('/')}
+            onBack={() => { setChallenge(null); setStep('email'); setErrorMessage(''); }} />
+        ) : step === 'email' ? (
+          <form onSubmit={handleEmail} className="login-form space-y-3">
+            <div>
+              <label htmlFor="login-email" className="block text-sm font-medium text-slate-800 mb-1">Email</label>
+              <div className="relative">
+                <input id="login-email" type="email" autoComplete="email" required autoFocus value={email}
+                  onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com"
+                  className="login-input w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary" />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
+            </div>
+            <button type="submit" disabled={checkingEmail}
+              className="login-submit w-full bg-brand-primary hover:bg-brand-hover text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+              {checkingEmail ? 'Checking email...' : 'Continue with email'} <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} className="login-form space-y-3">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-100 px-4 py-3 text-sm">
+              <span className="truncate text-slate-700">{email}</span>
+              <button type="button" onClick={() => { setStep('email'); setPassword(''); setShowPassword(false); setErrorMessage(''); }} className="shrink-0 font-semibold text-brand-primary hover:underline">Change</button>
+            </div>
+            <div>
+              <label htmlFor="login-password" className="block text-sm font-medium text-slate-800 mb-1">Password</label>
+              <div className="relative">
+                <input id="login-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required autoFocus value={password}
+                  onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password"
+                  className="login-input w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-12 text-sm outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="text-right">
+              <Link to={`/forgot-password?email=${encodeURIComponent(email)}`}
+                className="text-sm font-semibold text-brand-primary hover:underline">Forgot password?</Link>
+            </div>
+            <button type="submit" disabled={isLoading}
+              className="login-submit w-full bg-brand-primary hover:bg-brand-hover text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+              {isLoading ? 'Signing in...' : 'Sign in'} <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
-            <div className="relative">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs outline-none focus:border-brand-primary"
-              />
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            </div>
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-bold text-slate-700">Password</label>
-            </div>
-            <div className="relative">
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs outline-none focus:border-brand-primary"
-              />
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-brand-primary hover:bg-brand-hover text-white text-xs sm:text-sm font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-md transition-all hover:scale-[1.01] disabled:opacity-50"
-          >
-            <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
-
-        {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
-          <div className="flex items-center gap-3 text-xs text-slate-400"><span className="h-px bg-slate-200 flex-1" />or<span className="h-px bg-slate-200 flex-1" /></div>
-          <GoogleSignIn onCredential={async (credential) => { await googleLogin(credential); navigate('/'); }} />
+        {step !== 'code' && import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
+          <div className="login-divider flex items-center gap-3 text-xs text-slate-500"><span className="h-px bg-slate-200 flex-1" />or<span className="h-px bg-slate-200 flex-1" /></div>
+          <div className="login-google"><GoogleSignIn onCredential={async (credential) => { await googleLogin(credential); navigate('/'); }} /></div>
         </>}
 
-        <div className="text-center pt-2 text-xs text-slate-500">
-          <span>Don't have an account? </span>
-          <Link to="/register" className="font-bold text-brand-primary hover:underline">
-            Register now
-          </Link>
-        </div>
+        {step !== 'code' && <div className="login-bottom-link text-sm text-slate-600">
+          New to Pick2Buy? <Link to={email ? `/register?email=${encodeURIComponent(email.trim())}` : '/register'} className="font-semibold text-brand-primary hover:underline">Create an account →</Link>
+        </div>}
+
       </div>
+
+        {import.meta.env.DEV && <details className="login-demo text-xs text-slate-500">
+          <summary className="cursor-pointer flex items-center gap-1.5"><ShieldCheck className="w-4 h-4" /> Development demo accounts</summary>
+          <div className="flex gap-2 pt-3">
+            <button type="button" onClick={() => useDemo('admin@pick2buy.in', 'ChangeMe123!')} className="flex-1 rounded-lg border border-slate-200 px-2 py-2 font-semibold text-slate-800">Demo Admin</button>
+            <button type="button" onClick={() => useDemo('aarav.sharma@example.com', 'Password123!')} className="flex-1 rounded-lg border border-slate-200 px-2 py-2 font-semibold text-slate-800">Demo Customer</button>
+          </div>
+        </details>}
     </div>
   );
 };

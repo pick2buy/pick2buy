@@ -1,3 +1,10 @@
 # Local credentials and machine-specific settings
 .env.local
 **/.env.local
+
+# Credentials, installed packages, builds, and local database files
+backend/.env
+**/node_modules/
+**/dist/
+backend/prisma/*.db
+backend/prisma/*.db-journal

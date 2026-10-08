@@ -12,13 +12,22 @@ export interface User {
   googleLinked?: boolean;
 }
 
+export interface AuthChallenge {
+  challengeId: string;
+  email: string;
+  expiresIn: number;
+  resendAfter: number;
+}
+
 interface AuthState {
   user: User | null;
   token: string | null;
   isLoading: boolean;
   hasCheckedAuth: boolean;
-  login: (credentials: any) => Promise<void>;
-  register: (payload: any) => Promise<void>;
+  login: (credentials: any) => Promise<AuthChallenge>;
+  register: (payload: any) => Promise<AuthChallenge>;
+  verifyCode: (challengeId: string, code: string) => Promise<void>;
+  resendCode: (challengeId: string) => Promise<AuthChallenge>;
   googleLogin: (credential: string) => Promise<void>;
   logout: () => void;
   fetchMe: () => Promise<void>;
@@ -34,9 +43,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const res = await api.login(credentials);
-      const { user, accessToken } = res.data;
-      localStorage.setItem('pick2buy_token', accessToken);
-      set({ user, token: accessToken, isLoading: false, hasCheckedAuth: true });
+      set({ isLoading: false });
+      return res.data;
     } catch (err) {
       set({ isLoading: false });
       throw err;
@@ -47,9 +55,33 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const res = await api.register(payload);
+      set({ isLoading: false });
+      return res.data;
+    } catch (err) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  verifyCode: async (challengeId, code) => {
+    set({ isLoading: true });
+    try {
+      const res = await api.verifyCode(challengeId, code);
       const { user, accessToken } = res.data;
       localStorage.setItem('pick2buy_token', accessToken);
       set({ user, token: accessToken, isLoading: false, hasCheckedAuth: true });
+    } catch (err) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  resendCode: async (challengeId) => {
+    set({ isLoading: true });
+    try {
+      const res = await api.resendCode(challengeId);
+      set({ isLoading: false });
+      return res.data;
     } catch (err) {
       set({ isLoading: false });
       throw err;

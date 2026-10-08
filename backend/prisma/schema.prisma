@@ -22,6 +22,7 @@ model User {
   isEmailVerified Boolean     @default(false)
   dateOfBirth     String?
   refreshToken    String?
+  tokenVersion    Int         @default(0)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -37,8 +38,23 @@ model User {
   notifications   Notification[]
   leadActivities  LeadActivity[]
   ticketMessages  SupportMessage[]
+  authChallenge    AuthChallenge?
 
   @@map("users")
+}
+
+model AuthChallenge {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  codeHash    String
+  purpose     String
+  expiresAt   DateTime
+  lastSentAt  DateTime
+  attempts    Int      @default(0)
+  resendCount Int      @default(0)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_challenges")
 }
 
 model Role {
