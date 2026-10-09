@@ -2,6 +2,29 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { couponCreateSchema, leadCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
+import { z } from 'zod';
+
+const bannerFields = z.object({
+  title: z.string().trim().min(2).max(160),
+  subtitle: z.string().trim().max(300).nullable().optional(),
+  desktopImageUrl: z.string().url(),
+  mobileImageUrl: z.string().url().nullable().optional(),
+  buttonText: z.string().trim().max(80).nullable().optional(),
+  linkUrl: z.string().refine(value => /^\/(?!\/)/.test(value) || /^https:\/\//.test(value), 'Use an internal path or HTTPS link'),
+  displayOrder: z.number().int().min(0),
+  isActive: z.boolean(),
+  startDate: z.string().datetime({ offset: true }).nullable().optional(),
+  endDate: z.string().datetime({ offset: true }).nullable().optional(),
+}).strict();
+
+function bannerData(input: Partial<z.infer<typeof bannerFields>>) {
+  const { startDate, endDate, ...rest } = input;
+  return {
+    ...rest,
+    ...(startDate === undefined ? {} : { startDate: startDate ? new Date(startDate) : null }),
+    ...(endDate === undefined ? {} : { endDate: endDate ? new Date(endDate) : null }),
+  };
+}
 
 export class AdminController {
   public static async getOrders(req: Request, res: Response, next: NextFunction) {
@@ -443,6 +466,20 @@ export class AdminController {
   }
 
   // Banners & Homepage Builder
+  public static async getActiveBanners(req: Request, res: Response, next: NextFunction) {
+    try {
+      const now = new Date();
+      const banners = await prisma.banner.findMany({
+        where: { isActive: true, AND: [
+          { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+          { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+        ] },
+        orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
+      });
+      res.json({ success: true, data: banners });
+    } catch (error) { next(error); }
+  }
+
   public static async getBanners(req: Request, res: Response, next: NextFunction) {
     try {
       const banners = await prisma.banner.findMany({
@@ -456,8 +493,10 @@ export class AdminController {
 
   public static async createBanner(req: Request, res: Response, next: NextFunction) {
     try {
+      const input = bannerFields.parse(req.body);
+      if (input.startDate && input.endDate && input.startDate > input.endDate) return res.status(400).json({ success: false, message: 'End date must be after start date' });
       const banner = await prisma.banner.create({
-        data: req.body,
+        data: { ...bannerData(input), title: input.title, desktopImageUrl: input.desktopImageUrl, linkUrl: input.linkUrl, displayOrder: input.displayOrder, isActive: input.isActive },
       });
       res.status(201).json({ success: true, data: banner });
     } catch (error) {
@@ -468,9 +507,15 @@ export class AdminController {
   public static async updateBanner(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
+      const input = bannerFields.partial().parse(req.body);
+      const current = await prisma.banner.findUnique({ where: { id } });
+      if (!current) return res.status(404).json({ success: false, message: 'Banner not found' });
+      const start = input.startDate === undefined ? current.startDate : input.startDate ? new Date(input.startDate) : null;
+      const end = input.endDate === undefined ? current.endDate : input.endDate ? new Date(input.endDate) : null;
+      if (start && end && start > end) return res.status(400).json({ success: false, message: 'End date must be after start date' });
       const banner = await prisma.banner.update({
         where: { id },
-        data: req.body,
+        data: bannerData(input),
       });
       res.json({ success: true, data: banner });
     } catch (error) {

@@ -7,6 +7,7 @@ import wishlistRoutes from './wishlist.routes';
 import orderRoutes from './order.routes';
 import reviewRoutes from './review.routes';
 import adminRoutes from './admin.routes';
+import { AdminController } from '../controllers/admin.controller';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.use('/wishlist', wishlistRoutes);
 router.use('/orders', orderRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/admin', adminRoutes);
+router.get('/banners', AdminController.getActiveBanners);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

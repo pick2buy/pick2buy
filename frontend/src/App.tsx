@@ -26,6 +26,8 @@ import { AdminCrmPage } from './pages/admin/AdminCrmPage';
 import { AdminTicketsPage } from './pages/admin/AdminTicketsPage';
 import { AdminCouponsPage } from './pages/admin/AdminCouponsPage';
 import { AdminAuditPage } from './pages/admin/AdminAuditPage';
+import { AdminCatalogPage } from './pages/admin/AdminCatalogPage';
+import { AdminBannersPage } from './pages/admin/AdminBannersPage';
 import { useAuthStore } from './store/useAuthStore';
 
 const ScrollToTop = () => {
@@ -81,6 +83,8 @@ export const App: React.FC = () => {
           <Route index element={<AdminDashboardPage />} />
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="products" element={<AdminProductsPage />} />
+          <Route path="catalog" element={<AdminCatalogPage />} />
+          <Route path="banners" element={<AdminBannersPage />} />
           <Route path="inventory" element={<AdminInventoryPage />} />
           <Route path="crm" element={<AdminCrmPage />} />
           <Route path="tickets" element={<AdminTicketsPage />} />

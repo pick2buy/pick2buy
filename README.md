@@ -77,9 +77,9 @@ Copy `.env.example` to `backend/.env`:
 cp .env.example backend/.env
 ```
 
-Ensure `DATABASE_URL` in `backend/.env` points to your PostgreSQL instance:
+Set `DATABASE_URL` to your PostgreSQL connection string in the backend's private environment. For local development, you can instead set `POSTGRES_DATABASE_URL` in ignored `backend/.env.local`; it takes precedence over the old SQLite URL in `backend/.env`:
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/pick2buy?schema=public"
+POSTGRES_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/postgres"
 JWT_SECRET=your_super_secret_jwt_key
 JWT_REFRESH_SECRET=your_super_secret_jwt_refresh_key
 RAZORPAY_KEY_ID=rzp_test_pick2buy_placeholder_key
@@ -87,15 +87,17 @@ RAZORPAY_KEY_SECRET=rzp_test_pick2buy_placeholder_secret
 EMAIL_FROM="Pick2Buy India <pick2buy.in@gmail.com>"
 ```
 
-Email/password sign-in and sign-up now require a six-digit email code before a session is issued. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM` in `backend/.env.local` (or your deployment secrets). The sample SMTP password in `backend/.env` cannot send email. For Gmail SMTP, use a Google App Password from an account with 2-Step Verification. Apply the updated Prisma schema with `npm --prefix backend run db:push` for the local SQLite setup. Seeded demo addresses cannot receive codes; use a reachable email account for live testing.
+Email/password sign-in and sign-up require a six-digit email code before a session is issued. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM` in `backend/.env.local` (or your deployment secrets). The sample SMTP password in `backend/.env` cannot send email. For Gmail SMTP, use a Google App Password from an account with 2-Step Verification.
 
-### 4. Initialize Database & Seed Demo Data
-Generate Prisma client and seed with realistic sample products, categories, coupons, CRM leads, and demo accounts:
+### 4. Initialize PostgreSQL
+Generate the Prisma client and apply tracked migrations to an empty PostgreSQL database:
 ```bash
 npm run db:generate
 npm run db:migrate
-npm run db:seed
+npm run db:categories
 ```
+
+The database starts without demo accounts or products. `db:categories` adds the storefront categories and can be run again without duplicating them. Do not run the demo seed on PostgreSQL: it contains example accounts and fixed passwords, and the seed command refuses PostgreSQL connections. The previous local SQLite schema remains in `backend/prisma/schema.sqlite.prisma`, with its data in the ignored `backend/prisma/dev.db`. Backend tests create a separate local SQLite test database and restore the PostgreSQL client afterward.
 
 ### 5. Start Development Servers
 Run the full-stack monorepo concurrently:

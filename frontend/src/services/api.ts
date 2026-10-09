@@ -122,6 +122,15 @@ class ApiClient {
     return this.request(`/categories/${slug}`);
   }
 
+  public getAdminCategories() { return this.request('/admin/categories'); }
+  public createCategory(payload: any) { return this.request('/categories', { method: 'POST', body: JSON.stringify(payload) }); }
+  public updateCategory(id: string, payload: any) { return this.request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }); }
+  public deleteCategory(id: string) { return this.request(`/categories/${id}`, { method: 'DELETE' }); }
+  public getAdminBrands() { return this.request('/admin/brands'); }
+  public createBrand(payload: any) { return this.request('/admin/brands', { method: 'POST', body: JSON.stringify(payload) }); }
+  public updateBrand(id: string, payload: any) { return this.request(`/admin/brands/${id}`, { method: 'PUT', body: JSON.stringify(payload) }); }
+  public deleteBrand(id: string) { return this.request(`/admin/brands/${id}`, { method: 'DELETE' }); }
+
   // Cart
   public getCart(couponCode?: string) {
     const q = couponCode ? `?coupon=${encodeURIComponent(couponCode)}` : '';
@@ -280,6 +289,11 @@ class ApiClient {
   public getAdminBanners() {
     return this.request('/admin/banners');
   }
+
+  public getActiveBanners() { return this.request('/banners'); }
+  public createBanner(payload: any) { return this.request('/admin/banners', { method: 'POST', body: JSON.stringify(payload) }); }
+  public updateBanner(id: string, payload: any) { return this.request(`/admin/banners/${id}`, { method: 'PUT', body: JSON.stringify(payload) }); }
+  public deleteBanner(id: string) { return this.request(`/admin/banners/${id}`, { method: 'DELETE' }); }
 
   public getAdminAuditLogs() {
     return this.request('/admin/audit-logs');

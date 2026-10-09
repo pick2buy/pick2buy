@@ -1,5 +1,5 @@
 import { useModal } from '../../hooks/useModal';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -10,6 +10,8 @@ import {
   Menu, 
   X, 
   ChevronDown, 
+  ChevronLeft,
+  ChevronRight,
   Truck, 
   ShieldCheck, 
   Zap, 
@@ -31,6 +33,12 @@ export const Header: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<any[]>([]);
+  const categoryStripRef = useRef<HTMLDivElement>(null);
+  const categoryNavRef = useRef<HTMLElement>(null);
+  const [categoryScroll, setCategoryScroll] = useState({ left: false, right: false });
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
+  const [categoryMenuLeft, setCategoryMenuLeft] = useState(8);
+  const [expandedMobileCategoryId, setExpandedMobileCategoryId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -42,6 +50,71 @@ export const Header: React.FC = () => {
       setCategories(res.data || []);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const strip = categoryStripRef.current;
+    if (!strip) return;
+
+    const updateScrollButtons = () => {
+      const next = {
+        left: strip.scrollLeft > 1,
+        right: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1,
+      };
+      setCategoryScroll((current) =>
+        current.left === next.left && current.right === next.right ? current : next
+      );
+    };
+
+    updateScrollButtons();
+    strip.addEventListener('scroll', updateScrollButtons, { passive: true });
+    const resizeObserver = new ResizeObserver(updateScrollButtons);
+    resizeObserver.observe(strip);
+    return () => {
+      strip.removeEventListener('scroll', updateScrollButtons);
+      resizeObserver.disconnect();
+    };
+  }, [categories, isAuthPage]);
+
+  useEffect(() => {
+    setOpenCategoryId(null);
+    setExpandedMobileCategoryId(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!openCategoryId) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!categoryNavRef.current?.contains(event.target as Node)) setOpenCategoryId(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenCategoryId(null);
+    };
+    const closeOnResize = () => setOpenCategoryId(null);
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', closeOnResize);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', closeOnResize);
+    };
+  }, [openCategoryId]);
+
+  const toggleCategoryDropdown = (categoryId: string, button: HTMLButtonElement) => {
+    const nav = categoryNavRef.current;
+    if (nav) {
+      const triggerLeft = (button.parentElement || button).getBoundingClientRect().left - nav.getBoundingClientRect().left;
+      const menuWidth = Math.min(320, nav.clientWidth - 16);
+      setCategoryMenuLeft(Math.max(8, Math.min(triggerLeft, nav.clientWidth - menuWidth - 8)));
+    }
+    setOpenCategoryId(current => current === categoryId ? null : categoryId);
+  };
+
+  const scrollCategories = (direction: -1 | 1) => {
+    const strip = categoryStripRef.current;
+    if (!strip) return;
+    setOpenCategoryId(null);
+    strip.scrollBy({ left: direction * Math.max(strip.clientWidth * 0.75, 240), behavior: 'smooth' });
+  };
 
   const menuRef = useModal(isMobileMenuOpen, () => setIsMobileMenuOpen(false));
   const totalCartCount = cart?.items.reduce((sum, i) => sum + i.quantity, 0) || 0;
@@ -280,7 +353,7 @@ export const Header: React.FC = () => {
 
               {/* Mega Menu Dropdown */}
               {isMegaMenuOpen && (
-                <div className="absolute top-full left-0 w-[640px] bg-white rounded-2xl shadow-elevated border border-slate-200 p-6 z-50 grid grid-cols-2 gap-4">
+                <div className="absolute top-full left-0 w-[760px] max-h-[min(70vh,520px)] overflow-y-auto bg-white rounded-2xl shadow-elevated border border-slate-200 p-6 z-50 grid grid-cols-3 gap-3">
                   {categories.map((cat) => (
                     <Link
                       key={cat.id}
@@ -327,6 +400,61 @@ export const Header: React.FC = () => {
           </div>
         </div>
       </nav>
+
+      {!isAuthPage && categories.length > 0 && (
+        <nav ref={categoryNavRef} aria-label="Shop categories" onMouseLeave={() => setOpenCategoryId(null)} className="relative border-t border-slate-100 bg-white">
+          <div className="mx-auto flex max-w-7xl items-center gap-1 px-2 text-sm text-slate-800 sm:gap-2 sm:px-4">
+            <button
+              type="button"
+              onClick={() => scrollCategories(-1)}
+              disabled={!categoryScroll.left}
+              aria-label="Scroll categories left"
+              className="flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-default disabled:text-slate-300 disabled:hover:bg-transparent sm:w-9"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div ref={categoryStripRef} className="category-strip-scroll flex min-w-0 flex-1 items-center gap-5 overflow-x-auto text-sm sm:gap-6">
+              <Link to="/shop?sort=bestseller" className="shrink-0 whitespace-nowrap py-3 font-medium hover:text-brand-primary">
+                Popular
+              </Link>
+              {categories.map((cat) => (
+                <div key={cat.id} className="flex shrink-0 items-center">
+                  <Link
+                    to={`/category/${cat.slug}`}
+                    onClick={() => setOpenCategoryId(null)}
+                    aria-current={pathname === `/category/${cat.slug}` ? 'page' : undefined}
+                    className={`whitespace-nowrap border-b-2 py-3 transition-colors hover:text-brand-primary ${pathname === `/category/${cat.slug}` ? 'border-brand-primary text-brand-primary' : 'border-transparent'}`}
+                  >
+                    {cat.name}
+                  </Link>
+                  {cat.children?.length > 0 && <button
+                    type="button"
+                    aria-label={`Show ${cat.name} subcategories`}
+                    aria-expanded={openCategoryId === cat.id}
+                    aria-controls={`category-submenu-${cat.id}`}
+                    onClick={event => toggleCategoryDropdown(cat.id, event.currentTarget)}
+                    className="ml-0.5 flex h-8 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-brand-primary"
+                  ><ChevronDown className={`h-3.5 w-3.5 transition-transform ${openCategoryId === cat.id ? 'rotate-180' : ''}`} /></button>}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => scrollCategories(1)}
+              disabled={!categoryScroll.right}
+              aria-label="Scroll categories right"
+              className="flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-default disabled:text-slate-300 disabled:hover:bg-transparent sm:w-9"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+          {categories.map(cat => cat.children?.length > 0 && openCategoryId === cat.id && <div key={cat.id} id={`category-submenu-${cat.id}`} style={{ left: categoryMenuLeft }} className="absolute top-full z-50 w-[min(20rem,calc(100vw-1rem))] rounded-b-xl border border-slate-200 bg-white p-3 shadow-xl">
+            <p className="px-3 pb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{cat.name}</p>
+            <div className="max-h-72 overflow-y-auto">{cat.children.map((child: any) => <Link key={child.id} to={`/category/${child.slug}`} onClick={() => setOpenCategoryId(null)} className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary">{child.name}</Link>)}</div>
+            <Link to={`/category/${cat.slug}`} onClick={() => setOpenCategoryId(null)} className="mt-2 block border-t border-slate-100 px-3 pt-3 text-xs font-bold text-brand-primary hover:underline">View all {cat.name}</Link>
+          </div>)}
+        </nav>
+      )}
 
       {/* Mobile Drawer Menu */}
       {isMobileMenuOpen && createPortal(
@@ -382,14 +510,13 @@ export const Header: React.FC = () => {
               </p>
               <div className="space-y-1">
                 {categories.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/category/${cat.slug}`}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="block py-2 px-3 text-xs font-medium text-slate-700 rounded-lg hover:bg-slate-50"
-                  >
-                    {cat.name}
-                  </Link>
+                  <div key={cat.id}>
+                    <div className="flex items-center">
+                      <Link to={`/category/${cat.slug}`} onClick={() => setIsMobileMenuOpen(false)} className="min-w-0 flex-1 py-2 px-3 text-xs font-medium text-slate-700 rounded-lg hover:bg-slate-50">{cat.name}</Link>
+                      {cat.children?.length > 0 && <button type="button" onClick={() => setExpandedMobileCategoryId(current => current === cat.id ? null : cat.id)} aria-label={`Show ${cat.name} subcategories`} aria-expanded={expandedMobileCategoryId === cat.id} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"><ChevronDown className={`h-4 w-4 transition-transform ${expandedMobileCategoryId === cat.id ? 'rotate-180' : ''}`} /></button>}
+                    </div>
+                    {cat.children?.length > 0 && expandedMobileCategoryId === cat.id && <div className="ml-3 border-l border-slate-200 pl-2">{cat.children.map((child: any) => <Link key={child.id} to={`/category/${child.slug}`} onClick={() => setIsMobileMenuOpen(false)} className="block rounded-lg px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-brand-primary">{child.name}</Link>)}</div>}
+                  </div>
                 ))}
               </div>
             </div>

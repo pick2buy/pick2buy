@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 export const AdminProductsPage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -20,6 +21,7 @@ export const AdminProductsPage: React.FC = () => {
     name: '',
     sku: '',
     categoryId: '',
+    brandId: '',
     price: 999,
     mrp: 1999,
     stock: 50,
@@ -33,10 +35,12 @@ export const AdminProductsPage: React.FC = () => {
     Promise.all([
       api.getAdminProducts(),
       api.getCategories(),
-    ]).then(([prodRes, catRes]) => {
+      api.getAdminBrands(),
+    ]).then(([prodRes, catRes, brandRes]) => {
       setError('');
       setProducts(prodRes.data || []);
       setCategories(catRes.data || []);
+      setBrands(brandRes.data || []);
       if (catRes.data?.length) {
         setForm((prev) => ({ ...prev, categoryId: catRes.data[0].id }));
       }
@@ -50,13 +54,13 @@ export const AdminProductsPage: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: '', sku: '', categoryId: categories[0]?.id || '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '' });
+    setForm({ name: '', sku: '', categoryId: categories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '' });
     setIsModalOpen(true);
   };
 
   const openEdit = (product: any) => {
     setEditingId(product.id);
-    setForm({ name: product.name, sku: product.sku, categoryId: product.categoryId,
+    setForm({ name: product.name, sku: product.sku, categoryId: product.categoryId, brandId: product.brandId || '',
       price: product.price, mrp: product.mrp, stock: product.stock, status: product.status,
       description: product.description, imageUrl: product.images?.[0]?.url || '' });
     setIsModalOpen(true);
@@ -66,10 +70,10 @@ export const AdminProductsPage: React.FC = () => {
     e.preventDefault();
     try {
       if (editingId) await api.updateProduct(editingId, {
-        name: form.name, sku: form.sku, categoryId: form.categoryId,
+        name: form.name, sku: form.sku, categoryId: form.categoryId, brandId: form.brandId || null,
         price: form.price, mrp: form.mrp, description: form.description, status: form.status, imageUrl: form.imageUrl,
       });
-      else await api.createProduct({ ...form, images: form.imageUrl ? [{ url: form.imageUrl, isPrimary: true }] : [] });
+      else await api.createProduct({ ...form, brandId: form.brandId || undefined, images: form.imageUrl ? [{ url: form.imageUrl, isPrimary: true }] : [] });
       setIsModalOpen(false);
       loadData();
     } catch (err: any) {
@@ -216,12 +220,12 @@ export const AdminProductsPage: React.FC = () => {
                     onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"
                   >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
+                    {categories.map((c) => <React.Fragment key={c.id}><option value={c.id}>{c.name}</option>{c.children?.map((child: any) => <option key={child.id} value={child.id}>↳ {child.name}</option>)}</React.Fragment>)}
                   </select>
                 </div>
               </div>
+
+              <div><label className="font-bold text-slate-700 block mb-1">Brand (optional)</label><select value={form.brandId} onChange={e => setForm({ ...form, brandId: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"><option value="">No brand</option>{brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>

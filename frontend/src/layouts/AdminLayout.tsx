@@ -11,7 +11,7 @@ import {
   LifeBuoy, 
   ShieldAlert, 
   ArrowLeft,
-  Menu, X, FileText
+  Menu, X, FolderTree, Image
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -26,6 +26,8 @@ export const AdminLayout: React.FC = () => {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { label: 'Orders & Shipments', icon: ShoppingBag, path: '/admin/orders' },
     { label: 'Products Catalog', icon: Package, path: '/admin/products' },
+    { label: 'Categories & Brands', icon: FolderTree, path: '/admin/catalog' },
+    { label: 'Storefront Banners', icon: Image, path: '/admin/banners' },
     { label: 'Inventory & Alerts', icon: Boxes, path: '/admin/inventory' },
     { label: 'CRM Leads Pipeline', icon: Users, path: '/admin/crm' },
     { label: 'Support Tickets', icon: LifeBuoy, path: '/admin/tickets' },

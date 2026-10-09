@@ -1,10 +1,12 @@
-// Pick2Buy PostgreSQL Production Schema
+// Pick2Buy Complete Database Schema (Prisma)
+// Supports all 34 required entities for full ecommerce, inventory, orders, reviews, CRM & analytics
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -15,7 +17,7 @@ model User {
   phone           String?
   passwordHash    String
   googleSub       String?     @unique
-  role            String      @default("CUSTOMER")
+  role            String      @default("CUSTOMER") // CUSTOMER, ADMIN, MANAGER, STAFF, SUPPORT_AGENT
   avatarUrl       String?
   isEmailVerified Boolean     @default(false)
   dateOfBirth     String?
@@ -67,7 +69,7 @@ model Role {
 
 model Permission {
   id          String           @id @default(uuid())
-  action      String           @unique
+  action      String           @unique // e.g. "products.create", "orders.update"
   description String?
   roles       RolePermission[]
 
@@ -109,7 +111,7 @@ model Address {
   state       String
   pincode     String
   isDefault   Boolean  @default(false)
-  type        String   @default("HOME")
+  type        String   @default("HOME") // HOME, WORK, OTHER
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -159,17 +161,17 @@ model Product {
   mrp                Float
   costPrice          Float?
   discountPercentage Float            @default(0)
-  taxRate            Float            @default(18.0)
+  taxRate            Float            @default(18.0) // GST 18% standard
   stock              Int              @default(0)
   lowStockThreshold  Int              @default(5)
-  status             String           @default("ACTIVE")
+  status             String           @default("ACTIVE") // DRAFT, ACTIVE, OUT_OF_STOCK, ARCHIVED
   isFeatured         Boolean          @default(false)
   isBestSeller       Boolean          @default(false)
   isTrending         Boolean          @default(false)
   isFlashDeal        Boolean          @default(false)
   flashDealEnd       DateTime?
-  highlights         String?
-  specifications     String?
+  highlights         String?          // JSON array string
+  specifications     String?          // JSON object string
   seoTitle           String?
   seoDescription     String?
   seoKeywords        String?
@@ -230,9 +232,9 @@ model InventoryTransaction {
   id          String   @id @default(uuid())
   productId   String
   variantSku  String?
-  quantity    Int
-  reason      String
-  referenceId String?
+  quantity    Int      // positive for restock, negative for sale
+  reason      String   // SALE, RESTOCK, RETURN, ADJUSTMENT, DAMAGE
+  referenceId String?  // Order ID or Purchase ID
   createdAt   DateTime @default(now())
 
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -302,9 +304,9 @@ model Order {
   customerName          String
   customerEmail         String
   customerPhone         String
-  shippingAddressJson   String
-  status                String              @default("PENDING")
-  paymentMethod         String
+  shippingAddressJson   String              // JSON of the address snapshot
+  status                String              @default("PENDING") // ORDER_STATUSES
+  paymentMethod         String              // COD, RAZORPAY_UPI, etc.
   paymentStatus         String              @default("PENDING")
   paymentId             String?
   trackingNumber        String?
@@ -382,7 +384,7 @@ model Refund {
   orderId   String
   amount    Float
   reason    String
-  status    String   @default("PENDING")
+  status    String   @default("PENDING") // PENDING, PROCESSED, FAILED
   refundId  String?
   createdAt DateTime @default(now())
 
@@ -395,7 +397,7 @@ model Coupon {
   id               String        @id @default(uuid())
   code             String        @unique
   description      String?
-  type             String
+  type             String        // PERCENTAGE, FIXED, FREE_SHIPPING
   value            Float
   minOrderValue    Float?
   maxDiscount      Float?
@@ -435,9 +437,9 @@ model Review {
   rating             Int
   title              String?
   comment            String
-  imagesJson         String?
+  imagesJson         String?  // JSON array of image URLs
   isVerifiedPurchase Boolean  @default(false)
-  status             String   @default("APPROVED")
+  status             String   @default("APPROVED") // APPROVED, PENDING, REJECTED
   adminReply         String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -452,7 +454,7 @@ model CustomerSegment {
   id             String   @id @default(uuid())
   name           String   @unique
   description    String?
-  conditionsJson String
+  conditionsJson String   // JSON rule conditions
   customerCount  Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -467,7 +469,7 @@ model Lead {
   phone           String?
   source          String         @default("WEBSITE")
   productInterest String?
-  status          String         @default("NEW")
+  status          String         @default("NEW") // NEW, CONTACTED, QUALIFIED, CONVERTED, LOST
   estimatedValue  Float?
   assignedStaff   String?
   notes           String?
@@ -484,7 +486,7 @@ model LeadActivity {
   id        String   @id @default(uuid())
   leadId    String
   userId    String?
-  type      String
+  type      String   // CALL, EMAIL, NOTE, STATUS_CHANGE, MEETING
   details   String
   createdAt DateTime @default(now())
 
@@ -500,9 +502,9 @@ model SupportTicket {
   customerId    String
   subject       String
   description   String
-  priority      String           @default("MEDIUM")
+  priority      String           @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
   category      String           @default("ORDER")
-  status        String           @default("OPEN")
+  status        String           @default("OPEN") // OPEN, IN_PROGRESS, WAITING_CUSTOMER, RESOLVED, CLOSED
   assignedAgent String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -528,10 +530,10 @@ model SupportMessage {
 
 model Notification {
   id        String   @id @default(uuid())
-  userId    String?
+  userId    String?  // null for admin-wide broadcasts
   title     String
   message   String
-  type      String
+  type      String   // ORDER, INVENTORY, REVIEW, PROMO, SYSTEM
   linkUrl   String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -561,12 +563,12 @@ model Banner {
 
 model HomepageSection {
   id           String   @id @default(uuid())
-  sectionKey   String   @unique
+  sectionKey   String   @unique // hero, categories, trending, best_sellers, flash_sale, promos, testimonials, trust_badges
   title        String
   subtitle     String?
   isEnabled    Boolean  @default(true)
   displayOrder Int      @default(0)
-  configJson   String?
+  configJson   String?  // JSON configuration (e.g. selected product IDs, banner IDs)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -580,7 +582,7 @@ model Campaign {
   subject   String
   content   String
   schedule  DateTime?
-  status    String   @default("DRAFT")
+  status    String   @default("DRAFT") // DRAFT, SCHEDULED, SENT
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -589,11 +591,11 @@ model Campaign {
 
 model AnalyticsEvent {
   id         String   @id @default(uuid())
-  eventType  String
+  eventType  String   // PAGE_VIEW, PRODUCT_VIEW, ADD_TO_CART, CHECKOUT_STARTED, PURCHASE, SEARCH
   sessionId  String?
   userId     String?
   resourceId String?
-  metadata   String?
+  metadata   String?  // JSON string
   timestamp  DateTime @default(now())
 
   @@map("analytics_events")
@@ -603,11 +605,11 @@ model AuditLog {
   id         String   @id @default(uuid())
   userId     String?
   userEmail  String?
-  action     String
-  resource   String
+  action     String   // "UPDATE_ORDER_STATUS", "CHANGE_PRICE", etc.
+  resource   String   // "Order", "Product", "Coupon"
   resourceId String?
-  oldValue   String?
-  newValue   String?
+  oldValue   String?  // JSON
+  newValue   String?  // JSON
   ipAddress  String?
   createdAt  DateTime @default(now())
 

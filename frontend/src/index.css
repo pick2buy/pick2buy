@@ -26,6 +26,12 @@
 }
 
 @layer utilities {
+  .category-strip-scroll {
+    scrollbar-width: none;
+  }
+  .category-strip-scroll::-webkit-scrollbar {
+    display: none;
+  }
   .text-balance {
     text-wrap: balance;
   }

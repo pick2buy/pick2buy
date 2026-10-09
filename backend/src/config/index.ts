@@ -3,6 +3,12 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
+// Local development can keep the hosted database URL outside the legacy SQLite .env file.
+// Deployment platforms should provide DATABASE_URL directly.
+if (process.env.NODE_ENV !== 'test' && process.env.POSTGRES_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.POSTGRES_DATABASE_URL;
+}
+
 if (process.env.NODE_ENV === 'production' &&
     (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET ||
      process.env.JWT_SECRET.includes('change_in_production') || process.env.JWT_REFRESH_SECRET.includes('change_in_production'))) {

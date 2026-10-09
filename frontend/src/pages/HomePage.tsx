@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Headphones, Shirt, Home, Watch, Footprints, Dumbbell, Sparkles, Package, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 import { HeroBanner } from '../components/storefront/HeroBanner';
+import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
 
@@ -35,6 +36,7 @@ export const HomePage = () => {
   ];
   return <div className="home-page">
     <HeroBanner />
+    <StorefrontBanners />
     <div className="service-strip page-width">
       {[[Truck, 'Delivery across India'], [CreditCard, 'Cash on Delivery'], [ShieldCheck, 'Secure checkout']].map(([Icon, text]: any) => <div key={text}><Icon size={20} /><span>{text}</span></div>)}
     </div>

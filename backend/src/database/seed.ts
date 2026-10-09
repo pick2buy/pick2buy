@@ -1,9 +1,14 @@
+import '../config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' || /^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '')) {
+    throw new Error('Demo seed is disabled for the production PostgreSQL database.');
+  }
+
   console.log('🌱 Starting Pick2Buy database seeding...');
 
   // 1. Roles & Permissions

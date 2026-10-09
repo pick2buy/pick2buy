@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/admin.controller';
 import { ProductController } from '../controllers/product.controller';
+import { CategoryController } from '../controllers/category.controller';
+import { BrandController } from '../controllers/brand.controller';
 import { requireAdmin, requireStaff } from '../middlewares/auth';
 
 const router = Router();
@@ -9,6 +11,11 @@ const router = Router();
 router.get('/dashboard', requireStaff, AdminController.getDashboardMetrics);
 router.get('/orders', requireStaff, AdminController.getOrders);
 router.get('/products', requireStaff, ProductController.getAdminProducts);
+router.get('/categories', requireStaff, CategoryController.getAdminCategories);
+router.get('/brands', requireStaff, BrandController.list);
+router.post('/brands', requireAdmin, BrandController.create);
+router.put('/brands/:id', requireAdmin, BrandController.update);
+router.delete('/brands/:id', requireAdmin, BrandController.remove);
 router.get('/reports/:type', requireAdmin, AdminController.exportReport);
 
 // Inventory
@@ -31,7 +38,7 @@ router.post('/coupons', requireAdmin, AdminController.createCoupon);
 router.delete('/coupons/:id', requireAdmin, AdminController.deleteCoupon);
 
 // Banners & Homepage Builder
-router.get('/banners', AdminController.getBanners);
+router.get('/banners', requireStaff, AdminController.getBanners);
 router.post('/banners', requireAdmin, AdminController.createBanner);
 router.put('/banners/:id', requireAdmin, AdminController.updateBanner);
 router.delete('/banners/:id', requireAdmin, AdminController.deleteBanner);

@@ -79,6 +79,8 @@ export const CategoryPage: React.FC = () => {
         </div>
       </div>
 
+      {category.children?.length > 0 && <nav aria-label="Subcategories" className="flex flex-wrap gap-2">{category.children.map((child: any) => <Link key={child.id} to={`/category/${child.slug}`} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-brand-primary hover:text-brand-primary">{child.name}</Link>)}</nav>}
+
       {/* Products Grid */}
       <div className="pt-4">
         {products.length === 0 ? (

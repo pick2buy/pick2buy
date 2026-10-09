@@ -10,6 +10,7 @@ const productUpdateSchema = z.object({
   sku: z.string().min(2).optional(),
   description: z.string().min(10).optional(),
   categoryId: z.string().min(1).optional(),
+  brandId: z.string().min(1).nullable().optional(),
   price: z.number().min(0).optional(),
   mrp: z.number().min(0).optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED']).optional(),
@@ -20,7 +21,7 @@ export class ProductController {
   public static async getAdminProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const products = await prisma.product.findMany({
-        include: { images: { orderBy: { displayOrder: 'asc' } }, category: true },
+        include: { images: { orderBy: { displayOrder: 'asc' } }, category: true, brand: true },
         orderBy: { updatedAt: 'desc' },
       });
       res.json({ success: true, data: products });
