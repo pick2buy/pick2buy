@@ -1,12 +1,36 @@
 import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Headphones, Shirt, Home, Watch, Footprints, Dumbbell, Sparkles, Package, ShieldCheck, Truck, CreditCard } from 'lucide-react';
+import { ArrowRight, Baby, BookOpen, CarFront, CreditCard, Dumbbell, Flower2, Gem, Home, Laptop, Layers3, Music2, NotebookPen, PawPrint, PersonStanding, Shapes, ShieldCheck, Shirt, ShoppingBag, ShoppingBasket, Sparkles, Truck, Watch } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { HeroBanner } from '../components/storefront/HeroBanner';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
 
-const categoryIcons = [Headphones, Watch, Shirt, Footprints, Home, Dumbbell, Sparkles, Package];
+type CategoryVisual = { icon: LucideIcon; tint: string; ink: string };
+
+const categoryVisuals: Record<string, CategoryVisual> = {
+  'kurti-saree-and-lehenga': { icon: Layers3, tint: '#f7e9e5', ink: '#a34d51' },
+  'women-western': { icon: Shirt, tint: '#eee9f8', ink: '#6a55a0' },
+  lingerie: { icon: Flower2, tint: '#f8eaf0', ink: '#a34b76' },
+  men: { icon: PersonStanding, tint: '#e8eef8', ink: '#365a9a' },
+  'kids-and-toys': { icon: Baby, tint: '#fff0db', ink: '#a66a1f' },
+  'home-and-kitchen': { icon: Home, tint: '#e9f4ee', ink: '#3b7658' },
+  'beauty-and-health': { icon: Sparkles, tint: '#f7e9ed', ink: '#a04f6e' },
+  'jewellery-and-accessories': { icon: Gem, tint: '#f5ecde', ink: '#99703c' },
+  'bags-and-footwear': { icon: ShoppingBag, tint: '#efeae5', ink: '#806044' },
+  electronics: { icon: Laptop, tint: '#e7eff8', ink: '#356d9c' },
+  watches: { icon: Watch, tint: '#edeef1', ink: '#4f6078' },
+  'sports-and-fitness': { icon: Dumbbell, tint: '#e8f3eb', ink: '#387a5e' },
+  'car-and-motorbike': { icon: CarFront, tint: '#e9edf3', ink: '#506486' },
+  'office-supplies-and-stationery': { icon: NotebookPen, tint: '#f3edf8', ink: '#725394' },
+  grocery: { icon: ShoppingBasket, tint: '#edf4e6', ink: '#5e7e35' },
+  books: { icon: BookOpen, tint: '#f4eee6', ink: '#8d6543' },
+  'pet-supplies': { icon: PawPrint, tint: '#f7ede5', ink: '#a36a42' },
+  'musical-instruments': { icon: Music2, tint: '#e9edf8', ink: '#5664a0' },
+};
+const fallbackVisual: CategoryVisual = { icon: Shapes, tint: '#eaf0f8', ink: '#345b91' };
 const questions = [
   ['How can I track my order?', 'Sign in and open Account & Orders to see your order status and available tracking updates.'],
   ['Can I pay with Cash on Delivery?', 'Cash on Delivery is available for eligible orders. Check your PIN code on the product page and review the available payment methods at checkout.'],
@@ -43,7 +67,20 @@ export const HomePage = () => {
     <section className="page-width home-section" id="collections">
       <div className="section-heading"><div><span className="eyebrow">A WORLD OF EVERYDAY POSSIBILITIES</span><h2>Find your <em>kind of thing.</em></h2></div><Link className="text-link" to="/shop">Shop everything <ArrowRight size={16} /></Link></div>
       {error ? <div role="alert" className="catalog-message"><h3>We couldn't load the collection.</h3><p>Check your connection and try again.</p><button className="primary-pill" onClick={() => setAttempt(n => n + 1)}>Try again</button></div> :
-        <div className="category-tiles">{loading ? Array.from({ length: 8 }, (_, i) => <div key={i} className="h-36 rounded-2xl bg-slate-100 animate-pulse" />) : categories.map((cat, i) => { const Icon = categoryIcons[i % categoryIcons.length]; return <Link key={cat.id} to={`/category/${cat.slug}`}><span className="category-icon"><Icon size={28} strokeWidth={1.4} /></span><strong>{cat.name}</strong><span className="category-explore">Explore <ArrowRight size={12} /></span></Link>; })}</div>}
+        <div className="category-tiles">
+          {loading ? Array.from({ length: 6 }, (_, i) => <div key={i} className="category-tile-skeleton animate-pulse" />)
+            : categories.map((cat) => {
+              const visual = categoryVisuals[cat.slug] || fallbackVisual;
+              const Icon = visual.icon;
+              return <Link key={cat.id} to={`/category/${cat.slug}`} className="category-tile"
+                style={{ '--category-tint': visual.tint, '--category-ink': visual.ink } as CSSProperties}>
+                <span className="category-art" aria-hidden="true">
+                  {cat.imageUrl ? <img src={cat.imageUrl} alt="" loading="lazy" /> : <Icon size={42} strokeWidth={1.45} />}
+                </span>
+                <span className="category-tile-copy"><strong>{cat.name}</strong><span className="category-explore">Explore collection <ArrowRight size={14} /></span></span>
+              </Link>;
+            })}
+        </div>}
     </section>
     {sections.map((section, index) => <section key={section.label} className={`page-width home-section ${index === 1 ? 'value-section' : ''}`}>
       <div className="section-heading"><div><span className="eyebrow">{section.label}</span><h2>{section.title}<em>{section.accent}</em></h2></div><Link to={section.link} className="text-link">View collection <ArrowRight size={16} /></Link></div>
