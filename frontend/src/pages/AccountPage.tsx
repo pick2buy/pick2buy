@@ -16,6 +16,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
 import { formatINR } from '../lib/utils';
 import { ProfileSection } from '../components/account/ProfileSection';
+import { Avatar } from '../components/common/Avatar';
 
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ export const AccountPage: React.FC = () => {
       <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl overflow-hidden bg-indigo-50 text-brand-primary font-black text-2xl flex items-center justify-center border border-indigo-100">
-            {user.avatarUrl ? <img src={user.avatarUrl} alt="Your profile" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
+            <Avatar src={user.avatarUrl} name={user.name} alt="Your profile" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-2">

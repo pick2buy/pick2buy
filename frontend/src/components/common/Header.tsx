@@ -39,6 +39,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useCartStore } from '../../store/useCartStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { api } from '../../services/api';
+import { Avatar } from './Avatar';
 
 type CategoryIcon = { icon: LucideIcon; tint: string; ink: string };
 
@@ -283,7 +284,7 @@ export const Header: React.FC = () => {
                   className="flex items-center gap-2 p-1.5 rounded-full hover:bg-slate-100 text-slate-700 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-indigo-100 text-brand-primary font-bold text-xs flex items-center justify-center border border-indigo-200">
-                    {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
+                    <Avatar src={user.avatarUrl} name={user.name} alt="Your profile" className="w-full h-full object-cover" />
                   </div>
                   <span className="hidden xl:inline text-xs font-semibold text-slate-800">
                     {user.name.split(' ')[0]}
@@ -383,7 +384,7 @@ export const Header: React.FC = () => {
 
       {!isAuthPage && categories.length > 0 && (
         <nav ref={categoryNavRef} aria-label="Shop categories" onMouseLeave={() => setOpenCategoryId(null)} className={`category-navigation relative border-t border-slate-200 bg-white transition-[height] duration-300 ${isCategoryNavCondensed ? 'category-navigation--compact' : ''}`}>
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-[1600px]">
             <div className={`category-navigation-rail ${isCategoryNavCondensed ? 'category-navigation-rail--compact' : ''}`}>
             <button
               type="button"
@@ -395,14 +396,10 @@ export const Header: React.FC = () => {
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div ref={categoryStripRef} className={`category-strip-scroll category-navigation-scroll ${isCategoryNavCondensed ? 'category-navigation-scroll--compact' : ''}`}>
-              {isCategoryNavCondensed ? (
-                <Link to="/shop?sort=bestseller" className="category-navigation-label">Popular</Link>
-              ) : (
-                <Link to="/shop?sort=bestseller" className="category-navigation-item" aria-label="Popular products" title="Popular products" data-category-tooltip="Popular products">
-                  <span className="category-navigation-icon" style={{ backgroundColor: '#fff5c2', color: '#8b6b00' }}><Sparkles className="h-6 w-6" /></span>
-                  <span>For you</span>
-                </Link>
-              )}
+              <Link to="/shop?sort=bestseller" className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'} aria-label="Popular products">
+                <span className="category-navigation-icon" style={{ color: '#8b6b00' }}><Sparkles className="h-6 w-6" /></span>
+                <span>{isCategoryNavCondensed ? 'Popular' : 'For you'}</span>
+              </Link>
               {categories.map((cat) => {
                 const visual = categoryIcons[cat.slug] || fallbackCategoryIcon;
                 const Icon = visual.icon;
@@ -412,12 +409,10 @@ export const Header: React.FC = () => {
                     onClick={() => setOpenCategoryId(null)}
                     aria-current={pathname === `/category/${cat.slug}` ? 'page' : undefined}
                     className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'}
-                    title={!isCategoryNavCondensed ? cat.name : undefined}
-                    data-category-tooltip={!isCategoryNavCondensed ? cat.name : undefined}
                   >
-                    {!isCategoryNavCondensed && <span className="category-navigation-icon" style={{ backgroundColor: visual.tint, color: visual.ink }}>
+                    <span className="category-navigation-icon" style={{ color: visual.ink }}>
                       {cat.imageUrl ? <img src={cat.imageUrl} alt="" /> : <Icon className="h-6 w-6" strokeWidth={1.8} />}
-                    </span>}
+                    </span>
                     <span>{cat.name}</span>
                   </Link>
                   {isCategoryNavCondensed && cat.children?.length > 0 && <button

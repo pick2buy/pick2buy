@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Camera, CheckCircle2, Mail, Pencil, Trash2 } from 'lucide-react';
 import { GoogleSignIn } from '../common/GoogleSignIn';
+import { Avatar } from '../common/Avatar';
 import { api } from '../../services/api';
 import type { AuthChallenge, User } from '../../store/useAuthStore';
 
@@ -147,6 +148,17 @@ export function ProfileSection({ user, refreshUser }: Props) {
     }
   };
 
+  const refreshGooglePhoto = async (credential: string) => {
+    setGoogleMessage('');
+    try {
+      await api.linkGoogle(credential);
+      await refreshUser();
+      setGoogleMessage(user.googleLinked ? 'Your Google profile photo was refreshed.' : 'Google account connected.');
+    } catch (error) {
+      setGoogleMessage(error instanceof Error ? error.message : 'Could not refresh your Google photo.');
+    }
+  };
+
   return <div className="space-y-5">
     <section className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -157,7 +169,7 @@ export function ProfileSection({ user, refreshUser }: Props) {
       {editing ? <form onSubmit={saveProfile} className="space-y-5">
         <div className="flex flex-wrap items-center gap-4">
           <div className="w-20 h-20 rounded-2xl overflow-hidden bg-indigo-50 text-brand-primary font-black text-2xl flex items-center justify-center border border-indigo-100">
-            {avatarUrl ? <img src={avatarUrl} alt="Profile preview" className="w-full h-full object-cover" /> : name.charAt(0).toUpperCase()}
+            <Avatar src={avatarUrl} name={name} alt="Profile preview" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="profile-photo" className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Camera size={15} /> Upload photo</label>
@@ -173,7 +185,7 @@ export function ProfileSection({ user, refreshUser }: Props) {
         {profileError && <p role="alert" className="text-xs text-rose-600">{profileError}</p>}
         <div className="flex flex-wrap gap-2"><button disabled={saving} type="submit" className="rounded-xl bg-brand-primary px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60">{saving ? 'Saving...' : 'Save changes'}</button><button type="button" onClick={resetEdit} className="rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-semibold text-slate-600">Cancel</button></div>
       </form> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
-        <div className="sm:col-span-2 flex items-center gap-3"><div className="w-14 h-14 rounded-2xl overflow-hidden bg-indigo-50 text-brand-primary font-bold text-xl flex items-center justify-center">{user.avatarUrl ? <img src={user.avatarUrl} alt="Your profile" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}</div><span className="text-slate-500">Profile photo</span></div>
+        <div className="sm:col-span-2 flex items-center gap-3"><div className="w-14 h-14 rounded-2xl overflow-hidden bg-indigo-50 text-brand-primary font-bold text-xl flex items-center justify-center"><Avatar src={user.avatarUrl} name={user.name} alt="Your profile" className="w-full h-full object-cover" /></div><span className="text-slate-500">Profile photo</span></div>
         <div><span className="text-slate-500 block mb-1">Full name</span><p className="font-bold text-slate-900 text-sm">{user.name}</p></div>
         <div><span className="text-slate-500 block mb-1">Mobile number</span><p className="font-bold text-slate-900 text-sm">{user.phone ? `+91 ${user.phone}` : 'Not provided'}</p></div>
       </div>}
@@ -187,6 +199,6 @@ export function ProfileSection({ user, refreshUser }: Props) {
       {emailError && <p role="alert" className="text-xs text-rose-600">{emailError}</p>}
     </section>
 
-    <section className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-4"><div><h2 className="text-base font-bold text-slate-900">Account access</h2><p className="text-xs text-slate-500 mt-1">Your account role is managed by Pick2Buy.</p></div><div className="text-xs"><span className="text-slate-500 block mb-1">Account role</span><p className="font-bold text-brand-primary text-sm">{user.role}</p></div><div className="border-t border-slate-100 pt-4 space-y-3"><h3 className="text-sm font-bold text-slate-900">Google sign-in</h3>{user.googleLinked ? <p className="text-xs text-emerald-700">Google is connected to this account.</p> : import.meta.env.VITE_GOOGLE_CLIENT_ID ? <><p className="text-xs text-slate-500">Connect a Google account with the same email to sign in with Google next time.</p><GoogleSignIn text="continue_with" onCredential={async (credential) => { setGoogleMessage(''); try { await api.linkGoogle(credential); await refreshUser(); setGoogleMessage('Google account connected.'); } catch (error) { setGoogleMessage(error instanceof Error ? error.message : 'Could not connect Google.'); } }} /></> : <p className="text-xs text-slate-500">Google sign-in is not configured yet.</p>}{googleMessage && <p role="status" className="text-xs text-slate-700">{googleMessage}</p>}</div></section>
+    <section className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-4"><div><h2 className="text-base font-bold text-slate-900">Account access</h2><p className="text-xs text-slate-500 mt-1">Your account role is managed by Pick2Buy.</p></div><div className="text-xs"><span className="text-slate-500 block mb-1">Account role</span><p className="font-bold text-brand-primary text-sm">{user.role}</p></div><div className="border-t border-slate-100 pt-4 space-y-3"><h3 className="text-sm font-bold text-slate-900">Google sign-in</h3>{import.meta.env.VITE_GOOGLE_CLIENT_ID ? <>{user.googleLinked ? <p className="text-xs text-emerald-700">Google is connected. Refresh the photo if it no longer appears.</p> : <p className="text-xs text-slate-500">Connect a Google account with the same email to sign in with Google next time.</p>}<GoogleSignIn text="continue_with" onCredential={refreshGooglePhoto} /></> : <p className="text-xs text-slate-500">Google sign-in is not configured yet.</p>}{googleMessage && <p role="status" className="text-xs text-slate-700">{googleMessage}</p>}</div></section>
   </div>;
 }

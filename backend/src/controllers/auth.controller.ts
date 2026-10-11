@@ -27,6 +27,7 @@ const generateTokens = (user: { id: string; email: string; role: string; tokenVe
 };
 
 const googleClient = new OAuth2Client();
+const isUploadedAvatar = (avatarUrl: string | null) => Boolean(avatarUrl?.startsWith('data:image/'));
 
 async function verifyGoogleCredential(credential: unknown) {
   if (!config.googleClientId) {
@@ -90,6 +91,10 @@ export class AuthController {
           if (error?.code === 'P2002') return res.status(409).json({ success: false, message: 'An account already exists for this email. Please sign in and connect Google in your profile.' });
           throw error;
         }
+      } else if (identity.avatarUrl && !isUploadedAvatar(user.avatarUrl) && user.avatarUrl !== identity.avatarUrl) {
+        // Google profile-photo links can expire. Refresh only remotely hosted Google photos;
+        // a photo uploaded in Pick2Buy remains the user's chosen profile image.
+        user = await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: identity.avatarUrl } });
       }
       const { accessToken, refreshToken } = generateTokens(user);
       await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
@@ -114,7 +119,7 @@ export class AuthController {
       try {
         await prisma.user.update({ where: { id: user.id }, data: {
           googleSub: identity.sub, isEmailVerified: true,
-          avatarUrl: user.avatarUrl || identity.avatarUrl,
+          avatarUrl: isUploadedAvatar(user.avatarUrl) ? user.avatarUrl : identity.avatarUrl,
         } });
       } catch (error: any) {
         if (error?.code === 'P2002') return res.status(409).json({ success: false, message: 'That Google account is already connected to another user.' });
