@@ -83,6 +83,7 @@ export const Header: React.FC = () => {
   const [expandedMobileCategoryId, setExpandedMobileCategoryId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCategoryNavCondensed, setIsCategoryNavCondensed] = useState(false);
+  const isCategoryNavCondensedRef = useRef(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -94,7 +95,16 @@ export const Header: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const updateCategoryNav = () => setIsCategoryNavCondensed(window.scrollY > 96);
+    const updateCategoryNav = () => {
+      // Keep separate enter/exit points so the navigation height transition
+      // cannot push the document back across a single threshold and flicker.
+      const shouldCondense = isCategoryNavCondensedRef.current
+        ? window.scrollY > 64
+        : window.scrollY > 128;
+      if (shouldCondense === isCategoryNavCondensedRef.current) return;
+      isCategoryNavCondensedRef.current = shouldCondense;
+      setIsCategoryNavCondensed(shouldCondense);
+    };
     updateCategoryNav();
     window.addEventListener('scroll', updateCategoryNav, { passive: true });
     return () => window.removeEventListener('scroll', updateCategoryNav);
