@@ -65,13 +65,14 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .store-header nav { background: transparent; }
 .category-navigation { overflow: visible; transition: box-shadow .3s ease; }
 .category-navigation-rail { display: flex; align-items: stretch; gap: 2px; min-height: 92px; padding: 7px 18px; transition: min-height .32s cubic-bezier(.2,.8,.2,1), padding .32s cubic-bezier(.2,.8,.2,1); }
-.category-navigation-scroll { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; justify-content: space-between; gap: 0; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; }
-.category-navigation-item { position: relative; display: flex; flex: 0 0 116px; min-width: 0; flex-direction: column; align-items: center; gap: 4px; padding: 4px 6px; color: #17213a; font-size: 12px; font-weight: 500; line-height: 1.2; text-align: center; transition: color .2s, transform .2s; scroll-snap-align: start; }
+.category-navigation-scroll { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; justify-content: flex-start; gap: 0; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; }
+.category-navigation-entry { flex: 0 0 88px; min-width: 0; }
+.category-navigation-item { position: relative; display: flex; flex: 0 0 88px; min-width: 0; flex-direction: column; align-items: center; gap: 4px; padding: 4px; color: #17213a; font-size: 11px; font-weight: 500; line-height: 1.2; text-align: center; transition: color .2s, transform .2s; scroll-snap-align: start; }
 .category-navigation-item:hover { color: var(--navy); transform: translateY(-1px); }
 .category-navigation-icon { display: grid; width: 36px; height: 40px; place-items: center; overflow: hidden; border-radius: 0; background: transparent !important; box-shadow: none; transform: scale(1); transform-origin: center; transition: width .3s ease, height .3s ease, opacity .18s ease, transform .3s ease, margin .3s ease; }
 .category-navigation-icon svg { width: 31px; height: 31px; }
 .category-navigation-icon img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
-.category-navigation-item > span:last-child { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.category-navigation-item > span:last-child { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .category-navigation-arrow { display: grid; width: 34px; min-width: 34px; place-items: center; align-self: center; color: #27415f; transition: color .2s, background .2s; }
 .category-navigation-arrow:hover:not(:disabled) { color: var(--navy); background: #eef3fb; }
 .category-navigation-arrow:disabled { color: #cad4e2; cursor: default; }

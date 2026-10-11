@@ -406,9 +406,9 @@ export const Header: React.FC = () => {
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div ref={categoryStripRef} className={`category-strip-scroll category-navigation-scroll ${isCategoryNavCondensed ? 'category-navigation-scroll--compact' : ''}`}>
-              <Link to="/shop?sort=bestseller" className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'} aria-label="Popular products">
+              <Link to="/shop?sort=bestseller" className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'} aria-label="Popular products" title="Popular">
                 <span className="category-navigation-icon" style={{ color: '#8b6b00' }}><Sparkles className="h-6 w-6" /></span>
-                <span>{isCategoryNavCondensed ? 'Popular' : 'For you'}</span>
+                <span>Popular</span>
               </Link>
               {categories.map((cat) => {
                 const visual = categoryIcons[cat.slug] || fallbackCategoryIcon;
@@ -418,6 +418,7 @@ export const Header: React.FC = () => {
                     to={`/category/${cat.slug}`}
                     onClick={() => setOpenCategoryId(null)}
                     aria-current={pathname === `/category/${cat.slug}` ? 'page' : undefined}
+                    title={cat.name}
                     className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'}
                   >
                     <span className="category-navigation-icon" style={{ color: visual.ink }}>
