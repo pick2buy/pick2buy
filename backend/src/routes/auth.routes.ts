@@ -19,6 +19,9 @@ router.post('/resend-code', otpLimiter, AuthController.resendCode);
 router.post('/google', googleAuthLimiter, AuthController.google);
 router.post('/google/link', googleAuthLimiter, requireAuth, AuthController.linkGoogle);
 router.get('/me', requireAuth, AuthController.me);
+router.patch('/me', requireAuth, AuthController.updateProfile);
+router.post('/change-email', recoveryRequestLimiter, requireAuth, AuthController.requestEmailChange);
+router.post('/change-email/verify', recoveryVerifyLimiter, requireAuth, AuthController.confirmEmailChange);
 router.post('/forgot-password', recoveryRequestLimiter, AuthController.forgotPassword);
 router.post('/reset-password', recoveryVerifyLimiter, AuthController.resetPassword);
 

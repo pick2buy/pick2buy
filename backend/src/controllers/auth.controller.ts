@@ -232,6 +232,10 @@ export class AuthController {
   public static async resendCode(req: Request, res: Response, next: NextFunction) {
     try {
       const { challengeId } = z.object({ challengeId: z.string().uuid() }).parse(req.body);
+      const challenge = await prisma.authChallenge.findUnique({ where: { id: challengeId }, select: { purpose: true, userId: true } });
+      if (challenge?.purpose === 'EMAIL_CHANGE' && challenge.userId !== req.user?.id) {
+        return res.status(403).json({ success: false, message: 'Sign in to resend this code.' });
+      }
       const pending = await resendAuthChallenge(challengeId);
       res.json({ success: true, message: 'A new verification code was sent', data: pending });
     } catch (error) { next(error); }
@@ -281,6 +285,87 @@ export class AuthController {
         },
       });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = z.object({
+        name: z.string().trim().min(2).max(80).optional(),
+        phone: z.union([z.string().regex(/^[6-9]\d{9}$/), z.literal('')]).optional(),
+        avatarUrl: z.string().max(280_000).nullable().optional(),
+      }).strict().parse(req.body);
+      if (!Object.keys(data).length) {
+        return res.status(400).json({ success: false, message: 'No profile changes were provided.' });
+      }
+      if (typeof data.avatarUrl === 'string') {
+        const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(data.avatarUrl);
+        if (!match) return res.status(400).json({ success: false, message: 'Please choose a PNG, JPEG, or WebP photo.' });
+        const bytes = Buffer.from(match[2], 'base64');
+        const isPng = match[1] === 'png' && bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+        const isJpeg = match[1] === 'jpeg' && bytes.subarray(0, 3).equals(Buffer.from('ffd8ff', 'hex'));
+        const isWebp = match[1] === 'webp' && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
+        if (bytes.length > 200_000 || !(isPng || isJpeg || isWebp)) {
+          return res.status(400).json({ success: false, message: 'Photo must be a valid image under 200 KB.' });
+        }
+      }
+      const updated = await prisma.user.update({
+        where: { id: req.user!.id },
+        data: {
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.phone !== undefined && { phone: data.phone || null }),
+          ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+        },
+      });
+      res.json({ success: true, data: { user: {
+        id: updated.id, name: updated.name, email: updated.email, phone: updated.phone,
+        role: updated.role, avatarUrl: updated.avatarUrl, isEmailVerified: updated.isEmailVerified,
+        googleLinked: Boolean(updated.googleSub), createdAt: updated.createdAt.toISOString(),
+      } } });
+    } catch (error) { next(error); }
+  }
+
+  public static async requestEmailChange(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = z.object({ email: z.string().trim().email() }).strict().parse(req.body);
+      const newEmail = email.toLowerCase();
+      const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } });
+      if (newEmail === user.email) return res.status(400).json({ success: false, message: 'This is already your account email.' });
+      if (await prisma.user.findUnique({ where: { email: newEmail }, select: { id: true } })) {
+        return res.status(409).json({ success: false, message: 'This email is already linked to an account.' });
+      }
+      const pending = await startAuthChallenge(user, 'EMAIL_CHANGE', newEmail);
+      res.json({ success: true, data: pending });
+    } catch (error) { next(error); }
+  }
+
+  public static async confirmEmailChange(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { challengeId, code } = z.object({ challengeId: z.string().uuid(), code: z.string().regex(/^\d{6}$/) }).strict().parse(req.body);
+      const challenge = await prisma.authChallenge.findUnique({ where: { id: challengeId } });
+      if (!challenge || challenge.userId !== req.user!.id || challenge.purpose !== 'EMAIL_CHANGE' || !challenge.pendingEmail) {
+        return res.status(400).json({ success: false, message: 'Email change request expired. Please start again.' });
+      }
+      const { pendingEmail } = await consumeAuthChallenge(challengeId, code, ['EMAIL_CHANGE']);
+      const newEmail = pendingEmail!;
+      if (await prisma.user.findUnique({ where: { email: newEmail }, select: { id: true } })) {
+        return res.status(409).json({ success: false, message: 'This email is already linked to an account.' });
+      }
+      const user = await prisma.user.update({ where: { id: req.user!.id }, data: { email: newEmail, isEmailVerified: true } });
+      void EmailService.sendMail({
+        to: req.user!.email,
+        subject: 'Your Pick2Buy email address was changed',
+        text: 'The email address on your Pick2Buy account was changed. If this was not you, contact Pick2Buy support immediately.',
+        html: '<p>The email address on your Pick2Buy account was changed. If this was not you, contact Pick2Buy support immediately.</p>',
+      }).catch(() => console.error('[Auth] Email change notice could not be sent'));
+      res.json({ success: true, data: { user: {
+        id: user.id, name: user.name, email: user.email, phone: user.phone,
+        role: user.role, avatarUrl: user.avatarUrl, isEmailVerified: user.isEmailVerified,
+        googleLinked: Boolean(user.googleSub), createdAt: user.createdAt.toISOString(),
+      } } });
+    } catch (error) {
+      if ((error as any)?.code === 'P2002') return res.status(409).json({ success: false, message: 'This email is already linked to an account.' });
       next(error);
     }
   }

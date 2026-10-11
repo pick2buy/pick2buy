@@ -1,5 +1,6 @@
 import { useModal } from '../../hooks/useModal';
 import React, { useState, useEffect, useRef } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -12,16 +13,56 @@ import {
   ChevronDown, 
   ChevronLeft,
   ChevronRight,
-  Truck, 
-  ShieldCheck, 
   Zap, 
   LogOut,
-  LayoutDashboard
+  LayoutDashboard,
+  Baby,
+  BookOpen,
+  CarFront,
+  Dumbbell,
+  Flower2,
+  Gem,
+  Home,
+  Laptop,
+  Layers3,
+  Music2,
+  NotebookPen,
+  PawPrint,
+  PersonStanding,
+  Shapes,
+  Shirt,
+  ShoppingBasket,
+  Sparkles,
+  Watch
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCartStore } from '../../store/useCartStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { api } from '../../services/api';
+
+type CategoryIcon = { icon: LucideIcon; tint: string; ink: string };
+
+const categoryIcons: Record<string, CategoryIcon> = {
+  'kurti-saree-and-lehenga': { icon: Layers3, tint: '#f7e9e5', ink: '#a34d51' },
+  'women-western': { icon: Shirt, tint: '#eee9f8', ink: '#6a55a0' },
+  lingerie: { icon: Flower2, tint: '#f8eaf0', ink: '#a34b76' },
+  men: { icon: PersonStanding, tint: '#e8eef8', ink: '#365a9a' },
+  'kids-and-toys': { icon: Baby, tint: '#fff0db', ink: '#a66a1f' },
+  'home-and-kitchen': { icon: Home, tint: '#e9f4ee', ink: '#3b7658' },
+  'beauty-and-health': { icon: Sparkles, tint: '#f7e9ed', ink: '#a04f6e' },
+  'jewellery-and-accessories': { icon: Gem, tint: '#f5ecde', ink: '#99703c' },
+  'bags-and-footwear': { icon: ShoppingBag, tint: '#efeae5', ink: '#806044' },
+  electronics: { icon: Laptop, tint: '#e7eff8', ink: '#356d9c' },
+  watches: { icon: Watch, tint: '#edeef1', ink: '#4f6078' },
+  'sports-and-fitness': { icon: Dumbbell, tint: '#e8f3eb', ink: '#387a5e' },
+  'car-and-motorbike': { icon: CarFront, tint: '#e9edf3', ink: '#506486' },
+  'office-supplies-and-stationery': { icon: NotebookPen, tint: '#f3edf8', ink: '#725394' },
+  grocery: { icon: ShoppingBasket, tint: '#edf4e6', ink: '#5e7e35' },
+  books: { icon: BookOpen, tint: '#f4eee6', ink: '#8d6543' },
+  'pet-supplies': { icon: PawPrint, tint: '#f7ede5', ink: '#a36a42' },
+  'musical-instruments': { icon: Music2, tint: '#e9edf8', ink: '#5664a0' },
+};
+const fallbackCategoryIcon: CategoryIcon = { icon: Shapes, tint: '#eaf0f8', ink: '#345b91' };
 
 export const Header: React.FC = () => {
   const navigate = useNavigate();
@@ -40,7 +81,7 @@ export const Header: React.FC = () => {
   const [categoryMenuLeft, setCategoryMenuLeft] = useState(8);
   const [expandedMobileCategoryId, setExpandedMobileCategoryId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
+  const [isCategoryNavCondensed, setIsCategoryNavCondensed] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -49,6 +90,13 @@ export const Header: React.FC = () => {
     api.getCategories().then((res) => {
       setCategories(res.data || []);
     }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const updateCategoryNav = () => setIsCategoryNavCondensed(window.scrollY > 96);
+    updateCategoryNav();
+    window.addEventListener('scroll', updateCategoryNav, { passive: true });
+    return () => window.removeEventListener('scroll', updateCategoryNav);
   }, []);
 
   useEffect(() => {
@@ -234,8 +282,8 @@ export const Header: React.FC = () => {
                   aria-label="Account menu" aria-expanded={isUserMenuOpen} onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center gap-2 p-1.5 rounded-full hover:bg-slate-100 text-slate-700 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-brand-primary font-bold text-xs flex items-center justify-center border border-indigo-200">
-                    {user.name.charAt(0).toUpperCase()}
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-indigo-100 text-brand-primary font-bold text-xs flex items-center justify-center border border-indigo-200">
+                    {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
                   </div>
                   <span className="hidden xl:inline text-xs font-semibold text-slate-800">
                     {user.name.split(' ')[0]}
@@ -333,122 +381,68 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Desktop Category Bar / Mega Menu */}
-      <nav className="hidden lg:block border-t border-slate-100 bg-slate-50/70">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between text-xs font-semibold text-slate-700">
-          <div className="flex items-center gap-6 py-2.5">
-            <Link to="/shop" className="hover:text-brand-primary transition-colors">
-              All Products
-            </Link>
-
-            <div
-              className="relative py-1 group"
-              onMouseEnter={() => setIsMegaMenuOpen(true)}
-              onMouseLeave={() => setIsMegaMenuOpen(false)}
-            >
-              <button onClick={() => setIsMegaMenuOpen(!isMegaMenuOpen)} aria-expanded={isMegaMenuOpen} className="flex items-center gap-1 hover:text-brand-primary transition-colors">
-                Categories
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-
-              {/* Mega Menu Dropdown */}
-              {isMegaMenuOpen && (
-                <div className="absolute top-full left-0 w-[760px] max-h-[min(70vh,520px)] overflow-y-auto bg-white rounded-2xl shadow-elevated border border-slate-200 p-6 z-50 grid grid-cols-3 gap-3">
-                  {categories.map((cat) => (
-                    <Link
-                      key={cat.id}
-                      to={`/category/${cat.slug}`}
-                      onClick={() => setIsMegaMenuOpen(false)}
-                      className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group/item"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-brand-primary font-bold text-xs flex-shrink-0">
-                        {cat.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900 group-hover/item:text-brand-primary transition-colors">
-                          {cat.name}
-                        </p>
-                        <p className="text-[11px] text-slate-500 line-clamp-1">
-                          {cat.description || 'Explore top rated products'}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Link to="/shop?sort=newest" className="hover:text-brand-primary transition-colors">
-              New Arrivals
-            </Link>
-            <Link to="/shop?sort=bestseller" className="hover:text-brand-primary transition-colors">
-              Best Sellers
-            </Link>
-            <Link to="/shop?flashDeal=true" className="flex items-center gap-1 text-brand-accent font-bold hover:underline">
-              <Zap className="w-3.5 h-3.5 fill-brand-accent" />
-              Flash Deals
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1">
-              <Truck className="w-3.5 h-3.5 text-emerald-600" /> Express Dispatch
-            </span>
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" /> Support available
-            </span>
-          </div>
-        </div>
-      </nav>
-
       {!isAuthPage && categories.length > 0 && (
-        <nav ref={categoryNavRef} aria-label="Shop categories" onMouseLeave={() => setOpenCategoryId(null)} className="relative border-t border-slate-100 bg-white">
-          <div className="mx-auto flex max-w-7xl items-center gap-1 px-2 text-sm text-slate-800 sm:gap-2 sm:px-4">
+        <nav ref={categoryNavRef} aria-label="Shop categories" onMouseLeave={() => setOpenCategoryId(null)} className={`category-navigation relative border-t border-slate-200 bg-white transition-[height] duration-300 ${isCategoryNavCondensed ? 'category-navigation--compact' : ''}`}>
+          <div className="mx-auto max-w-7xl">
+            <div className={`category-navigation-rail ${isCategoryNavCondensed ? 'category-navigation-rail--compact' : ''}`}>
             <button
               type="button"
               onClick={() => scrollCategories(-1)}
               disabled={!categoryScroll.left}
               aria-label="Scroll categories left"
-              className="flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-default disabled:text-slate-300 disabled:hover:bg-transparent sm:w-9"
+              className="category-navigation-arrow category-navigation-arrow--left"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <div ref={categoryStripRef} className="category-strip-scroll flex min-w-0 flex-1 items-center gap-5 overflow-x-auto text-sm sm:gap-6">
-              <Link to="/shop?sort=bestseller" className="shrink-0 whitespace-nowrap py-3 font-medium hover:text-brand-primary">
-                Popular
-              </Link>
-              {categories.map((cat) => (
-                <div key={cat.id} className="flex shrink-0 items-center">
+            <div ref={categoryStripRef} className={`category-strip-scroll category-navigation-scroll ${isCategoryNavCondensed ? 'category-navigation-scroll--compact' : ''}`}>
+              {isCategoryNavCondensed ? (
+                <Link to="/shop?sort=bestseller" className="category-navigation-label">Popular</Link>
+              ) : (
+                <Link to="/shop?sort=bestseller" className="category-navigation-item" aria-label="Popular products" title="Popular products" data-category-tooltip="Popular products">
+                  <span className="category-navigation-icon" style={{ backgroundColor: '#fff5c2', color: '#8b6b00' }}><Sparkles className="h-6 w-6" /></span>
+                  <span>For you</span>
+                </Link>
+              )}
+              {categories.map((cat) => {
+                const visual = categoryIcons[cat.slug] || fallbackCategoryIcon;
+                const Icon = visual.icon;
+                return <div key={cat.id} className={`category-navigation-entry ${isCategoryNavCondensed ? 'category-navigation-entry--compact' : ''}`}>
                   <Link
                     to={`/category/${cat.slug}`}
                     onClick={() => setOpenCategoryId(null)}
                     aria-current={pathname === `/category/${cat.slug}` ? 'page' : undefined}
-                    className={`whitespace-nowrap border-b-2 py-3 transition-colors hover:text-brand-primary ${pathname === `/category/${cat.slug}` ? 'border-brand-primary text-brand-primary' : 'border-transparent'}`}
+                    className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'}
+                    title={!isCategoryNavCondensed ? cat.name : undefined}
+                    data-category-tooltip={!isCategoryNavCondensed ? cat.name : undefined}
                   >
-                    {cat.name}
+                    {!isCategoryNavCondensed && <span className="category-navigation-icon" style={{ backgroundColor: visual.tint, color: visual.ink }}>
+                      {cat.imageUrl ? <img src={cat.imageUrl} alt="" /> : <Icon className="h-6 w-6" strokeWidth={1.8} />}
+                    </span>}
+                    <span>{cat.name}</span>
                   </Link>
-                  {cat.children?.length > 0 && <button
+                  {isCategoryNavCondensed && cat.children?.length > 0 && <button
                     type="button"
                     aria-label={`Show ${cat.name} subcategories`}
                     aria-expanded={openCategoryId === cat.id}
                     aria-controls={`category-submenu-${cat.id}`}
                     onClick={event => toggleCategoryDropdown(cat.id, event.currentTarget)}
-                    className="ml-0.5 flex h-8 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-brand-primary"
+                    className="category-navigation-submenu"
                   ><ChevronDown className={`h-3.5 w-3.5 transition-transform ${openCategoryId === cat.id ? 'rotate-180' : ''}`} /></button>}
-                </div>
-              ))}
+                </div>;
+              })}
             </div>
             <button
               type="button"
               onClick={() => scrollCategories(1)}
               disabled={!categoryScroll.right}
               aria-label="Scroll categories right"
-              className="flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-default disabled:text-slate-300 disabled:hover:bg-transparent sm:w-9"
+              className="category-navigation-arrow category-navigation-arrow--right"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
-          {categories.map(cat => cat.children?.length > 0 && openCategoryId === cat.id && <div key={cat.id} id={`category-submenu-${cat.id}`} style={{ left: categoryMenuLeft }} className="absolute top-full z-50 w-[min(20rem,calc(100vw-1rem))] rounded-b-xl border border-slate-200 bg-white p-3 shadow-xl">
+          </div>
+          {isCategoryNavCondensed && categories.map(cat => cat.children?.length > 0 && openCategoryId === cat.id && <div key={cat.id} id={`category-submenu-${cat.id}`} style={{ left: categoryMenuLeft }} className="absolute top-full z-50 w-[min(20rem,calc(100vw-1rem))] rounded-b-xl border border-slate-200 bg-white p-3 shadow-xl">
             <p className="px-3 pb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{cat.name}</p>
             <div className="max-h-72 overflow-y-auto">{cat.children.map((child: any) => <Link key={child.id} to={`/category/${child.slug}`} onClick={() => setOpenCategoryId(null)} className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary">{child.name}</Link>)}</div>
             <Link to={`/category/${cat.slug}`} onClick={() => setOpenCategoryId(null)} className="mt-2 block border-t border-slate-100 px-3 pt-3 text-xs font-bold text-brand-primary hover:underline">View all {cat.name}</Link>

@@ -21,29 +21,34 @@ const unavailable = (missingConfiguration = false) => Object.assign(
   { statusCode: 503 }
 );
 
-export async function startAuthChallenge(user: { id: string; email: string }, purpose: 'LOGIN' | 'SIGNUP' | 'RESET') {
+export async function startAuthChallenge(user: { id: string; email: string }, purpose: 'LOGIN' | 'SIGNUP' | 'RESET' | 'EMAIL_CHANGE', pendingEmail?: string) {
   if (!EmailService.isConfigured) throw unavailable(true);
+  if (purpose === 'EMAIL_CHANGE' && !pendingEmail) throw new Error('A new email address is required.');
+  const destination = purpose === 'EMAIL_CHANGE' ? pendingEmail! : user.email;
   const code = makeCode();
   const now = new Date();
   const existing = await prisma.authChallenge.findUnique({ where: { userId: user.id } });
   // Keep a live challenge stable so a repeated password submission cannot bypass resend cooldown.
   if (existing && existing.purpose === purpose && existing.expiresAt > now && existing.lastSentAt.getTime() + resendDelayMs > now.getTime()) {
-    return { challengeId: existing.id, email: user.email, expiresIn: Math.max(0, Math.ceil((existing.expiresAt.getTime() - now.getTime()) / 1000)), resendAfter: Math.ceil((existing.lastSentAt.getTime() + resendDelayMs - now.getTime()) / 1000) };
+    if (purpose === 'EMAIL_CHANGE' && existing.pendingEmail !== pendingEmail) {
+      throw Object.assign(new Error('Please wait before requesting a code for another email address.'), { statusCode: 429 });
+    }
+    return { challengeId: existing.id, email: destination, expiresIn: Math.max(0, Math.ceil((existing.expiresAt.getTime() - now.getTime()) / 1000)), resendAfter: Math.ceil((existing.lastSentAt.getTime() + resendDelayMs - now.getTime()) / 1000) };
   }
   const id = existing?.id ?? randomUUID();
   const challenge = await prisma.authChallenge.upsert({
     where: { userId: user.id },
-    create: { id, userId: user.id, purpose, codeHash: digest(id, code), expiresAt: new Date(now.getTime() + lifetimeMs), lastSentAt: now },
-    update: { purpose, codeHash: digest(id, code), expiresAt: new Date(now.getTime() + lifetimeMs), lastSentAt: now, attempts: 0, resendCount: 0 },
+    create: { id, userId: user.id, purpose, pendingEmail: pendingEmail || null, codeHash: digest(id, code), expiresAt: new Date(now.getTime() + lifetimeMs), lastSentAt: now },
+    update: { purpose, pendingEmail: pendingEmail || null, codeHash: digest(id, code), expiresAt: new Date(now.getTime() + lifetimeMs), lastSentAt: now, attempts: 0, resendCount: 0 },
   });
   try {
-    await EmailService.sendVerificationCode(user.email, code, purpose);
+    await EmailService.sendVerificationCode(destination, code, purpose);
   } catch (error) {
     await prisma.authChallenge.deleteMany({ where: { id: challenge.id, codeHash: challenge.codeHash } });
     if ((error as any)?.statusCode === 503) throw error;
     throw unavailable();
   }
-  return { challengeId: challenge.id, email: user.email, expiresIn: 600, resendAfter: 60 };
+  return { challengeId: challenge.id, email: destination, expiresIn: 600, resendAfter: 60 };
 }
 
 export async function resendAuthChallenge(challengeId: string) {
@@ -66,13 +71,13 @@ export async function resendAuthChallenge(challengeId: string) {
   });
   if (!changed.count) throw Object.assign(new Error('Please wait before requesting another code.'), { statusCode: 429 });
   try {
-    await EmailService.sendVerificationCode(challenge.user.email, code, challenge.purpose as 'LOGIN' | 'SIGNUP' | 'RESET');
+    await EmailService.sendVerificationCode(challenge.purpose === 'EMAIL_CHANGE' ? challenge.pendingEmail! : challenge.user.email, code, challenge.purpose as 'LOGIN' | 'SIGNUP' | 'RESET' | 'EMAIL_CHANGE');
   } catch (error) {
     await prisma.authChallenge.deleteMany({ where: { id: challenge.id, codeHash } });
     if ((error as any)?.statusCode === 503) throw error;
     throw unavailable();
   }
-  return { challengeId: challenge.id, email: challenge.user.email, expiresIn: 600, resendAfter: 60 };
+  return { challengeId: challenge.id, email: challenge.purpose === 'EMAIL_CHANGE' ? challenge.pendingEmail! : challenge.user.email, expiresIn: 600, resendAfter: 60 };
 }
 
 export async function consumeAuthChallenge(challengeId: string, code: string, allowedPurposes: readonly string[] = ['LOGIN', 'SIGNUP']) {
@@ -94,5 +99,5 @@ export async function consumeAuthChallenge(challengeId: string, code: string, al
     where: { id: challenge.id, codeHash: challenge.codeHash, purpose: challenge.purpose, expiresAt: { gt: now }, attempts: { lt: maxAttempts } },
   });
   if (!consumed.count) throw Object.assign(new Error('Verification expired. Please start again.'), { statusCode: 400 });
-  return { user: challenge.user, purpose: challenge.purpose };
+  return { user: challenge.user, purpose: challenge.purpose, pendingEmail: challenge.pendingEmail };
 }

@@ -48,6 +48,7 @@ model AuthChallenge {
   userId      String   @unique
   codeHash    String
   purpose     String
+  pendingEmail String?
   expiresAt   DateTime
   lastSentAt  DateTime
   attempts    Int      @default(0)

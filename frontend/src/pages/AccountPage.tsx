@@ -15,12 +15,11 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
 import { formatINR } from '../lib/utils';
-import { GoogleSignIn } from '../components/common/GoogleSignIn';
+import { ProfileSection } from '../components/account/ProfileSection';
 
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout, fetchMe, hasCheckedAuth } = useAuthStore();
-  const [googleMessage, setGoogleMessage] = useState('');
 
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'support'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
@@ -58,8 +57,8 @@ export const AccountPage: React.FC = () => {
       {/* Account Hero Banner */}
       <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-brand-primary font-black text-2xl flex items-center justify-center border border-indigo-100">
-            {user.name.charAt(0).toUpperCase()}
+          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-indigo-50 text-brand-primary font-black text-2xl flex items-center justify-center border border-indigo-100">
+            {user.avatarUrl ? <img src={user.avatarUrl} alt="Your profile" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -70,7 +69,7 @@ export const AccountPage: React.FC = () => {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500">{user.email} • {user.phone || '+91 Not provided'}</p>
+            <p className="text-xs text-slate-500">{user.email} • {user.phone ? `+91 ${user.phone}` : 'Phone not provided'}</p>
           </div>
         </div>
 
@@ -211,39 +210,7 @@ export const AccountPage: React.FC = () => {
 
           {/* PROFILE TAB */}
           {activeTab === 'profile' && (
-            <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-6">
-              <h2 className="text-base font-bold text-slate-900">Personal Information</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label className="text-slate-500 block mb-1">Full Name</label>
-                  <p className="font-bold text-slate-900 text-sm">{user.name}</p>
-                </div>
-                <div>
-                  <label className="text-slate-500 block mb-1">Email Address</label>
-                  <p className="font-bold text-slate-900 text-sm">{user.email}</p>
-                </div>
-                <div>
-                  <label className="text-slate-500 block mb-1">Mobile Phone</label>
-                  <p className="font-bold text-slate-900 text-sm">{user.phone || '+91 Not provided'}</p>
-                </div>
-                <div>
-                  <label className="text-slate-500 block mb-1">Account Role</label>
-                  <p className="font-bold text-brand-primary text-sm">{user.role}</p>
-                </div>
-              </div>
-              <div className="border-t border-slate-100 pt-5 space-y-3">
-                <h3 className="text-sm font-bold text-slate-900">Google sign-in</h3>
-                {user.googleLinked ? <p className="text-xs text-emerald-700">Google is connected to this account.</p> : import.meta.env.VITE_GOOGLE_CLIENT_ID ? <>
-                  <p className="text-xs text-slate-500">Connect the Google account with the same email to sign in with Google next time.</p>
-                  <GoogleSignIn text="continue_with" onCredential={async (credential) => {
-                    setGoogleMessage('');
-                    try { await api.linkGoogle(credential); await fetchMe(); setGoogleMessage('Google account connected.'); }
-                    catch (err: any) { setGoogleMessage(err?.message || 'Could not connect Google.'); }
-                  }} />
-                </> : <p className="text-xs text-slate-500">Google sign-in is not configured yet.</p>}
-                {googleMessage && <p role="status" className="text-xs text-slate-700">{googleMessage}</p>}
-              </div>
-            </div>
+            <ProfileSection user={user} refreshUser={fetchMe} />
           )}
 
           {/* ADDRESSES TAB */}

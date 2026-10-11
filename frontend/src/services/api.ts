@@ -80,6 +80,18 @@ class ApiClient {
     return this.request('/auth/me');
   }
 
+  public updateProfile(payload: { name?: string; phone?: string; avatarUrl?: string | null }) {
+    return this.request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) });
+  }
+
+  public requestEmailChange(email: string) {
+    return this.request('/auth/change-email', { method: 'POST', body: JSON.stringify({ email }) });
+  }
+
+  public confirmEmailChange(challengeId: string, code: string) {
+    return this.request('/auth/change-email/verify', { method: 'POST', body: JSON.stringify({ challengeId, code }) });
+  }
+
   // Products
   public getProducts(params?: Record<string, any>) {
     const query = new URLSearchParams();

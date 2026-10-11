@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Baby, BookOpen, CarFront, CreditCard, Dumbbell, Flower2, Gem, Home, Laptop, Layers3, Music2, NotebookPen, PawPrint, PersonStanding, Shapes, ShieldCheck, Shirt, ShoppingBag, ShoppingBasket, Sparkles, Truck, Watch } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Baby, BookOpen, CarFront, CreditCard, Dumbbell, Flower2, Gem, Home, Laptop, Layers3, Music2, NotebookPen, PawPrint, PersonStanding, Shapes, ShieldCheck, Shirt, ShoppingBag, ShoppingBasket, Sparkles, Truck, Watch } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { HeroBanner } from '../components/storefront/HeroBanner';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
@@ -44,6 +44,8 @@ export const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const categoryRailRef = useRef<HTMLDivElement>(null);
+  const [categoryScroll, setCategoryScroll] = useState({ left: false, right: false });
   useEffect(() => {
     let active = true;
     setLoading(true); setError(false);
@@ -53,6 +55,23 @@ export const HomePage = () => {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [attempt]);
+  useEffect(() => {
+    const rail = categoryRailRef.current;
+    if (!rail) return;
+    const update = () => setCategoryScroll({
+      left: rail.scrollLeft > 2,
+      right: rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2,
+    });
+    const observer = new ResizeObserver(update);
+    observer.observe(rail);
+    rail.addEventListener('scroll', update, { passive: true });
+    const frame = requestAnimationFrame(update);
+    return () => { observer.disconnect(); rail.removeEventListener('scroll', update); cancelAnimationFrame(frame); };
+  }, [loading, categories.length, error]);
+  const scrollCategories = (direction: -1 | 1) => {
+    const rail = categoryRailRef.current;
+    if (rail) rail.scrollBy({ left: direction * rail.clientWidth * 0.85, behavior: 'smooth' });
+  };
   const sections = [
     { title: 'Good finds. ', accent: 'Great favourites.', label: 'THE TRENDING EDIT', link: '/shop?trending=true', products: products.filter(p => p.isTrending).slice(0, 4) },
     { title: 'More to love. ', accent: 'Less to spend.', label: 'PICKS WITH A LITTLE EXTRA VALUE', link: '/shop?flashDeal=true', products: products.filter(p => p.isFlashDeal).slice(0, 4) },
@@ -65,9 +84,9 @@ export const HomePage = () => {
       {[[Truck, 'Delivery across India'], [CreditCard, 'Cash on Delivery'], [ShieldCheck, 'Secure checkout']].map(([Icon, text]: any) => <div key={text}><Icon size={20} /><span>{text}</span></div>)}
     </div>
     <section className="page-width home-section" id="collections">
-      <div className="section-heading"><div><span className="eyebrow">A WORLD OF EVERYDAY POSSIBILITIES</span><h2>Find your <em>kind of thing.</em></h2></div><Link className="text-link" to="/shop">Shop everything <ArrowRight size={16} /></Link></div>
+      <div className="section-heading"><div><span className="eyebrow">A WORLD OF EVERYDAY POSSIBILITIES</span><h2>Find your <em>kind of thing.</em></h2></div><div className="category-heading-actions"><Link className="text-link" to="/shop">Shop everything <ArrowRight size={16} /></Link><div className="category-scroll-buttons"><button type="button" aria-label="Scroll categories left" onClick={() => scrollCategories(-1)} disabled={loading || error || !categoryScroll.left}><ArrowLeft size={18} /></button><button type="button" aria-label="Scroll categories right" onClick={() => scrollCategories(1)} disabled={loading || error || !categoryScroll.right}><ArrowRight size={18} /></button></div></div></div>
       {error ? <div role="alert" className="catalog-message"><h3>We couldn't load the collection.</h3><p>Check your connection and try again.</p><button className="primary-pill" onClick={() => setAttempt(n => n + 1)}>Try again</button></div> :
-        <div className="category-tiles">
+        <div className="category-tiles" ref={categoryRailRef} role="region" aria-label="Shop categories" tabIndex={0}>
           {loading ? Array.from({ length: 6 }, (_, i) => <div key={i} className="category-tile-skeleton animate-pulse" />)
             : categories.map((cat) => {
               const visual = categoryVisuals[cat.slug] || fallbackVisual;

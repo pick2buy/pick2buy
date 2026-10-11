@@ -29,8 +29,8 @@ export class EmailService {
     return true;
   }
 
-  public static async sendVerificationCode(to: string, code: string, purpose: 'LOGIN' | 'SIGNUP' | 'RESET') {
-    const action = purpose === 'LOGIN' ? 'sign in' : purpose === 'SIGNUP' ? 'create your account' : 'reset your password';
+  public static async sendVerificationCode(to: string, code: string, purpose: 'LOGIN' | 'SIGNUP' | 'RESET' | 'EMAIL_CHANGE') {
+    const action = purpose === 'LOGIN' ? 'sign in' : purpose === 'SIGNUP' ? 'create your account' : purpose === 'EMAIL_CHANGE' ? 'change your email address' : 'reset your password';
     return this.sendMail({
       to,
       subject: 'Your Pick2Buy verification code',

@@ -10,7 +10,7 @@ const { authenticateJwt } = require('../dist/middlewares/auth');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-async function call(action, body) {
+async function call(action, body, user) {
   let status = 200;
   let result;
   let failure;
@@ -18,7 +18,7 @@ async function call(action, body) {
     status(value) { status = value; return this; },
     json(value) { result = value; return this; },
   };
-  await action({ body }, response, (error) => { failure = error; });
+  await action({ body, user }, response, (error) => { failure = error; });
   if (failure) throw failure;
   return { status, result };
 }
@@ -58,6 +58,47 @@ test('email code is required, expires, resends, and can only be used once', asyn
     await assert.rejects(consumeAuthChallenge(expiring.challengeId, sent[2]), /expired/);
   } finally {
     EmailService.sendVerificationCode = original;
+    config.email.password = originalPassword;
+    await prisma.user.delete({ where: { id: user.id } });
+    await prisma.$disconnect();
+  }
+});
+
+test('profile edits keep the role fixed and email changes require a code sent to the new address', async () => {
+  const originalSend = EmailService.sendVerificationCode;
+  const originalMail = EmailService.sendMail;
+  const originalPassword = config.email.password;
+  const sent = [];
+  config.email.password = 'test-only-mail-password';
+  EmailService.sendVerificationCode = async (to, code, purpose) => { sent.push({ to, code, purpose }); return true; };
+  EmailService.sendMail = async () => true;
+  const user = await prisma.user.create({ data: {
+    email: `profile-old-${randomUUID()}@example.com`, name: 'Original Name', passwordHash: 'unused', role: 'CUSTOMER', isEmailVerified: true,
+  } });
+  const newEmail = `profile-new-${randomUUID()}@example.com`;
+  try {
+    await assert.rejects(call(AuthController.updateProfile, { name: 'Changed Name', role: 'ADMIN' }, user), (error) => error?.issues?.some((issue) => issue.code === 'unrecognized_keys'));
+    const avatarUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+nmN8AAAAASUVORK5CYII=';
+    const updated = await call(AuthController.updateProfile, { name: 'Changed Name', phone: '9876543210', avatarUrl }, user);
+    assert.equal(updated.result.data.user.name, 'Changed Name');
+    assert.equal(updated.result.data.user.role, 'CUSTOMER');
+    assert.equal(updated.result.data.user.phone, '9876543210');
+    assert.equal(updated.result.data.user.avatarUrl, avatarUrl);
+
+    const pending = await call(AuthController.requestEmailChange, { email: newEmail }, user);
+    assert.equal(pending.result.data.email, newEmail);
+    assert.equal(sent[0].to, newEmail);
+    assert.equal(sent[0].purpose, 'EMAIL_CHANGE');
+    assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).email, user.email);
+    await assert.rejects(call(AuthController.confirmEmailChange, { challengeId: pending.result.data.challengeId, code: '999999' === sent[0].code ? '000000' : '999999' }, user), /Incorrect/);
+    const confirmed = await call(AuthController.confirmEmailChange, { challengeId: pending.result.data.challengeId, code: sent[0].code }, user);
+    assert.equal(confirmed.result.data.user.email, newEmail);
+    assert.equal(confirmed.result.data.user.role, 'CUSTOMER');
+    const replay = await call(AuthController.confirmEmailChange, { challengeId: pending.result.data.challengeId, code: sent[0].code }, user);
+    assert.equal(replay.status, 400);
+  } finally {
+    EmailService.sendVerificationCode = originalSend;
+    EmailService.sendMail = originalMail;
     config.email.password = originalPassword;
     await prisma.user.delete({ where: { id: user.id } });
     await prisma.$disconnect();
