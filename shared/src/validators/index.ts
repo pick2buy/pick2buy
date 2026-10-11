@@ -2,9 +2,26 @@ import { z } from 'zod';
 import { ROLES, ORDER_STATUSES, PAYMENT_METHODS, PRODUCT_STATUSES, LEAD_STATUSES, TICKET_PRIORITIES, TICKET_STATUSES, COUPON_TYPES } from '../constants';
 
 // Authentication Schemas
+const disposableEmailDomains = new Set([
+  '10minutemail.com', 'emailondeck.com', 'fakeinbox.com', 'fakemail.net',
+  'guerrillamail.com', 'guerrillamailblock.com', 'maildrop.cc', 'mailinator.com',
+  'mailnesia.com', 'minutemail.com', 'moakt.com', 'temp-mail.org',
+  'tempail.com', 'tempmail.com', 'tempmailo.com', 'throwawaymail.com',
+  'yopmail.com', 'yopmail.fr', 'yopmail.net',
+]);
+
+const registrationEmailSchema = z.string()
+  .email('Please enter a valid email address')
+  .refine((email) => !disposableEmailDomains.has(email.trim().toLowerCase().split('@')[1]), {
+    message: 'Please use a permanent email address. Temporary email addresses are not accepted.',
+  });
+
 export const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
+  name: z.string().trim().regex(
+    /^(?=(?:.*\p{L}){2,})\p{L}(?:[\p{L}\s'-]*\p{L})?$/u,
+    'Enter a valid full name using at least two letters',
+  ),
+  email: registrationEmailSchema,
   phone: z.string().regex(/^[6-9]\d{9}$/, 'Please enter a valid 10-digit Indian mobile number').optional().or(z.literal('')),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });

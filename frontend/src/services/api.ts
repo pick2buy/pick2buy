@@ -30,7 +30,9 @@ class ApiClient {
 
     if (!response.ok) {
       const errorMsg = data.message || data.errors?.[0] || 'An error occurred';
-      throw new Error(errorMsg);
+      const error = new Error(errorMsg) as Error & { errors?: string[] };
+      error.errors = Array.isArray(data.errors) ? data.errors : [];
+      throw error;
     }
 
     return data;
