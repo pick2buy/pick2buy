@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Edit3, Plus, Trash2, X } from 'lucide-react';
+import { Edit3, Eye, EyeOff, Plus, Trash2, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useModal } from '../../hooks/useModal';
@@ -7,9 +7,9 @@ import { useModal } from '../../hooks/useModal';
 type Tab = 'categories' | 'subcategories' | 'brands';
 type CatalogForm = {
   name: string; slug: string; description: string; imageUrl: string; bannerUrl: string;
-  parentId: string; featured: boolean; displayOrder: number; logoUrl: string;
+  parentId: string; featured: boolean; isVisible: boolean; displayOrder: number; logoUrl: string;
 };
-const emptyForm = (): CatalogForm => ({ name: '', slug: '', description: '', imageUrl: '', bannerUrl: '', parentId: '', featured: false, displayOrder: 0, logoUrl: '' });
+const emptyForm = (): CatalogForm => ({ name: '', slug: '', description: '', imageUrl: '', bannerUrl: '', parentId: '', featured: false, isVisible: true, displayOrder: 0, logoUrl: '' });
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-indigo-100';
 
 export const AdminCatalogPage = () => {
@@ -48,7 +48,7 @@ export const AdminCatalogPage = () => {
     setEditingId(item.id);
     setForm({
       name: item.name, slug: item.slug, description: item.description || '', imageUrl: item.imageUrl || '',
-      bannerUrl: item.bannerUrl || '', parentId: item.parentId || '', featured: item.featured || false,
+      bannerUrl: item.bannerUrl || '', parentId: item.parentId || '', featured: item.featured || false, isVisible: item.isVisible !== false,
       displayOrder: item.displayOrder || 0, logoUrl: item.logoUrl || '',
     });
     setError('');
@@ -67,7 +67,7 @@ export const AdminCatalogPage = () => {
           name: form.name.trim(), ...(form.slug.trim() ? { slug: form.slug.trim() } : {}),
           description: form.description.trim(), imageUrl: form.imageUrl.trim() || null,
           bannerUrl: form.bannerUrl.trim() || null, parentId: tab === 'subcategories' ? form.parentId : null,
-          featured: form.featured, displayOrder: Number(form.displayOrder),
+          featured: form.featured, isVisible: form.isVisible, displayOrder: Number(form.displayOrder),
         };
         if (tab === 'subcategories' && !payload.parentId) throw new Error('Choose a parent category');
         if (editingId) await api.updateCategory(editingId, payload); else await api.createCategory(payload);
@@ -89,6 +89,16 @@ export const AdminCatalogPage = () => {
     } catch (err: any) { setError(err.message || 'Could not delete item'); }
   };
 
+  const toggleVisibility = async (item: any) => {
+    setError(''); setNotice('');
+    try {
+      const isVisible = item.isVisible === false;
+      await api.updateCategory(item.id, { isVisible });
+      setNotice(`${item.name} is now ${isVisible ? 'visible on the storefront' : 'hidden from the storefront'}.`);
+      await load();
+    } catch (err: any) { setError(err.message || 'Could not update category visibility'); }
+  };
+
   const rows = tab === 'brands' ? brands : categories.filter(category => tab === 'subcategories' ? !!category.parentId : !category.parentId);
   const noun = tab === 'brands' ? 'Brand' : tab === 'subcategories' ? 'Subcategory' : 'Category';
 
@@ -104,17 +114,18 @@ export const AdminCatalogPage = () => {
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</p>}
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[650px] text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Slug</th><th className="px-4 py-3">{tab === 'subcategories' ? 'Parent' : 'Products'}</th><th className="px-4 py-3">{tab === 'brands' ? 'Logo' : 'Order'}</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Slug</th><th className="px-4 py-3">{tab === 'subcategories' ? 'Parent' : 'Products'}</th><th className="px-4 py-3">{tab === 'brands' ? 'Logo' : 'Order'}</th>{tab !== 'brands' && <th className="px-4 py-3">Visibility</th>}<th className="px-4 py-3 text-right">Actions</th></tr></thead>
         <tbody className="divide-y divide-slate-100">
-          {!loading && rows.map(item => <tr key={item.id}>
+          {!loading && rows.map(item => <tr key={item.id} className={tab !== 'brands' && item.isVisible === false ? 'bg-slate-50 text-slate-400' : ''}>
             <td className="px-4 py-3 font-semibold text-slate-900">{item.name}{tab === 'categories' && item._count?.children > 0 && <span className="ml-2 text-xs font-normal text-slate-500">{item._count.children} subcategories</span>}</td>
             <td className="px-4 py-3 text-slate-500">{item.slug}</td>
             <td className="px-4 py-3 text-slate-500">{tab === 'subcategories' ? item.parent?.name : item._count?.products || 0}</td>
             <td className="px-4 py-3 text-slate-500">{tab === 'brands' ? item.logoUrl ? <img src={item.logoUrl} alt="" className="h-8 w-12 object-contain" /> : '—' : item.displayOrder}</td>
-            <td className="px-4 py-3 text-right">{canManage && <div className="inline-flex gap-1"><button type="button" onClick={() => beginEdit(item)} aria-label={`Edit ${item.name}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-primary"><Edit3 size={17} /></button><button type="button" onClick={() => remove(item)} aria-label={`Delete ${item.name}`} className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"><Trash2 size={17} /></button></div>}</td>
+            {tab !== 'brands' && <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${item.isVisible === false ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'}`}>{item.isVisible === false ? 'Hidden' : 'Visible'}</span></td>}
+            <td className="px-4 py-3 text-right">{canManage && <div className="inline-flex gap-1"><button type="button" onClick={() => beginEdit(item)} aria-label={`Edit ${item.name}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-primary"><Edit3 size={17} /></button>{tab !== 'brands' && <button type="button" onClick={() => toggleVisibility(item)} aria-label={`${item.isVisible === false ? 'Unhide' : 'Hide'} ${item.name}`} title={item.isVisible === false ? 'Unhide from storefront' : 'Hide from storefront'} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-primary">{item.isVisible === false ? <Eye size={17} /> : <EyeOff size={17} />}</button>}<button type="button" onClick={() => remove(item)} aria-label={`Delete ${item.name}`} className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"><Trash2 size={17} /></button></div>}</td>
           </tr>)}
-          {!loading && rows.length === 0 && <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">No {tab} yet.</td></tr>}
-          {loading && <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">Loading catalog…</td></tr>}
+          {!loading && rows.length === 0 && <tr><td colSpan={tab === 'brands' ? 5 : 6} className="px-4 py-12 text-center text-slate-500">No {tab} yet.</td></tr>}
+          {loading && <tr><td colSpan={tab === 'brands' ? 5 : 6} className="px-4 py-12 text-center text-slate-500">Loading catalog…</td></tr>}
         </tbody>
       </table>
     </div>

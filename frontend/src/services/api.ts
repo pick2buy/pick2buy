@@ -21,12 +21,26 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    } catch {
+      throw new Error('Could not reach the server. Please try again in a moment.');
+    }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data: any;
+    try {
+      data = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!data) {
+      throw new Error(response.ok
+        ? 'The server returned an empty response. Please try again.'
+        : 'The server is unavailable. Please try again in a moment.');
+    }
 
     if (!response.ok) {
       const errorMsg = data.message || data.errors?.[0] || 'An error occurred';

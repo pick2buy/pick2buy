@@ -31,9 +31,10 @@ export class CategoryController {
   public static async getCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const categories = await prisma.category.findMany({
-        where: { parentId: null },
+        where: { parentId: null, isVisible: true },
         include: {
           children: {
+            where: { isVisible: true },
             include: {
               _count: { select: { products: true } },
             },
@@ -65,10 +66,11 @@ export class CategoryController {
   public static async getCategoryBySlug(req: Request, res: Response, next: NextFunction) {
     try {
       const { slug } = req.params;
-      const category = await prisma.category.findUnique({
-        where: { slug },
+      const category = await prisma.category.findFirst({
+        where: { slug, isVisible: true },
         include: {
           children: {
+            where: { isVisible: true },
             include: { products: { where: { status: 'ACTIVE' }, include: { images: { orderBy: { displayOrder: 'asc' } }, brand: true, reviews: { select: { rating: true } } } } },
             orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
           },
@@ -115,6 +117,7 @@ export class CategoryController {
           bannerUrl: data.bannerUrl,
           parentId,
           featured: data.featured,
+          isVisible: data.isVisible,
           displayOrder: data.displayOrder,
         },
       });

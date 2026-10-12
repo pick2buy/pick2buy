@@ -156,6 +156,7 @@ export const categoryCreateSchema = z.object({
   bannerUrl: z.string().url().optional(),
   parentId: z.string().optional().nullable(),
   featured: z.boolean().default(false),
+  isVisible: z.boolean().default(true),
   displayOrder: z.number().int().default(0),
 });
 
