@@ -13,8 +13,19 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
     });
   }
 
+  // Never expose database-provider errors, query details, or filesystem paths to customers.
+  if (err?.code === 'P2002') {
+    return res.status(409).json({
+      success: false,
+      message: 'An account with those details already exists.',
+      errors: ['An account with those details already exists.'],
+    });
+  }
+
   const statusCode = err.statusCode || (err.status >= 400 && err.status < 600 ? err.status : 500);
-  const message = err.message || 'An unexpected internal server error occurred';
+  const message = statusCode >= 500
+    ? 'Something went wrong on our side. Please try again.'
+    : err.message || 'An unexpected error occurred';
 
   res.status(statusCode).json({
     success: false,

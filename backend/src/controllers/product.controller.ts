@@ -15,9 +15,70 @@ const productUpdateSchema = z.object({
   mrp: z.number().min(0).optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED']).optional(),
   imageUrl: z.string().url().optional().or(z.literal('')),
+  sourcePlatform: z.enum(['OWN', 'MEESHO']).optional(),
+  sourceProductCode: z.string().trim().min(1).max(120).nullable().optional(),
+  sourceUrl: z.string().url().nullable().optional(),
 }).strict();
 
+const isMeeshoUrl = (value: string) => {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return hostname === 'meesho.com' || hostname.endsWith('.meesho.com');
+  } catch {
+    return false;
+  }
+};
+
+const decodeHtml = (value: string) => value
+  .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\\u0026/g, '&')
+  .replace(/<[^>]+>/g, '').trim();
+
+const metadata = (html: string, property: string) => {
+  const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)["']`, 'i'))
+    || html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["']`, 'i'));
+  return match ? decodeHtml(match[1]) : '';
+};
+
+const parseMeeshoProduct = (html: string, sourceUrl: string) => {
+  let jsonProduct: any = null;
+  for (const raw of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const parsed = JSON.parse(raw[1].trim());
+      const candidates = Array.isArray(parsed) ? parsed : [parsed, ...(parsed?.['@graph'] || [])];
+      jsonProduct = candidates.find((item: any) => item?.['@type'] === 'Product' || item?.['@type']?.includes?.('Product'));
+      if (jsonProduct) break;
+    } catch { /* Some page scripts are not valid JSON-LD. */ }
+  }
+  const imageValues = jsonProduct?.image || metadata(html, 'og:image');
+  const images = (Array.isArray(imageValues) ? imageValues : [imageValues]).filter(Boolean).map(String);
+  const price = Number(jsonProduct?.offers?.price || metadata(html, 'product:price:amount'));
+  const name = decodeHtml(jsonProduct?.name || metadata(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || 'Imported Meesho product');
+  const description = decodeHtml(jsonProduct?.description || metadata(html, 'og:description') || name);
+  const code = String(jsonProduct?.sku || jsonProduct?.mpn || sourceUrl.match(/p-([\w-]+)/i)?.[1] || `MEESHO-${Date.now()}`).slice(0, 80);
+  return { name: name.slice(0, 180), description: description.slice(0, 5000), sourceUrl, sourceProductCode: code, supplierPrice: Number.isFinite(price) ? price : null, images: [...new Set(images)].slice(0, 12) };
+};
+
 export class ProductController {
+  public static async importMeeshoProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      const sourceUrl = z.string().url('Enter a valid Meesho product URL').parse(req.body?.url);
+      if (!isMeeshoUrl(sourceUrl)) return res.status(400).json({ success: false, message: 'Use a valid meesho.com product URL' });
+      const response = await fetch(sourceUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Pick2BuyCatalogImporter/1.0)' },
+        signal: AbortSignal.timeout(10000),
+        redirect: 'manual',
+      });
+      if (response.status >= 300 && response.status < 400) return res.status(422).json({ success: false, message: 'This Meesho URL redirects. Open the final public product URL and try again.' });
+      if (!response.ok) return res.status(422).json({ success: false, message: `Meesho returned HTTP ${response.status}. Try another public product URL.` });
+      const html = (await response.text()).slice(0, 4_000_000);
+      const product = parseMeeshoProduct(html, sourceUrl);
+      if (!product.name || product.name === 'Imported Meesho product') return res.status(422).json({ success: false, message: 'Product details are not publicly available at this URL.' });
+      res.json({ success: true, data: product });
+    } catch (error) { next(error); }
+  }
+
   public static async getAdminProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const products = await prisma.product.findMany({
@@ -249,6 +310,9 @@ export class ProductController {
           sku: data.sku,
           description: data.description,
           shortDescription: data.shortDescription,
+          sourcePlatform: data.sourcePlatform,
+          sourceProductCode: data.sourceProductCode || null,
+          sourceUrl: data.sourceUrl || null,
           categoryId: data.categoryId,
           brandId: data.brandId || null,
           price: data.price,
@@ -320,7 +384,17 @@ export class ProductController {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
 
-      const { imageUrl, ...data } = productUpdateSchema.parse(req.body);
+      const parsed = productUpdateSchema.parse(req.body);
+      const sourcePlatform = parsed.sourcePlatform ?? existing.sourcePlatform;
+      const sourceProductCode = parsed.sourceProductCode === undefined ? existing.sourceProductCode : parsed.sourceProductCode;
+      const sourceUrl = parsed.sourceUrl === undefined ? existing.sourceUrl : parsed.sourceUrl;
+      if (sourcePlatform === 'MEESHO' && !sourceProductCode && !sourceUrl) {
+        return res.status(400).json({ success: false, message: 'Add the Meesho product code or listing URL' });
+      }
+      if (sourcePlatform === 'MEESHO' && sourceUrl && !isMeeshoUrl(sourceUrl)) {
+        return res.status(400).json({ success: false, message: 'Use a meesho.com product URL' });
+      }
+      const { imageUrl, ...data } = parsed;
       if (!Object.keys(data).length && imageUrl === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
       const price = data.price ?? existing.price;
       const mrp = data.mrp ?? existing.mrp;

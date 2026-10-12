@@ -87,9 +87,18 @@ export class AuthController {
             wishlist: { create: {} },
           } });
         } catch (error: any) {
-          // A concurrent sign-up must never attach Google to an unrelated email account.
-          if (error?.code === 'P2002') return res.status(409).json({ success: false, message: 'An account already exists for this email. Please sign in and connect Google in your profile.' });
-          throw error;
+          // A concurrent request may create this same Google account after our first lookup.
+          // In that case, safely sign in to the account that owns the verified Google subject.
+          if (error?.code === 'P2002') {
+            const linkedUser = await prisma.user.findUnique({ where: { googleSub: identity.sub } });
+            if (linkedUser) {
+              user = linkedUser;
+            } else {
+              return res.status(409).json({ success: false, message: 'An account already exists for this email. Please sign in with your password, then connect Google in your profile.' });
+            }
+          } else {
+            throw error;
+          }
         }
       } else if (identity.avatarUrl && !isUploadedAvatar(user.avatarUrl) && user.avatarUrl !== identity.avatarUrl) {
         // Google profile-photo links can expire. Refresh only remotely hosted Google photos;

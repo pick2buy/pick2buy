@@ -115,6 +115,10 @@ class ApiClient {
     return this.request('/products', { method: 'POST', body: JSON.stringify(payload) });
   }
 
+  public importMeeshoProduct(url: string) {
+    return this.request('/products/import-meesho', { method: 'POST', body: JSON.stringify({ url }) });
+  }
+
   public updateProduct(id: string, payload: any) {
     return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
   }

@@ -77,6 +77,9 @@ export const productCreateSchema = z.object({
   sku: z.string().min(2, 'SKU is required'),
   description: z.string().min(10, 'Detailed description is required'),
   shortDescription: z.string().max(300).optional(),
+  sourcePlatform: z.enum(['OWN', 'MEESHO']).default('OWN'),
+  sourceProductCode: z.string().trim().min(1).max(120).optional(),
+  sourceUrl: z.string().url('Enter a valid product URL').optional(),
   categoryId: z.string().min(1, 'Category is required'),
   brandId: z.string().optional(),
   price: z.number().min(0, 'Price must be positive'),
@@ -113,6 +116,19 @@ export const productCreateSchema = z.object({
       imageUrl: z.string().url().optional(),
     })
   ).default([]),
+}).superRefine((data, ctx) => {
+  if (data.sourcePlatform !== 'MEESHO') return;
+  if (!data.sourceProductCode && !data.sourceUrl) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sourceProductCode'], message: 'Add the Meesho product code or listing URL' });
+  }
+  if (data.sourceUrl) {
+    try {
+      const hostname = new URL(data.sourceUrl).hostname.toLowerCase();
+      if (hostname !== 'meesho.com' && !hostname.endsWith('.meesho.com')) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sourceUrl'], message: 'Use a meesho.com product URL' });
+      }
+    } catch { /* The URL schema reports this validation error. */ }
+  }
 });
 
 // Category Schema

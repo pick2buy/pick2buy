@@ -14,6 +14,10 @@ export const AdminProductsPage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [meeshoUrl, setMeeshoUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState('');
   const canManage = ['ADMIN', 'MANAGER'].includes(useAuthStore(s => s.user?.role || ''));
 
   // New product form
@@ -28,6 +32,10 @@ export const AdminProductsPage: React.FC = () => {
     status: 'ACTIVE',
     description: '',
     imageUrl: '',
+    imageUrls: [] as string[],
+    sourcePlatform: 'OWN',
+    sourceProductCode: '',
+    sourceUrl: '',
   });
 
   const loadData = () => {
@@ -54,30 +62,102 @@ export const AdminProductsPage: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: '', sku: '', categoryId: categories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '' });
+    setFormErrors({});
+    setMeeshoUrl('');
+    setImportError('');
+    setForm({ name: '', sku: '', categoryId: categories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '', imageUrls: [], sourcePlatform: 'OWN', sourceProductCode: '', sourceUrl: '' });
     setIsModalOpen(true);
   };
 
   const openEdit = (product: any) => {
     setEditingId(product.id);
+    setFormErrors({});
+    setMeeshoUrl(product.sourceUrl || '');
+    setImportError('');
     setForm({ name: product.name, sku: product.sku, categoryId: product.categoryId, brandId: product.brandId || '',
       price: product.price, mrp: product.mrp, stock: product.stock, status: product.status,
-      description: product.description, imageUrl: product.images?.[0]?.url || '' });
+      description: product.description, imageUrl: product.images?.[0]?.url || '', imageUrls: product.images?.map((image: any) => image.url) || [],
+      sourcePlatform: product.sourcePlatform || 'OWN', sourceProductCode: product.sourceProductCode || '', sourceUrl: product.sourceUrl || '' });
     setIsModalOpen(true);
+  };
+
+  const handleMeeshoImport = async () => {
+    setImportError('');
+    if (!meeshoUrl.trim()) { setImportError('Paste a public meesho.com product URL first.'); return; }
+    setIsImporting(true);
+    try {
+      const result = await api.importMeeshoProduct(meeshoUrl.trim());
+      const imported = result.data;
+      const supplierPrice = imported.supplierPrice || 0;
+      setForm(prev => ({
+        ...prev,
+        name: imported.name,
+        description: imported.description,
+        sku: imported.sourceProductCode,
+        price: supplierPrice || prev.price,
+        mrp: supplierPrice || prev.mrp,
+        imageUrl: imported.images?.[0] || prev.imageUrl,
+        imageUrls: imported.images?.length ? imported.images : prev.imageUrls,
+        sourcePlatform: 'MEESHO',
+        sourceProductCode: imported.sourceProductCode,
+        sourceUrl: imported.sourceUrl,
+      }));
+      setFormErrors({});
+    } catch (err: any) {
+      setImportError(err.message || 'Could not import this Meesho product.');
+    } finally { setIsImporting(false); }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: Record<string, string> = {};
+    if (form.name.trim().length < 3) errors.name = 'Enter a product title with at least 3 characters.';
+    if (form.sku.trim().length < 2) errors.sku = 'Enter an SKU with at least 2 characters.';
+    if (!form.categoryId) errors.categoryId = 'Select a category.';
+    if (!Number.isFinite(form.price) || form.price < 0) errors.price = 'Enter a valid selling price.';
+    if (!Number.isFinite(form.mrp) || form.mrp < 0) errors.mrp = 'Enter a valid MRP.';
+    else if (form.mrp < form.price) errors.mrp = 'MRP cannot be lower than the selling price.';
+    if (!Number.isInteger(form.stock) || form.stock < 0) errors.stock = 'Enter a whole number of units.';
+    if (form.description.trim().length < 10) errors.description = 'Enter a description with at least 10 characters.';
+    if (form.imageUrl) {
+      try { new URL(form.imageUrl); } catch { errors.imageUrl = 'Enter a valid image URL.'; }
+    }
+    const imageUrls = Array.from(new Set([form.imageUrl, ...form.imageUrls].filter(Boolean)));
+    for (const imageUrl of imageUrls) {
+      try { new URL(imageUrl); } catch { errors.imageUrl = 'One of the imported image URLs is invalid.'; break; }
+    }
+    if (form.sourcePlatform === 'MEESHO') {
+      if (!form.sourceProductCode.trim() && !form.sourceUrl.trim()) errors.sourceProductCode = 'Add the Meesho product code or listing URL.';
+      if (form.sourceUrl) {
+        try {
+          const hostname = new URL(form.sourceUrl).hostname.toLowerCase();
+          if (hostname !== 'meesho.com' && !hostname.endsWith('.meesho.com')) errors.sourceUrl = 'Use a valid meesho.com listing URL.';
+        } catch { errors.sourceUrl = 'Enter a valid Meesho listing URL.'; }
+      }
+    }
+    if (Object.keys(errors).length) { setFormErrors(errors); return; }
+    setFormErrors({});
     try {
+      const sourceDetails = form.sourcePlatform === 'MEESHO'
+        ? { sourcePlatform: 'MEESHO', ...(form.sourceProductCode ? { sourceProductCode: form.sourceProductCode } : {}), ...(form.sourceUrl ? { sourceUrl: form.sourceUrl } : {}) }
+        : { sourcePlatform: 'OWN' };
       if (editingId) await api.updateProduct(editingId, {
         name: form.name, sku: form.sku, categoryId: form.categoryId, brandId: form.brandId || null,
-        price: form.price, mrp: form.mrp, description: form.description, status: form.status, imageUrl: form.imageUrl,
+        price: form.price, mrp: form.mrp, description: form.description, status: form.status, imageUrl: form.imageUrl, ...sourceDetails,
+        sourceProductCode: form.sourcePlatform === 'MEESHO' ? form.sourceProductCode || null : null,
+        sourceUrl: form.sourcePlatform === 'MEESHO' ? form.sourceUrl || null : null,
       });
-      else await api.createProduct({ ...form, brandId: form.brandId || undefined, images: form.imageUrl ? [{ url: form.imageUrl, isPrimary: true }] : [] });
+      else await api.createProduct({ ...form, ...sourceDetails, brandId: form.brandId || undefined, images: imageUrls.map((url, index) => ({ url, isPrimary: index === 0 })) });
       setIsModalOpen(false);
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to save product');
+      const apiErrors: Record<string, string> = {};
+      for (const item of err.errors || []) {
+        const [field, ...message] = String(item).split(':');
+        if (field && message.length) apiErrors[field] = message.join(':').trim();
+      }
+      if (/MRP cannot/i.test(err.message)) apiErrors.mrp = err.message;
+      setFormErrors(Object.keys(apiErrors).length ? apiErrors : { general: err.message || 'Could not save this product. Please try again.' });
     }
   };
 
@@ -133,6 +213,7 @@ export const AdminProductsPage: React.FC = () => {
               <tr>
                 <th className="py-3.5 px-4">Product</th>
                 <th className="py-3.5 px-4">SKU</th>
+                <th className="py-3.5 px-4">Source</th>
                 <th className="py-3.5 px-4">Category</th>
                 <th className="py-3.5 px-4">Price / MRP</th>
                 <th className="py-3.5 px-4">Stock</th>
@@ -155,6 +236,7 @@ export const AdminProductsPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="py-3 px-4 font-mono text-slate-500">{p.sku}</td>
+                  <td className="py-3 px-4"><span className={`rounded-full px-2 py-0.5 font-bold text-[10px] ${p.sourcePlatform === 'MEESHO' ? 'bg-fuchsia-50 text-fuchsia-700' : 'bg-slate-100 text-slate-600'}`}>{p.sourcePlatform === 'MEESHO' ? 'Meesho' : 'Own'}</span></td>
                   <td className="py-3 px-4 text-slate-600">{p.category?.name || 'Uncategorized'}</td>
                   <td className="py-3 px-4">
                     <span className="font-bold text-slate-900 block">{formatINR(p.price)}</span>
@@ -188,7 +270,18 @@ export const AdminProductsPage: React.FC = () => {
           <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Products form" className="max-h-[calc(100dvh-2rem)] overflow-y-auto relative bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl z-10 space-y-4">
             <h3 className="text-lg font-black text-slate-900">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
 
-            <form onSubmit={handleSaveProduct} className="space-y-3 text-xs">
+            {!editingId && <div className="rounded-2xl border border-fuchsia-100 bg-fuchsia-50 p-3 space-y-2">
+              <label className="font-bold text-slate-700 block">Import from Meesho</label>
+              <div className="flex gap-2">
+                <input value={meeshoUrl} onChange={e => setMeeshoUrl(e.target.value)} placeholder="Paste a public Meesho product URL" className="min-w-0 flex-1 bg-white border border-slate-200 rounded-xl p-2.5 outline-none focus:border-brand-primary" />
+                <button type="button" onClick={handleMeeshoImport} disabled={isImporting} className="shrink-0 rounded-xl bg-fuchsia-700 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60">{isImporting ? 'Importing…' : 'Import'}</button>
+              </div>
+              <p className="text-[11px] leading-4 text-slate-500">Imports publicly available title, description, image, price, and product code. Review the fields and set your resale price before creating.</p>
+              {importError && <p role="alert" className="text-[11px] text-rose-600">{importError}</p>}
+            </div>}
+
+            <form noValidate onSubmit={handleSaveProduct} className="space-y-3 text-xs">
+              {formErrors.general && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-rose-700">{formErrors.general}</p>}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Product Title</label>
                 <input
@@ -197,8 +290,9 @@ export const AdminProductsPage: React.FC = () => {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. UltraFit Sports Smartwatch"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:border-brand-primary"
+                  className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none focus:border-brand-primary ${formErrors.name ? 'border-rose-500' : 'border-slate-200'}`}
                 />
+                {formErrors.name && <p className="mt-1 text-rose-600">{formErrors.name}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -210,8 +304,9 @@ export const AdminProductsPage: React.FC = () => {
                     value={form.sku}
                     onChange={(e) => setForm({ ...form, sku: e.target.value.toUpperCase() })}
                     placeholder="EL-WAT-099"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono outline-none focus:border-brand-primary"
+                    className={`w-full bg-slate-50 border rounded-xl p-2.5 font-mono outline-none focus:border-brand-primary ${formErrors.sku ? 'border-rose-500' : 'border-slate-200'}`}
                   />
+                  {formErrors.sku && <p className="mt-1 text-rose-600">{formErrors.sku}</p>}
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Category</label>
@@ -222,6 +317,7 @@ export const AdminProductsPage: React.FC = () => {
                   >
                     {categories.map((c) => <React.Fragment key={c.id}><option value={c.id}>{c.name}</option>{c.children?.map((child: any) => <option key={child.id} value={child.id}>↳ {child.name}</option>)}</React.Fragment>)}
                   </select>
+                  {formErrors.categoryId && <p className="mt-1 text-rose-600">{formErrors.categoryId}</p>}
                 </div>
               </div>
 
@@ -235,8 +331,9 @@ export const AdminProductsPage: React.FC = () => {
                     required
                     value={form.price}
                     onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"
+                    className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none ${formErrors.price ? 'border-rose-500' : 'border-slate-200'}`}
                   />
+                  {formErrors.price && <p className="mt-1 text-rose-600">{formErrors.price}</p>}
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">MRP (₹)</label>
@@ -245,8 +342,9 @@ export const AdminProductsPage: React.FC = () => {
                     required
                     value={form.mrp}
                     onChange={(e) => setForm({ ...form, mrp: Number(e.target.value) })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"
+                    className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none ${formErrors.mrp ? 'border-rose-500' : 'border-slate-200'}`}
                   />
+                  {formErrors.mrp && <p className="mt-1 text-rose-600">{formErrors.mrp}</p>}
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Initial Stock</label>
@@ -256,8 +354,9 @@ export const AdminProductsPage: React.FC = () => {
                     disabled={Boolean(editingId)}
                     value={form.stock}
                     onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"
+                    className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none ${formErrors.stock ? 'border-rose-500' : 'border-slate-200'}`}
                   />
+                  {formErrors.stock && <p className="mt-1 text-rose-600">{formErrors.stock}</p>}
                 </div>
               </div>
 
@@ -270,8 +369,28 @@ export const AdminProductsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Image URL (optional)</label>
-                  <input type="url" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5" />
+                  <input type="url" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value, imageUrls: e.target.value ? [e.target.value, ...form.imageUrls.slice(1)] : form.imageUrls.slice(1) })} placeholder="https://…" className={`w-full bg-slate-50 border rounded-xl p-2.5 ${formErrors.imageUrl ? 'border-rose-500' : 'border-slate-200'}`} />
+                  {formErrors.imageUrl && <p className="mt-1 text-rose-600">{formErrors.imageUrl}</p>}
+                  {form.imageUrls.length > 1 && <div className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label="Imported product photos">{form.imageUrls.map((url, index) => <img key={`${url}-${index}`} src={url} alt={`Product photo ${index + 1}`} className="h-12 w-12 shrink-0 rounded-lg border border-slate-200 object-cover" onError={e => { e.currentTarget.style.opacity = '0.35'; }} />)}</div>}
+                  {form.imageUrls.length > 1 && <p className="mt-1 text-[10px] text-slate-500">{form.imageUrls.length} photos will be imported with this product.</p>}
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Catalog source</label>
+                  <select value={form.sourcePlatform} onChange={e => setForm({ ...form, sourcePlatform: e.target.value, sourceProductCode: '', sourceUrl: '' })} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 outline-none">
+                    <option value="OWN">Own catalog</option>
+                    <option value="MEESHO">Meesho supplier catalog</option>
+                  </select>
+                </div>
+                {form.sourcePlatform === 'MEESHO' && <>
+                  <p className="text-[11px] leading-4 text-slate-500">Add the Meesho product code or listing link for your supplier record. Your price and stock above remain the values customers see.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><label className="font-bold text-slate-700 block mb-1">Meesho product code</label><input value={form.sourceProductCode} onChange={e => setForm({ ...form, sourceProductCode: e.target.value })} placeholder="e.g. MS-12345" className={`w-full bg-white border rounded-xl p-2.5 outline-none focus:border-brand-primary ${formErrors.sourceProductCode ? 'border-rose-500' : 'border-slate-200'}`} />{formErrors.sourceProductCode && <p className="mt-1 text-rose-600">{formErrors.sourceProductCode}</p>}</div>
+                    <div><label className="font-bold text-slate-700 block mb-1">Meesho listing URL</label><input type="url" value={form.sourceUrl} onChange={e => setForm({ ...form, sourceUrl: e.target.value })} placeholder="https://www.meesho.com/..." className={`w-full bg-white border rounded-xl p-2.5 outline-none focus:border-brand-primary ${formErrors.sourceUrl ? 'border-rose-500' : 'border-slate-200'}`} />{formErrors.sourceUrl && <p className="mt-1 text-rose-600">{formErrors.sourceUrl}</p>}</div>
+                  </div>
+                </>}
               </div>
 
               <div>
@@ -282,8 +401,9 @@ export const AdminProductsPage: React.FC = () => {
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="Comprehensive description of product specifications and warranty..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"
+                  className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none ${formErrors.description ? 'border-rose-500' : 'border-slate-200'}`}
                 />
+                {formErrors.description && <p className="mt-1 text-rose-600">{formErrors.description}</p>}
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
