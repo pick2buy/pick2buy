@@ -71,6 +71,22 @@ export const checkoutSchema = z.object({
 });
 
 // Product Schemas
+const productImageUrlSchema = z.string().refine(
+  (value) => /^data:image\/(png|jpeg|webp);base64,/i.test(value) || z.string().url().safeParse(value).success,
+  'Invalid image URL'
+);
+
+// Form controls submit empty strings. Treat those as an omitted optional value
+// so an own-catalog product is not rejected for an unused supplier field.
+const optionalProductSourceCodeSchema = z.preprocess(
+  (value) => typeof value === 'string' && !value.trim() ? undefined : value,
+  z.string().trim().min(1).max(120).optional()
+);
+const optionalProductSourceUrlSchema = z.preprocess(
+  (value) => typeof value === 'string' && !value.trim() ? undefined : value,
+  z.string().url('Enter a valid product URL').optional()
+);
+
 export const productCreateSchema = z.object({
   name: z.string().min(3, 'Product name is required'),
   slug: z.string().min(3).optional(),
@@ -78,8 +94,8 @@ export const productCreateSchema = z.object({
   description: z.string().min(10, 'Detailed description is required'),
   shortDescription: z.string().max(300).optional(),
   sourcePlatform: z.enum(['OWN', 'MEESHO']).default('OWN'),
-  sourceProductCode: z.string().trim().min(1).max(120).optional(),
-  sourceUrl: z.string().url('Enter a valid product URL').optional(),
+  sourceProductCode: optionalProductSourceCodeSchema,
+  sourceUrl: optionalProductSourceUrlSchema,
   categoryId: z.string().min(1, 'Category is required'),
   brandId: z.string().optional(),
   price: z.number().min(0, 'Price must be positive'),
@@ -97,11 +113,11 @@ export const productCreateSchema = z.object({
   specifications: z.record(z.string()).default({}),
   images: z.array(
     z.object({
-      url: z.string().url('Invalid image URL'),
+      url: productImageUrlSchema,
       altText: z.string().optional(),
       isPrimary: z.boolean().default(false),
     })
-  ).default([]),
+  ).min(1, 'Add a primary product image'),
   variants: z.array(
     z.object({
       sku: z.string().min(2),

@@ -124,6 +124,10 @@ class ApiClient {
   }
 
   public archiveProduct(id: string) {
+    return this.request(`/products/${id}/archive`, { method: 'PUT' });
+  }
+
+  public deleteProduct(id: string) {
     return this.request(`/products/${id}`, { method: 'DELETE' });
   }
 

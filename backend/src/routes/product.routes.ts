@@ -12,6 +12,7 @@ router.get('/:slugOrId', ProductController.getProductBySlugOrId);
 // Admin product endpoints
 router.post('/', requireAdmin, ProductController.createProduct);
 router.put('/:id', requireAdmin, ProductController.updateProduct);
+router.put('/:id/archive', requireAdmin, ProductController.archiveProduct);
 router.delete('/:id', requireAdmin, ProductController.deleteProduct);
 
 export default router;

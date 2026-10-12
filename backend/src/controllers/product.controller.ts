@@ -5,6 +5,23 @@ import { createAuditLog } from '../lib/audit';
 import { z } from 'zod';
 import { config } from '../config';
 
+const productImageUrlSchema = z.string().refine(
+  (value) => /^data:image\/(png|jpeg|webp);base64,/i.test(value) || z.string().url().safeParse(value).success,
+  'Invalid image URL'
+);
+const productVariantSchema = z.object({
+  sku: z.string().min(2),
+  name: z.string().min(1),
+  size: z.string().optional(),
+  color: z.string().optional(),
+  material: z.string().optional(),
+  storage: z.string().optional(),
+  price: z.number().min(0),
+  mrp: z.number().min(0),
+  stock: z.number().int().min(0),
+  imageUrl: productImageUrlSchema.optional(),
+});
+
 const productUpdateSchema = z.object({
   name: z.string().min(3).optional(),
   sku: z.string().min(2).optional(),
@@ -14,7 +31,13 @@ const productUpdateSchema = z.object({
   price: z.number().min(0).optional(),
   mrp: z.number().min(0).optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED']).optional(),
-  imageUrl: z.string().url().optional().or(z.literal('')),
+  imageUrl: productImageUrlSchema.optional().or(z.literal('')),
+  images: z.array(z.object({
+    url: productImageUrlSchema,
+    altText: z.string().optional(),
+    isPrimary: z.boolean().optional(),
+  })).min(1).optional(),
+  variants: z.array(productVariantSchema).optional(),
   sourcePlatform: z.enum(['OWN', 'MEESHO']).optional(),
   sourceProductCode: z.string().trim().min(1).max(120).nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
@@ -66,14 +89,19 @@ export class ProductController {
       const sourceUrl = z.string().url('Enter a valid Meesho product URL').parse(req.body?.url);
       if (!isMeeshoUrl(sourceUrl)) return res.status(400).json({ success: false, message: 'Use a valid meesho.com product URL' });
       const response = await fetch(sourceUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Pick2BuyCatalogImporter/1.0)' },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-IN,en;q=0.9',
+          Referer: 'https://www.meesho.com/',
+        },
         signal: AbortSignal.timeout(10000),
-        redirect: 'manual',
+        redirect: 'follow',
       });
-      if (response.status >= 300 && response.status < 400) return res.status(422).json({ success: false, message: 'This Meesho URL redirects. Open the final public product URL and try again.' });
+      if (response.status === 403) return res.status(422).json({ success: false, message: 'Meesho blocked automatic import for this listing. Add the product manually, or use a listing that permits import.' });
       if (!response.ok) return res.status(422).json({ success: false, message: `Meesho returned HTTP ${response.status}. Try another public product URL.` });
       const html = (await response.text()).slice(0, 4_000_000);
-      const product = parseMeeshoProduct(html, sourceUrl);
+      const product = parseMeeshoProduct(html, response.url || sourceUrl);
       if (!product.name || product.name === 'Imported Meesho product') return res.status(422).json({ success: false, message: 'Product details are not publicly available at this URL.' });
       res.json({ success: true, data: product });
     } catch (error) { next(error); }
@@ -394,8 +422,8 @@ export class ProductController {
       if (sourcePlatform === 'MEESHO' && sourceUrl && !isMeeshoUrl(sourceUrl)) {
         return res.status(400).json({ success: false, message: 'Use a meesho.com product URL' });
       }
-      const { imageUrl, ...data } = parsed;
-      if (!Object.keys(data).length && imageUrl === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
+      const { imageUrl, images, variants, ...data } = parsed;
+      if (!Object.keys(data).length && imageUrl === undefined && images === undefined && variants === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
       const price = data.price ?? existing.price;
       const mrp = data.mrp ?? existing.mrp;
       if (mrp < price) return res.status(400).json({ success: false, message: 'MRP cannot be lower than selling price' });
@@ -403,7 +431,33 @@ export class ProductController {
         const result = await tx.product.update({ where: { id }, data: {
           ...data, discountPercentage: mrp > price ? Math.round((mrp - price) / mrp * 100) : 0,
         } });
-        if (imageUrl) {
+        if (images) {
+          await tx.productImage.deleteMany({ where: { productId: id } });
+          await tx.productImage.createMany({ data: images.map((image, index) => ({
+            productId: id,
+            url: image.url,
+            altText: image.altText || result.name,
+            isPrimary: image.isPrimary ?? index === 0,
+            displayOrder: index,
+          })) });
+        }
+        if (variants !== undefined) {
+          await tx.productVariant.deleteMany({ where: { productId: id } });
+          if (variants.length) await tx.productVariant.createMany({ data: variants.map(variant => ({
+            productId: id,
+            sku: variant.sku,
+            name: variant.name,
+            size: variant.size,
+            color: variant.color,
+            material: variant.material,
+            storage: variant.storage,
+            price: variant.price,
+            mrp: variant.mrp,
+            stock: variant.stock,
+            imageUrl: variant.imageUrl,
+          })) });
+        }
+        if (!images && imageUrl) {
           const firstImage = await tx.productImage.findFirst({ where: { productId: id }, orderBy: { displayOrder: 'asc' } });
           if (firstImage) await tx.productImage.update({ where: { id: firstImage.id }, data: { url: imageUrl, altText: result.name } });
           else await tx.productImage.create({ data: { productId: id, url: imageUrl, altText: result.name, isPrimary: true } });
@@ -431,7 +485,7 @@ export class ProductController {
     }
   }
 
-  public static async deleteProduct(req: Request, res: Response, next: NextFunction) {
+  public static async archiveProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const existing = await prisma.product.findUnique({ where: { id } });
@@ -454,6 +508,41 @@ export class ProductController {
         success: true,
         message: 'Product archived successfully',
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async deleteProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const existing = await prisma.product.findUnique({
+        where: { id },
+        include: { _count: { select: { orderItems: true } } },
+      });
+      if (!existing) return res.status(404).json({ success: false, message: 'Product not found' });
+      if (existing._count.orderItems > 0) {
+        return res.status(409).json({ success: false, message: 'This product has order history and cannot be deleted. Archive it instead.' });
+      }
+
+      await prisma.$transaction(async tx => {
+        await tx.cartItem.deleteMany({ where: { productId: id } });
+        await tx.wishlistItem.deleteMany({ where: { productId: id } });
+        await tx.inventoryTransaction.deleteMany({ where: { productId: id } });
+        await tx.productVariant.deleteMany({ where: { productId: id } });
+        await tx.productImage.deleteMany({ where: { productId: id } });
+        await tx.product.delete({ where: { id } });
+      });
+
+      await createAuditLog({
+        userId: req.user?.id,
+        userEmail: req.user?.email,
+        action: 'DELETE_PRODUCT',
+        resource: 'Product',
+        resourceId: id,
+        oldValue: existing,
+      });
+      res.json({ success: true, message: 'Product deleted permanently' });
     } catch (error) {
       next(error);
     }
