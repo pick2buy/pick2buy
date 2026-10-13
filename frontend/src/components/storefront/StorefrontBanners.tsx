@@ -3,6 +3,38 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { api } from '../../services/api';
 
+const temporaryBanners = [
+  {
+    title: 'A fresh start, picked for you.',
+    subtitle: 'Discover new arrivals for every part of your day.',
+    buttonText: 'Shop new arrivals',
+    linkUrl: '/shop?sort=newest',
+    eyebrow: 'JUST IN',
+    accent: 'New season, new favourites.',
+  },
+  {
+    title: 'More to love. Less to spend.',
+    subtitle: 'Find little extras and everyday deals worth coming back for.',
+    buttonText: 'Explore deals',
+    linkUrl: '/shop?flashDeal=true',
+    eyebrow: 'EVERYDAY VALUE',
+    accent: 'Good finds, better prices.',
+  },
+];
+
+const TemporaryBannerCard = ({ banner }: { banner: typeof temporaryBanners[number] }) => (
+  <Link to={banner.linkUrl} className="home-promo-marquee-card group relative flex min-h-64 flex-col overflow-hidden rounded-[24px] p-6 sm:p-8">
+    <div className="flex h-full flex-col items-start justify-between gap-9">
+      <div>
+        <p className="home-promo-eyebrow">{banner.eyebrow}</p>
+        <h2 className="mt-4 max-w-sm text-[clamp(1.65rem,3vw,2.2rem)] font-medium leading-[1.08] tracking-[-.055em]">{banner.title} <em>{banner.accent}</em></h2>
+        <p className="mt-4 max-w-sm text-sm leading-6 text-slate-600">{banner.subtitle}</p>
+      </div>
+      <span className="home-promo-cta">{banner.buttonText} <ArrowRight size={17} className="transition-transform duration-300 group-hover:translate-x-1" /></span>
+    </div>
+  </Link>
+);
+
 export const StorefrontBanners = () => {
   const [banners, setBanners] = useState<any[]>([]);
   useEffect(() => {
@@ -10,7 +42,13 @@ export const StorefrontBanners = () => {
     api.getActiveBanners().then(response => { if (active) setBanners(response.data || []); }).catch(() => {});
     return () => { active = false; };
   }, []);
-  if (!banners.length) return null;
+  if (!banners.length) {
+    return <section aria-label="Featured promotions" className="page-width overflow-hidden pb-8">
+      <div className="home-promo-marquee-track">
+        {[...temporaryBanners, ...temporaryBanners].map((banner, index) => <TemporaryBannerCard key={`${banner.title}-${index}`} banner={banner} />)}
+      </div>
+    </section>;
+  }
 
   return <section aria-label="Featured promotions" className="page-width grid gap-5 pb-8 md:grid-cols-2">
     {banners.map(banner => {

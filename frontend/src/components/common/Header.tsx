@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { BrandMark } from './BrandMark';
 import { 
   Search, 
   ShoppingBag, 
@@ -222,8 +223,8 @@ export const Header: React.FC = () => {
             </button>
 
             <Link to="/" className="flex items-center gap-2 group">
-              <div className="header-brand-icon w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-primary to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
-                P2B
+              <div className="header-brand-icon w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-primary to-indigo-600 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
+                <BrandMark className="h-7 w-7" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xl font-extrabold tracking-tight text-slate-900 leading-none">
@@ -244,7 +245,7 @@ export const Header: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search products, brands, electronics, apparel..."
-                className="w-full bg-slate-100 hover:bg-slate-50 focus:bg-white text-sm text-slate-800 rounded-full pl-11 pr-24 py-2.5 border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all placeholder:text-slate-500"
+                className="header-search-input w-full bg-slate-100 hover:bg-slate-50 focus:bg-white text-sm text-slate-800 rounded-full pl-11 pr-24 py-2.5 border border-slate-200 focus:border-slate-200 focus:ring-0 outline-none transition-all placeholder:text-slate-500"
               />
               <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
               <button
@@ -287,7 +288,11 @@ export const Header: React.FC = () => {
             </button>
 
             {/* User Account Menu */}
-            <div className="relative">
+            <div
+              className="relative"
+              onMouseEnter={() => user && setIsUserMenuOpen(true)}
+              onMouseLeave={() => setIsUserMenuOpen(false)}
+            >
               {user ? (
                 <button
                   aria-label="Account menu" aria-expanded={isUserMenuOpen} onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -299,7 +304,7 @@ export const Header: React.FC = () => {
                   <span className="hidden xl:inline text-xs font-semibold text-slate-800">
                     {user.name.split(' ')[0]}
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 hidden xl:inline" />
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 hidden xl:inline transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
               ) : (
                 <Link
@@ -313,10 +318,7 @@ export const Header: React.FC = () => {
 
               {/* User Dropdown */}
               {user && isUserMenuOpen && (
-                <div
-                  onMouseLeave={() => setIsUserMenuOpen(false)}
-                  className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-elevated border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2"
-                >
+                <div className="absolute right-0 top-full w-52 bg-white rounded-xl shadow-elevated border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
                     <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
@@ -466,8 +468,8 @@ export const Header: React.FC = () => {
           <div ref={menuRef} role="dialog" aria-modal="true" aria-label="Navigation" className="relative z-10 flex h-full w-4/5 max-w-sm flex-col overflow-y-auto bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-brand-primary text-white font-bold flex items-center justify-center">
-                  P2B
+                <div className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center">
+                  <BrandMark className="h-6 w-6" />
                 </div>
                 <span className="font-black text-slate-900 text-lg">Pick2Buy</span>
               </div>
