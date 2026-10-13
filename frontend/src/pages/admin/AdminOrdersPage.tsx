@@ -3,6 +3,7 @@ import { ShoppingBag, Truck, Check, Search, Filter } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
 import { ORDER_STATUSES } from '@pick2buy/shared';
+import { toast } from '../../store/useToastStore';
 
 const fulfillmentStatuses = Object.values(ORDER_STATUSES).filter(status =>
   status !== ORDER_STATUSES.RETURNED && status !== ORDER_STATUSES.REFUNDED);
@@ -50,8 +51,9 @@ export const AdminOrdersPage: React.FC = () => {
       });
       setShipmentDraft(null);
       loadOrders();
+      toast.success('Order status updated.');
     } catch (err: any) {
-      alert(err.message || 'Failed to update order status');
+      toast.error(err.message || 'Failed to update order status');
     } finally {
       setUpdatingId(null);
     }

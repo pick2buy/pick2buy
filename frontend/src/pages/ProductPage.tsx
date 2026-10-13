@@ -24,6 +24,7 @@ import { useWishlistStore } from '../store/useWishlistStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { ProductCard } from '../components/common/ProductCard';
 import { StickyMobileBuyBar } from '../components/storefront/StickyMobileBuyBar';
+import { toast } from '../store/useToastStore';
 
 export const ProductPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -73,7 +74,7 @@ export const ProductPage: React.FC = () => {
   const handleCheckPincode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pincode || pincode.length !== 6) {
-      alert('Please enter a valid 6-digit PIN code');
+      toast.error('Please enter a valid 6-digit PIN code.');
       return;
     }
     setPincodeChecking(true);
@@ -81,7 +82,7 @@ export const ProductPage: React.FC = () => {
       const res = await api.checkPincode(pincode);
       setPincodeResult(res.data);
     } catch (err: any) {
-      alert(err.message || 'Pincode check failed');
+      toast.error(err.message || 'PIN code check failed');
     } finally {
       setPincodeChecking(false);
     }
@@ -93,7 +94,7 @@ export const ProductPage: React.FC = () => {
     try {
       await addItem(product.id, selectedVariant?.id, quantity);
     } catch (err: any) {
-      alert(err.message || 'Error adding to cart');
+      toast.error(err.message || 'Could not add this item to your bag');
     } finally {
       setIsAdding(false);
     }
@@ -106,7 +107,7 @@ export const ProductPage: React.FC = () => {
       await addItem(product.id, selectedVariant?.id, quantity);
       navigate('/checkout');
     } catch (err: any) {
-      alert(err.message || 'Error proceeding to checkout');
+      toast.error(err.message || 'Could not proceed to checkout');
     } finally {
       setIsAdding(false);
     }
@@ -115,7 +116,7 @@ export const ProductPage: React.FC = () => {
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert('Please sign in to write a product review');
+      toast.info('Please sign in to write a product review.');
       navigate('/login');
       return;
     }
@@ -135,7 +136,7 @@ export const ProductPage: React.FC = () => {
       const res = await api.getProduct(product.slug);
       setProduct(res.data);
     } catch (err: any) {
-      alert(err.message || 'Failed to submit review');
+      toast.error(err.message || 'Could not submit your review');
     } finally {
       setIsSubmittingReview(false);
     }

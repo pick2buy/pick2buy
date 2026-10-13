@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LifeBuoy, Send, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Send, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api';
+import { toast } from '../../store/useToastStore';
 
 export const AdminTicketsPage: React.FC = () => {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -8,20 +9,24 @@ export const AdminTicketsPage: React.FC = () => {
   const [replyText, setReplyText] = useState('');
   const [replyStatus, setReplyStatus] = useState('WAITING_CUSTOMER');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const loadTickets = () => {
     api.getAdminTickets()
       .then((res) => {
+        setLoadError('');
         setTickets(res.data || []);
-        if (res.data?.length && !activeTicket) {
-          setActiveTicket(res.data[0]);
-        }
+        setActiveTicket((current: any) => (res.data || []).find((ticket: any) => ticket.id === current?.id) || res.data?.[0] || null);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load support tickets.'));
   };
 
   useEffect(() => {
     loadTickets();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadTickets();
+    }, 30000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const handleSendReply = async (e: React.FormEvent) => {
@@ -33,8 +38,9 @@ export const AdminTicketsPage: React.FC = () => {
       await api.replyTicket(activeTicket.id, replyText, replyStatus);
       setReplyText('');
       loadTickets();
+      toast.success('Reply sent.');
     } catch (err: any) {
-      alert(err.message || 'Failed to send reply');
+      toast.error(err.message || 'Failed to send reply');
     } finally {
       setIsSubmitting(false);
     }
@@ -42,10 +48,14 @@ export const AdminTicketsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Support Tickets & Agent Console</h1>
-        <p className="text-xs text-slate-500 mt-1">Answer customer inquiries, process exchanges, and resolve disputes</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Support Tickets & Agent Console</h1>
+          <p className="text-xs text-slate-500 mt-1">Customer messages from Account → Support & Help Tickets appear here.</p>
+        </div>
+        <button type="button" onClick={loadTickets} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><RefreshCw size={14} /> Refresh</button>
       </div>
+      {loadError && <p role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-xs text-rose-700">{loadError}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tickets List */}
@@ -70,6 +80,7 @@ export const AdminTicketsPage: React.FC = () => {
               <p className="text-[11px] text-slate-500 mt-0.5">From: {t.customer?.name}</p>
             </div>
           ))}
+          {!tickets.length && !loadError && <p className="p-4 text-center text-xs text-slate-500">No support tickets yet.</p>}
         </div>
 
         {/* Conversation Thread */}

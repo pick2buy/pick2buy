@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Tag, Plus, Trash2, Calendar, Check } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
+import { confirmAction, toast } from '../../store/useToastStore';
 
 export const AdminCouponsPage: React.FC = () => {
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -52,18 +53,20 @@ export const AdminCouponsPage: React.FC = () => {
         isActive: true,
       });
       loadCoupons();
+      toast.success('Coupon created.');
     } catch (err: any) {
-      alert(err.message || 'Failed to create coupon');
+      toast.error(err.message || 'Failed to create coupon');
     }
   };
 
   const handleDeleteCoupon = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this coupon?')) return;
+    if (!await confirmAction('Delete coupon?', 'This coupon will be removed permanently.', 'Delete coupon', true)) return;
     try {
       await api.deleteCoupon(id);
       loadCoupons();
+      toast.success('Coupon deleted.');
     } catch (err: any) {
-      alert(err.message || 'Failed to delete coupon');
+      toast.error(err.message || 'Failed to delete coupon');
     }
   };
 

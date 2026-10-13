@@ -1,6 +1,7 @@
 import { useModal } from '../../hooks/useModal';
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Trash2, Edit3, Search, ImagePlus, X, Archive, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Package, Plus, Trash2, Edit3, Search, ImagePlus, X, Archive, AlertTriangle } from 'lucide-react';
+import { toast } from '../../store/useToastStore';
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -23,7 +24,6 @@ export const AdminProductsPage: React.FC = () => {
   const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [pendingAction, setPendingAction] = useState<{ type: 'archive' | 'delete'; product: any } | null>(null);
-  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const canManage = ['ADMIN', 'MANAGER'].includes(useAuthStore(s => s.user?.role || ''));
 
   // New product form
@@ -66,12 +66,6 @@ export const AdminProductsPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timeout = window.setTimeout(() => setNotice(null), 4200);
-    return () => window.clearTimeout(timeout);
-  }, [notice]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -169,11 +163,11 @@ export const AdminProductsPage: React.FC = () => {
       if (type === 'archive') await api.archiveProduct(product.id);
       else await api.deleteProduct(product.id);
       setPendingAction(null);
-      setNotice({ type: 'success', message: type === 'archive' ? 'Product archived. It is now hidden from the storefront.' : 'Product deleted permanently.' });
+      toast.success(type === 'archive' ? 'Product archived. It is now hidden from the storefront.' : 'Product deleted permanently.');
       loadData();
     } catch (err: any) {
       setPendingAction(null);
-      setNotice({ type: 'error', message: err.message || `Could not ${type} product.` });
+      toast.error(err.message || `Could not ${type} product.`);
     }
   };
 
@@ -264,11 +258,6 @@ export const AdminProductsPage: React.FC = () => {
   const actionModalRef = useModal(Boolean(pendingAction), () => setPendingAction(null));
   return (
     <div className="space-y-6">
-      {notice && <div role="status" className={`fixed right-4 top-4 z-[80] flex w-[min(25rem,calc(100vw-2rem))] items-start gap-3 rounded-2xl border p-4 shadow-xl ${notice.type === 'success' ? 'border-emerald-200 bg-white text-emerald-950' : 'border-rose-200 bg-white text-rose-950'}`}>
-        <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${notice.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{notice.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}</span>
-        <p className="flex-1 text-xs font-semibold leading-5">{notice.message}</p>
-        <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss notification" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={15} /></button>
-      </div>}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Products Management</h1>

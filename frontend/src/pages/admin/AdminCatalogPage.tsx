@@ -3,6 +3,7 @@ import { Edit3, Eye, EyeOff, Plus, Trash2, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useModal } from '../../hooks/useModal';
+import { confirmAction, toast } from '../../store/useToastStore';
 
 type Tab = 'categories' | 'subcategories' | 'brands';
 type CatalogForm = {
@@ -18,7 +19,6 @@ export const AdminCatalogPage = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CatalogForm>(emptyForm);
   const [open, setOpen] = useState(false);
@@ -57,7 +57,7 @@ export const AdminCatalogPage = () => {
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    setSaving(true); setError(''); setNotice('');
+    setSaving(true); setError('');
     try {
       if (tab === 'brands') {
         const payload = { name: form.name.trim(), ...(form.slug.trim() ? { slug: form.slug.trim() } : {}), logoUrl: form.logoUrl.trim() || null };
@@ -73,28 +73,28 @@ export const AdminCatalogPage = () => {
         if (editingId) await api.updateCategory(editingId, payload); else await api.createCategory(payload);
       }
       setOpen(false);
-      setNotice(`${tab === 'brands' ? 'Brand' : tab === 'subcategories' ? 'Subcategory' : 'Category'} ${editingId ? 'updated' : 'created'}.`);
+      toast.success(`${tab === 'brands' ? 'Brand' : tab === 'subcategories' ? 'Subcategory' : 'Category'} ${editingId ? 'updated' : 'created'}.`);
       await load();
     } catch (err: any) { setError(err.message || 'Could not save item'); }
     finally { setSaving(false); }
   };
 
   const remove = async (item: any) => {
-    if (!window.confirm(`Delete ${item.name}? This cannot be undone.`)) return;
-    setError(''); setNotice('');
+    if (!await confirmAction(`Delete ${item.name}?`, 'This item will be removed permanently.', 'Delete', true)) return;
+    setError('');
     try {
       if (tab === 'brands') await api.deleteBrand(item.id); else await api.deleteCategory(item.id);
-      setNotice(`${item.name} deleted.`);
+      toast.success(`${item.name} deleted.`);
       await load();
     } catch (err: any) { setError(err.message || 'Could not delete item'); }
   };
 
   const toggleVisibility = async (item: any) => {
-    setError(''); setNotice('');
+    setError('');
     try {
       const isVisible = item.isVisible === false;
       await api.updateCategory(item.id, { isVisible });
-      setNotice(`${item.name} is now ${isVisible ? 'visible on the storefront' : 'hidden from the storefront'}.`);
+      toast.success(`${item.name} is now ${isVisible ? 'visible on the storefront' : 'hidden from the storefront'}.`);
       await load();
     } catch (err: any) { setError(err.message || 'Could not update category visibility'); }
   };
@@ -108,10 +108,9 @@ export const AdminCatalogPage = () => {
       {canManage && <button type="button" onClick={beginCreate} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-hover"><Plus size={17} /> Add {noun}</button>}
     </div>
     <div className="flex flex-wrap gap-2 border-b border-slate-200" role="tablist" aria-label="Catalog management">
-      {(['categories', 'subcategories', 'brands'] as const).map(value => <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => { setTab(value); setError(''); setNotice(''); }} className={`px-4 py-3 text-sm font-bold capitalize ${tab === value ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-slate-500 hover:text-slate-900'}`}>{value}</button>)}
+      {(['categories', 'subcategories', 'brands'] as const).map(value => <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => { setTab(value); setError(''); }} className={`px-4 py-3 text-sm font-bold capitalize ${tab === value ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-slate-500 hover:text-slate-900'}`}>{value}</button>)}
     </div>
     {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-    {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</p>}
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[650px] text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Slug</th><th className="px-4 py-3">{tab === 'subcategories' ? 'Parent' : 'Products'}</th><th className="px-4 py-3">{tab === 'brands' ? 'Logo' : 'Order'}</th>{tab !== 'brands' && <th className="px-4 py-3">Visibility</th>}<th className="px-4 py-3 text-right">Actions</th></tr></thead>

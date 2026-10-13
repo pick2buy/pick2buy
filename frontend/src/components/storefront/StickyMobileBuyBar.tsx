@@ -2,6 +2,7 @@ import React from 'react';
 import { ShoppingBag, Zap, Heart } from 'lucide-react';
 import { formatINR } from '../../lib/utils';
 import { useWishlistStore } from '../../store/useWishlistStore';
+import { toast } from '../../store/useToastStore';
 
 interface StickyMobileBuyBarProps {
   product: {
@@ -46,7 +47,7 @@ export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toggleWishlist(product.id).catch((error) => alert(error.message))}
+            onClick={() => toggleWishlist(product.id).catch((error) => toast.error(error.message || 'Could not update your wishlist.'))}
             className={`buy-wishlist p-2.5 rounded-xl border border-slate-200 ${
               wishlisted ? 'text-rose-500 bg-rose-50 border-rose-200' : 'text-slate-600 bg-slate-50'
             }`}

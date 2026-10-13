@@ -182,24 +182,25 @@ export class OrderController {
             });
         }
 
-        // Save address to user profile if user is logged in
+        // Save a new address once; selecting an existing address should not duplicate it.
         if (userId) {
-          await tx.address.create({
-            data: {
-              userId,
-              fullName: data.shippingAddress.fullName,
-              mobile: data.shippingAddress.mobile,
-              email: data.shippingAddress.email || null,
-              addressLine: data.shippingAddress.addressLine,
-              apartment: data.shippingAddress.apartment || null,
-              landmark: data.shippingAddress.landmark || null,
-              city: data.shippingAddress.city,
-              state: data.shippingAddress.state,
-              pincode: data.shippingAddress.pincode,
-              isDefault: data.shippingAddress.isDefault,
-              type: data.shippingAddress.type || 'HOME',
-            },
-          });
+          const existingAddress = await tx.address.findFirst({ where: {
+            userId, fullName: data.shippingAddress.fullName, mobile: data.shippingAddress.mobile,
+            addressLine: data.shippingAddress.addressLine, apartment: data.shippingAddress.apartment || null,
+            landmark: data.shippingAddress.landmark || null, city: data.shippingAddress.city,
+            state: data.shippingAddress.state, pincode: data.shippingAddress.pincode,
+          } });
+          if (!existingAddress) {
+            const firstAddress = await tx.address.count({ where: { userId } }) === 0;
+            if (data.shippingAddress.isDefault || firstAddress) await tx.address.updateMany({ where: { userId }, data: { isDefault: false } });
+            await tx.address.create({ data: {
+              userId, fullName: data.shippingAddress.fullName, mobile: data.shippingAddress.mobile,
+              email: data.shippingAddress.email || null, addressLine: data.shippingAddress.addressLine,
+              apartment: data.shippingAddress.apartment || null, landmark: data.shippingAddress.landmark || null,
+              city: data.shippingAddress.city, state: data.shippingAddress.state, pincode: data.shippingAddress.pincode,
+              isDefault: data.shippingAddress.isDefault || firstAddress, type: data.shippingAddress.type || 'HOME',
+            } });
+          }
         }
 
         return createdOrder;

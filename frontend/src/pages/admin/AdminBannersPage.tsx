@@ -3,6 +3,7 @@ import { Edit3, Plus, Trash2, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useModal } from '../../hooks/useModal';
+import { confirmAction, toast } from '../../store/useToastStore';
 
 type BannerForm = {
   title: string; subtitle: string; desktopImageUrl: string; mobileImageUrl: string;
@@ -17,7 +18,6 @@ export const AdminBannersPage = () => {
   const [banners, setBanners] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BannerForm>(emptyForm);
@@ -42,7 +42,7 @@ export const AdminBannersPage = () => {
     setError(''); setOpen(true);
   };
   const save = async (event: React.FormEvent) => {
-    event.preventDefault(); setSaving(true); setError(''); setNotice('');
+    event.preventDefault(); setSaving(true); setError('');
     try {
       const payload = { title: form.title.trim(), subtitle: form.subtitle.trim() || null,
         desktopImageUrl: form.desktopImageUrl.trim(), mobileImageUrl: form.mobileImageUrl.trim() || null,
@@ -51,21 +51,20 @@ export const AdminBannersPage = () => {
         endDate: form.endDate ? new Date(form.endDate).toISOString() : null };
       if (payload.startDate && payload.endDate && payload.startDate > payload.endDate) throw new Error('End date must be after start date');
       if (editingId) await api.updateBanner(editingId, payload); else await api.createBanner(payload);
-      setOpen(false); setNotice(`Banner ${editingId ? 'updated' : 'created'}.`); await load();
+      setOpen(false); toast.success(`Banner ${editingId ? 'updated' : 'created'}.`); await load();
     } catch (err: any) { setError(err.message || 'Could not save banner'); }
     finally { setSaving(false); }
   };
   const remove = async (banner: any) => {
-    if (!window.confirm(`Delete banner “${banner.title}”? This cannot be undone.`)) return;
-    setError(''); setNotice('');
-    try { await api.deleteBanner(banner.id); setNotice('Banner deleted.'); await load(); }
+    if (!await confirmAction('Delete banner?', `“${banner.title}” will be removed permanently.`, 'Delete banner', true)) return;
+    setError('');
+    try { await api.deleteBanner(banner.id); toast.success('Banner deleted.'); await load(); }
     catch (err: any) { setError(err.message || 'Could not delete banner'); }
   };
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-black text-slate-900">Storefront Banners</h1><p className="mt-1 text-sm text-slate-500">Create promotions that appear on the home page while active.</p></div>{canManage && <button type="button" onClick={beginCreate} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-hover"><Plus size={17} /> Add Banner</button>}</div>
     {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-    {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</p>}
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {!loading && banners.map(banner => <article key={banner.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <img src={banner.desktopImageUrl} alt="" className="h-40 w-full bg-slate-100 object-cover" />

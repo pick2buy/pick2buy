@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
+import { AddressController } from '../controllers/address.controller';
+import { SupportController } from '../controllers/support.controller';
 import { requireAuth } from '../middlewares/auth';
 import rateLimit from 'express-rate-limit';
 
@@ -20,6 +22,11 @@ router.post('/google', googleAuthLimiter, AuthController.google);
 router.post('/google/link', googleAuthLimiter, requireAuth, AuthController.linkGoogle);
 router.get('/me', requireAuth, AuthController.me);
 router.patch('/me', requireAuth, AuthController.updateProfile);
+router.post('/me/addresses', requireAuth, AddressController.create);
+router.patch('/me/addresses/:id', requireAuth, AddressController.update);
+router.delete('/me/addresses/:id', requireAuth, AddressController.delete);
+router.get('/me/tickets', requireAuth, SupportController.listMine);
+router.post('/me/tickets', requireAuth, SupportController.create);
 router.post('/change-email', recoveryRequestLimiter, requireAuth, AuthController.requestEmailChange);
 router.post('/change-email/verify', recoveryVerifyLimiter, requireAuth, AuthController.confirmEmailChange);
 router.post('/forgot-password', recoveryRequestLimiter, AuthController.forgotPassword);

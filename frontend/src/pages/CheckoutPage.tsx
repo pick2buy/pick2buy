@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
@@ -40,7 +40,10 @@ const loadRazorpay = async () => {
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { cart, fetchCart } = useCartStore();
-  const { user } = useAuthStore();
+  const { user, fetchMe } = useAuthStore();
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const appliedAddressForUser = useRef<string | null>(null);
+  useEffect(() => { if (user?.id) fetchMe(); }, [user?.id, fetchMe]);
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,8 +62,32 @@ export const CheckoutPage: React.FC = () => {
     city: '',
     state: '',
     pincode: '',
-    isDefault: true,
+    isDefault: false,
+    type: 'HOME' as 'HOME' | 'WORK' | 'OTHER',
   });
+
+  useEffect(() => {
+    if (!user?.id || !user.addresses?.length || appliedAddressForUser.current === user.id) return;
+    const preferred = user.addresses.find((saved: any) => saved.isDefault) || user.addresses[0];
+    setSelectedAddressId(preferred.id);
+    setAddress({ fullName: preferred.fullName, mobile: preferred.mobile, email: preferred.email || user.email,
+      addressLine: preferred.addressLine, apartment: preferred.apartment || '', landmark: preferred.landmark || '',
+      city: preferred.city, state: preferred.state, pincode: preferred.pincode, isDefault: Boolean(preferred.isDefault), type: preferred.type || 'HOME' });
+    appliedAddressForUser.current = user.id;
+  }, [user]);
+
+  const selectSavedAddress = (saved: any) => {
+    setSelectedAddressId(saved.id);
+    setAddress({ fullName: saved.fullName, mobile: saved.mobile, email: saved.email || user?.email || '',
+      addressLine: saved.addressLine, apartment: saved.apartment || '', landmark: saved.landmark || '',
+      city: saved.city, state: saved.state, pincode: saved.pincode, isDefault: Boolean(saved.isDefault), type: saved.type || 'HOME' });
+    setErrorMessage('');
+  };
+
+  const updateAddressField = (field: keyof typeof address, value: string) => {
+    setSelectedAddressId(null);
+    setAddress(current => ({ ...current, [field]: value, isDefault: false }));
+  };
 
   // Payment Method: COD or RAZORPAY_UPI
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY_UPI' | 'RAZORPAY_CARD'>('COD');
@@ -209,6 +236,15 @@ export const CheckoutPage: React.FC = () => {
                 <h2 className="text-base font-bold text-slate-900">Delivery Address Details</h2>
               </div>
 
+              {user?.addresses && user.addresses.length > 0 && <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-700">Choose a saved address</p>
+                <div className="grid gap-2 sm:grid-cols-2">{user.addresses.map((saved: any) => <button key={saved.id} type="button" onClick={() => selectSavedAddress(saved)} aria-pressed={selectedAddressId === saved.id} className={`rounded-xl border p-3 text-left text-xs transition-colors ${selectedAddressId === saved.id ? 'border-brand-primary bg-indigo-50' : 'border-slate-200 hover:border-indigo-300'}`}>
+                  <span className="flex items-center justify-between gap-2 font-bold text-slate-900">{saved.fullName}{saved.isDefault && <span className="text-[10px] text-brand-primary">Default</span>}</span>
+                  <span className="mt-1 block text-slate-600">{saved.addressLine}, {saved.city}, {saved.state} - {saved.pincode}</span>
+                </button>)}</div>
+                <button type="button" onClick={() => { setSelectedAddressId(null); setAddress({ fullName: user.name || '', mobile: user.phone || '', email: user.email || '', addressLine: '', apartment: '', landmark: '', city: '', state: '', pincode: '', isDefault: false, type: 'HOME' }); }} className="text-xs font-bold text-brand-primary hover:underline">Use a new address</button>
+              </div>}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
                   <label className="block text-slate-700 font-medium mb-1">Full Name *</label>
@@ -216,7 +252,7 @@ export const CheckoutPage: React.FC = () => {
                     type="text"
                     required
                     value={address.fullName}
-                    onChange={(e) => setAddress({ ...address, fullName: e.target.value })}
+                    onChange={(e) => updateAddressField('fullName', e.target.value)}
                     placeholder="e.g. Aarav Sharma"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
                   />
@@ -229,7 +265,7 @@ export const CheckoutPage: React.FC = () => {
                     required
                     maxLength={10}
                     value={address.mobile}
-                    onChange={(e) => setAddress({ ...address, mobile: e.target.value.replace(/\D/g, '') })}
+                    onChange={(e) => updateAddressField('mobile', e.target.value.replace(/\D/g, ''))}
                     placeholder="e.g. 9820112233"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
                   />
@@ -240,7 +276,7 @@ export const CheckoutPage: React.FC = () => {
                   <input
                     type="email"
                     value={address.email}
-                    onChange={(e) => setAddress({ ...address, email: e.target.value })}
+                    onChange={(e) => updateAddressField('email', e.target.value)}
                     placeholder="e.g. customer@pick2buy.in"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
                   />
@@ -252,10 +288,15 @@ export const CheckoutPage: React.FC = () => {
                     type="text"
                     required
                     value={address.addressLine}
-                    onChange={(e) => setAddress({ ...address, addressLine: e.target.value })}
+                    onChange={(e) => updateAddressField('addressLine', e.target.value)}
                     placeholder="Flat 402, Sunshine Heights, 100ft Road"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-medium mb-1">Apartment / Building (optional)</label>
+                  <input type="text" value={address.apartment} onChange={(e) => updateAddressField('apartment', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary" />
                 </div>
 
                 <div>
@@ -263,7 +304,7 @@ export const CheckoutPage: React.FC = () => {
                   <input
                     type="text"
                     value={address.landmark}
-                    onChange={(e) => setAddress({ ...address, landmark: e.target.value })}
+                    onChange={(e) => updateAddressField('landmark', e.target.value)}
                     placeholder="Near Metro Station"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
                   />
@@ -276,7 +317,7 @@ export const CheckoutPage: React.FC = () => {
                     maxLength={6}
                     required
                     value={address.pincode}
-                    onChange={(e) => setAddress({ ...address, pincode: e.target.value.replace(/\D/g, '') })}
+                    onChange={(e) => updateAddressField('pincode', e.target.value.replace(/\D/g, ''))}
                     placeholder="560001"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-mono outline-none focus:border-brand-primary"
                   />
@@ -288,7 +329,7 @@ export const CheckoutPage: React.FC = () => {
                     type="text"
                     required
                     value={address.city}
-                    onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                    onChange={(e) => updateAddressField('city', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
                   />
                 </div>
@@ -299,7 +340,7 @@ export const CheckoutPage: React.FC = () => {
                     type="text"
                     required
                     value={address.state}
-                    onChange={(e) => setAddress({ ...address, state: e.target.value })}
+                    onChange={(e) => updateAddressField('state', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
                   />
                 </div>

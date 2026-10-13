@@ -105,7 +105,6 @@ export type CouponType = typeof COUPON_TYPES[keyof typeof COUPON_TYPES];
 
 export const DEFAULT_COD_SETTINGS = {
   enabled: true,
-  minAmount: 199,
   maxAmount: 15000,
   fee: 49,
 };

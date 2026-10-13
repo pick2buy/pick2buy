@@ -72,15 +72,10 @@ export class PaymentService {
     return crypto.timingSafeEqual(Buffer.from(generatedSignature, 'hex'), Buffer.from(args.razorpaySignature, 'hex'));
   }
 
-  /**
-   * Validate Cash on Delivery eligibility for a pincode and order amount
-   */
+  /** Validate Cash on Delivery eligibility for a pincode and order amount. */
   public static validateCodEligibility(pincode: string, orderTotal: number): { eligible: boolean; reason?: string } {
     if (!config.cod.enabled) {
       return { eligible: false, reason: 'Cash on Delivery is currently disabled' };
-    }
-    if (orderTotal < config.cod.minAmount) {
-      return { eligible: false, reason: `Minimum order for COD is ₹${config.cod.minAmount}` };
     }
     if (orderTotal > config.cod.maxAmount) {
       return { eligible: false, reason: `Maximum order limit for COD is ₹${config.cod.maxAmount}` };

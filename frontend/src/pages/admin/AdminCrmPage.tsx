@@ -4,6 +4,7 @@ import { Users, Plus, MoveRight, Phone, Mail, DollarSign, Calendar } from 'lucid
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
 import { LEAD_STATUSES } from '@pick2buy/shared';
+import { toast } from '../../store/useToastStore';
 
 const KANBAN_STAGES = [
   { key: 'NEW', title: 'New Leads', color: 'border-blue-400 bg-blue-50/40 text-blue-900' },
@@ -55,8 +56,9 @@ export const AdminCrmPage: React.FC = () => {
         notes: '',
       });
       loadLeads();
+      toast.success('Lead created.');
     } catch (err: any) {
-      alert(err.message || 'Failed to create lead');
+      toast.error(err.message || 'Failed to create lead');
     }
   };
 
@@ -68,8 +70,9 @@ export const AdminCrmPage: React.FC = () => {
     try {
       await api.updateLeadStatus(leadId, nextStage, `Moved from ${currentStage} to ${nextStage}`);
       loadLeads();
+      toast.success(`Lead moved to ${nextStage.toLowerCase()}.`);
     } catch (err: any) {
-      alert(err.message || 'Failed to update stage');
+      toast.error(err.message || 'Failed to update stage');
     }
   };
 

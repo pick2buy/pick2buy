@@ -282,3 +282,6 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .store-header .announcement > div > div:first-child { gap: 6px; }
   .store-header .announcement span:first-child { white-space: nowrap; }
 }
+@keyframes toast-enter { from { opacity: 0; transform: translateY(-10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.toast-enter { animation: toast-enter 180ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .toast-enter { animation: none; } }

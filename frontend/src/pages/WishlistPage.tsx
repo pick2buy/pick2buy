@@ -5,6 +5,7 @@ import { useWishlistStore } from '../store/useWishlistStore';
 import { useCartStore } from '../store/useCartStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { formatINR } from '../lib/utils';
+import { toast } from '../store/useToastStore';
 
 export const WishlistPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export const WishlistPage: React.FC = () => {
       await moveToCart(productId);
       await fetchCart();
     } catch (err: any) {
-      alert(err.message || 'Failed to move item to bag');
+      toast.error(err.message || 'Failed to move item to bag');
     }
   };
 

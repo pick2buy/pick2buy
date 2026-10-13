@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Boxes, AlertTriangle, Plus, Minus, Check, ArrowUpDown } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
+import { toast } from '../../store/useToastStore';
 
 export const AdminInventoryPage: React.FC = () => {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -33,8 +34,9 @@ export const AdminInventoryPage: React.FC = () => {
       });
       setSelectedProduct(null);
       loadInventory();
+      toast.success('Stock updated.');
     } catch (err: any) {
-      alert(err.message || 'Stock adjustment failed');
+      toast.error(err.message || 'Stock adjustment failed');
     }
   };
 

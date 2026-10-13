@@ -10,13 +10,27 @@ import {
   Clock, 
   CheckCircle2, 
   MessageSquare, 
-  Send 
+  Send,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
 import { formatINR } from '../lib/utils';
 import { ProfileSection } from '../components/account/ProfileSection';
 import { Avatar } from '../components/common/Avatar';
+import { toast } from '../store/useToastStore';
+
+type AddressDraft = {
+  fullName: string; mobile: string; email: string; addressLine: string; apartment: string;
+  landmark: string; city: string; state: string; pincode: string; type: 'HOME' | 'WORK' | 'OTHER'; isDefault: boolean;
+};
+const emptyAddress = (user?: { name?: string; email?: string; phone?: string | null }): AddressDraft => ({
+  fullName: user?.name || '', mobile: user?.phone || '', email: user?.email || '', addressLine: '', apartment: '',
+  landmark: '', city: '', state: '', pincode: '', type: 'HOME', isDefault: false,
+});
 
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,12 +39,34 @@ export const AccountPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'support'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [ticketsError, setTicketsError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [addressDraft, setAddressDraft] = useState<AddressDraft | null>(null);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState('');
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [pendingDeleteAddressId, setPendingDeleteAddressId] = useState<string | null>(null);
+  const [deletingAddress, setDeletingAddress] = useState(false);
 
   // New ticket state
   const [ticketSubject, setTicketSubject] = useState('');
   const [ticketDesc, setTicketDesc] = useState('');
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+
+  const submitTicket = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isSubmittingTicket) return;
+    setIsSubmittingTicket(true);
+    try {
+      const response = await api.createSupportTicket(ticketSubject.trim(), ticketDesc.trim());
+      setTickets(current => [response.data, ...current]);
+      setTicketSubject('');
+      setTicketDesc('');
+      toast.success(`Support ticket ${response.data.ticketNumber} submitted.`);
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not submit your support ticket.'); }
+    finally { setIsSubmittingTicket(false); }
+  };
 
   useEffect(() => {
     if (!hasCheckedAuth) return;
@@ -46,9 +82,66 @@ export const AccountPage: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, [user?.id, hasCheckedAuth, navigate]);
 
+  useEffect(() => {
+    if (activeTab !== 'support' || !user) return;
+    setTicketsLoading(true);
+    setTicketsError('');
+    api.getMySupportTickets()
+      .then((response: any) => setTickets(response.data || []))
+      .catch((error: any) => setTicketsError(error instanceof Error ? error.message : 'Could not load your tickets.'))
+      .finally(() => setTicketsLoading(false));
+  }, [activeTab, user?.id]);
+
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const beginAddress = (existing?: any) => {
+    setEditingAddressId(existing?.id || null);
+    setAddressDraft(existing ? {
+      fullName: existing.fullName || '', mobile: existing.mobile || '', email: existing.email || '',
+      addressLine: existing.addressLine || '', apartment: existing.apartment || '', landmark: existing.landmark || '',
+      city: existing.city || '', state: existing.state || '', pincode: existing.pincode || '',
+      type: existing.type || 'HOME', isDefault: Boolean(existing.isDefault),
+    } : emptyAddress(user || undefined));
+    setAddressError('');
+  };
+
+  const saveAddress = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!addressDraft) return;
+    const draft = { ...addressDraft, fullName: addressDraft.fullName.trim(), mobile: addressDraft.mobile.trim(),
+      email: addressDraft.email.trim(), addressLine: addressDraft.addressLine.trim(), apartment: addressDraft.apartment.trim(),
+      landmark: addressDraft.landmark.trim(), city: addressDraft.city.trim(), state: addressDraft.state.trim(), pincode: addressDraft.pincode.trim() };
+    if (draft.fullName.length < 2 || !/^[6-9]\d{9}$/.test(draft.mobile) || draft.addressLine.length < 5 ||
+      draft.city.length < 2 || draft.state.length < 2 || !/^\d{6}$/.test(draft.pincode)) {
+      setAddressError('Complete the required fields with a valid 10-digit mobile number and 6-digit PIN code.');
+      return;
+    }
+    setSavingAddress(true);
+    setAddressError('');
+    try {
+      if (editingAddressId) await api.updateAddress(editingAddressId, draft);
+      else await api.createAddress(draft);
+      await fetchMe();
+      setAddressDraft(null);
+      toast.success(editingAddressId ? 'Address updated.' : 'Address added.');
+    } catch (error) { setAddressError(error instanceof Error ? error.message : 'Could not save address.'); }
+    finally { setSavingAddress(false); }
+  };
+
+  const deleteAddress = async (id: string) => {
+    setDeletingAddress(true);
+    setAddressError('');
+    try {
+      await api.deleteAddress(id);
+      if (editingAddressId === id) setAddressDraft(null);
+      await fetchMe();
+      setPendingDeleteAddressId(null);
+      toast.success('Address deleted.');
+    } catch (error) { setAddressError(error instanceof Error ? error.message : 'Could not delete address.'); }
+    finally { setDeletingAddress(false); }
   };
 
   if (!user) return null;
@@ -217,7 +310,27 @@ export const AccountPage: React.FC = () => {
           {/* ADDRESSES TAB */}
           {activeTab === 'addresses' && (
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900">Saved Addresses</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-bold text-slate-900">Saved Addresses</h2>
+                <button type="button" onClick={() => beginAddress()} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary px-3 py-2 text-xs font-bold text-white hover:bg-brand-hover"><Plus size={15} /> Add address</button>
+              </div>
+              {addressError && !addressDraft && <p role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-xs text-rose-700">{addressError}</p>}
+              {addressDraft && <form onSubmit={saveAddress} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <div className="mb-4 flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900">{editingAddressId ? 'Edit address' : 'Add address'}</h3><button type="button" onClick={() => setAddressDraft(null)} aria-label="Close address form" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X size={17} /></button></div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {([
+                    ['fullName', 'Full name *'], ['mobile', 'Mobile number *'], ['email', 'Email (optional)'],
+                    ['addressLine', 'House / street address *'], ['apartment', 'Apartment (optional)'], ['landmark', 'Landmark (optional)'],
+                    ['city', 'City *'], ['state', 'State *'], ['pincode', '6-digit PIN code *'],
+                  ] as const).map(([field, label]) => <label key={field} className={`text-xs font-semibold text-slate-700 ${field === 'addressLine' ? 'sm:col-span-2' : ''}`}>{label}
+                    <input type={field === 'email' ? 'email' : field === 'mobile' ? 'tel' : 'text'} required={['fullName', 'mobile', 'addressLine', 'city', 'state', 'pincode'].includes(field)} maxLength={field === 'mobile' ? 10 : field === 'pincode' ? 6 : undefined} value={addressDraft[field]} onChange={event => setAddressDraft(current => current && ({ ...current, [field]: field === 'mobile' || field === 'pincode' ? event.target.value.replace(/\D/g, '') : event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                  </label>)}
+                  <label className="text-xs font-semibold text-slate-700">Address type<select value={addressDraft.type} onChange={event => setAddressDraft(current => current && ({ ...current, type: event.target.value as AddressDraft['type'] }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm"><option value="HOME">Home</option><option value="WORK">Work</option><option value="OTHER">Other</option></select></label>
+                  <label className="flex items-center gap-2 self-end rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700"><input type="checkbox" checked={addressDraft.isDefault} onChange={event => setAddressDraft(current => current && ({ ...current, isDefault: event.target.checked }))} /> Set as default</label>
+                </div>
+                {addressError && <p role="alert" className="mt-3 text-xs text-rose-600">{addressError}</p>}
+                <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setAddressDraft(null)} className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">Cancel</button><button type="submit" disabled={savingAddress} className="rounded-xl bg-brand-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{savingAddress ? 'Saving…' : 'Save address'}</button></div>
+              </form>}
               {user.addresses && user.addresses.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {user.addresses.map((addr: any) => (
@@ -232,7 +345,10 @@ export const AccountPage: React.FC = () => {
                       </div>
                       <p className="text-slate-600">{addr.mobile}</p>
                       <p className="text-slate-600">{addr.addressLine}</p>
+                      {addr.apartment && <p className="text-slate-600">{addr.apartment}</p>}
+                      {addr.landmark && <p className="text-slate-600">Near {addr.landmark}</p>}
                       <p className="text-slate-600">{addr.city}, {addr.state} - {addr.pincode}</p>
+                      {pendingDeleteAddressId === addr.id ? <div className="mt-3 rounded-xl bg-rose-50 p-3 text-rose-800"><p className="font-semibold">Delete this address?</p><div className="mt-2 flex gap-2"><button type="button" disabled={deletingAddress} onClick={() => deleteAddress(addr.id)} className="rounded-lg bg-rose-600 px-3 py-1.5 font-bold text-white disabled:opacity-50">{deletingAddress ? 'Deleting…' : 'Delete'}</button><button type="button" disabled={deletingAddress} onClick={() => setPendingDeleteAddressId(null)} className="rounded-lg px-3 py-1.5 font-bold text-slate-700 hover:bg-white">Cancel</button></div></div> : <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => beginAddress(addr)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 font-bold text-brand-primary hover:bg-indigo-50"><Pencil size={13} /> Edit address</button><button type="button" onClick={() => { setPendingDeleteAddressId(addr.id); setAddressError(''); }} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 font-bold text-rose-600 hover:bg-rose-50"><Trash2 size={13} /> Delete address</button></div>}
                     </div>
                   ))}
                 </div>
@@ -252,20 +368,14 @@ export const AccountPage: React.FC = () => {
                 <p className="text-xs text-slate-500 mt-0.5">Need help with an order, return, or invoice? Submit a ticket below.</p>
               </div>
 
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  alert('Your support inquiry has been logged with Pick2Buy Customer Care.');
-                  setTicketSubject('');
-                  setTicketDesc('');
-                }}
-                className="space-y-3"
-              >
+              <form onSubmit={submitTicket} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
                   <input
                     type="text"
                     required
+                    minLength={3}
+                    maxLength={150}
                     value={ticketSubject}
                     onChange={(e) => setTicketSubject(e.target.value)}
                     placeholder="e.g. Delivery status inquiry for order #P2B-2026-..."
@@ -277,6 +387,8 @@ export const AccountPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
                   <textarea
                     required
+                    minLength={10}
+                    maxLength={5000}
                     rows={4}
                     value={ticketDesc}
                     onChange={(e) => setTicketDesc(e.target.value)}
@@ -287,12 +399,35 @@ export const AccountPage: React.FC = () => {
 
                 <button
                   type="submit"
+                  disabled={isSubmittingTicket}
                   className="bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm transition-colors flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Submit Ticket</span>
+                  <span>{isSubmittingTicket ? 'Submitting…' : 'Submit Ticket'}</span>
                 </button>
               </form>
+
+              <div className="border-t border-slate-100 pt-6">
+                <h3 className="text-sm font-bold text-slate-900">Your tickets</h3>
+                <p className="mt-1 text-xs text-slate-500">Replies from Pick2Buy support appear here.</p>
+                {ticketsLoading && <p className="mt-4 text-xs text-slate-500">Loading tickets…</p>}
+                {ticketsError && <p role="alert" className="mt-4 text-xs text-rose-600">{ticketsError}</p>}
+                {!ticketsLoading && !ticketsError && tickets.length === 0 && <p className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No support tickets yet.</p>}
+                <div className="mt-4 space-y-3">
+                  {tickets.map((ticket: any) => <details key={ticket.id} className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 open:bg-white">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 text-xs marker:hidden">
+                      <span className="font-bold text-slate-900">{ticket.subject}</span>
+                      <span className="flex items-center gap-2"><span className="font-mono text-slate-500">{ticket.ticketNumber}</span><span className="rounded-full bg-indigo-50 px-2 py-1 font-bold text-brand-primary">{ticket.status.replaceAll('_', ' ')}</span></span>
+                    </summary>
+                    <p className="mt-3 whitespace-pre-wrap text-xs leading-5 text-slate-700">{ticket.description}</p>
+                    <p className="mt-2 text-[11px] text-slate-400">Sent {new Date(ticket.createdAt).toLocaleString('en-IN')}</p>
+                    {ticket.messages?.map((message: any) => <div key={message.id} className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs">
+                      <p className="font-bold text-brand-primary">Pick2Buy Support • {new Date(message.createdAt).toLocaleString('en-IN')}</p>
+                      <p className="mt-1 whitespace-pre-wrap leading-5 text-slate-700">{message.message}</p>
+                    </div>)}
+                  </details>)}
+                </div>
+              </div>
             </div>
           )}
         </main>

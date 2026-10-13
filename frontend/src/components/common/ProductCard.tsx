@@ -5,6 +5,7 @@ import { formatINR } from '../../lib/utils';
 import { useCartStore } from '../../store/useCartStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { toast } from '../../store/useToastStore';
 
 interface ProductCardProps {
   product: {
@@ -44,7 +45,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 2000);
     } catch (err: any) {
-      alert(err.message || 'Failed to add item to bag');
+      toast.error(err.message || 'Failed to add item to bag');
     } finally {
       setIsAdding(false);
     }
@@ -54,13 +55,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      alert('Please sign in to save items to your wishlist!');
+      toast.info('Please sign in to save items to your wishlist.');
       return;
     }
     try {
       await toggleWishlist(product.id);
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || 'Could not update your wishlist.');
     }
   };
 

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
+import { toast } from '../../store/useToastStore';
 
 export const AdminDashboardPage: React.FC = () => {
   const [metrics, setMetrics] = useState<any>(null);
@@ -37,7 +38,7 @@ export const AdminDashboardPage: React.FC = () => {
       link.download = `pick2buy_${type}_report.csv`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch (error) { alert(error instanceof Error ? error.message : 'Report download failed'); }
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Report download failed'); }
   };
 
   if (isLoading || !metrics) {

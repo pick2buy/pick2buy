@@ -364,31 +364,27 @@ export class AdminController {
   public static async replySupportTicket(req: Request, res: Response, next: NextFunction) {
     try {
       const { ticketId } = req.params;
-      const { message, status } = req.body;
+      const { message, status } = z.object({
+        message: z.string().trim().min(1).max(5000),
+        status: z.enum(['WAITING_CUSTOMER', 'IN_PROGRESS', 'RESOLVED']).optional(),
+      }).strict().parse(req.body);
 
       if (!req.user) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
-      await prisma.supportMessage.create({
-        data: {
-          ticketId,
-          senderId: req.user.id,
-          message,
-        },
-      });
-
-      const updatedTicket = await prisma.supportTicket.update({
-        where: { id: ticketId },
-        data: {
-          status: status || 'WAITING_CUSTOMER',
-          updatedAt: new Date(),
-        },
-        include: {
-          messages: {
-            include: { sender: { select: { name: true, role: true } } },
-          },
-        },
+      const updatedTicket = await prisma.$transaction(async transaction => {
+        await transaction.supportTicket.update({
+          where: { id: ticketId },
+          data: { status: status || 'WAITING_CUSTOMER' },
+        });
+        await transaction.supportMessage.create({
+          data: { ticketId, senderId: req.user!.id, message },
+        });
+        return transaction.supportTicket.findUniqueOrThrow({
+          where: { id: ticketId },
+          include: { messages: { include: { sender: { select: { name: true, role: true } } }, orderBy: { createdAt: 'asc' } } },
+        });
       });
 
       res.json({

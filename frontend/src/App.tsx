@@ -29,6 +29,7 @@ import { AdminAuditPage } from './pages/admin/AdminAuditPage';
 import { AdminCatalogPage } from './pages/admin/AdminCatalogPage';
 import { AdminBannersPage } from './pages/admin/AdminBannersPage';
 import { useAuthStore } from './store/useAuthStore';
+import { ToastViewport } from './components/common/ToastViewport';
 
 const ScrollToTop = () => {
   const { pathname, search } = useLocation();
@@ -59,6 +60,7 @@ export const App: React.FC = () => {
 
   return (
     <Router>
+      <ToastViewport />
       <ScrollToTop />
       <Routes>
         {/* Customer Storefront Routes */}

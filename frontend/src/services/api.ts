@@ -100,6 +100,26 @@ class ApiClient {
     return this.request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) });
   }
 
+  public createAddress(payload: Record<string, unknown>) {
+    return this.request('/auth/me/addresses', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  public updateAddress(id: string, payload: Record<string, unknown>) {
+    return this.request(`/auth/me/addresses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  }
+
+  public deleteAddress(id: string) {
+    return this.request(`/auth/me/addresses/${id}`, { method: 'DELETE' });
+  }
+
+  public createSupportTicket(subject: string, description: string) {
+    return this.request('/auth/me/tickets', { method: 'POST', body: JSON.stringify({ subject, description }) });
+  }
+
+  public getMySupportTickets() {
+    return this.request('/auth/me/tickets');
+  }
+
   public requestEmailChange(email: string) {
     return this.request('/auth/change-email', { method: 'POST', body: JSON.stringify({ email }) });
   }
