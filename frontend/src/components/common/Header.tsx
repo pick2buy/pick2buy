@@ -394,7 +394,7 @@ export const Header: React.FC = () => {
 
       {!isAuthPage && categories.length > 0 && (
         <nav ref={categoryNavRef} aria-label="Shop categories" onMouseLeave={() => setOpenCategoryId(null)} className={`category-navigation relative border-t border-slate-200 bg-white transition-[height] duration-300 ${isCategoryNavCondensed ? 'category-navigation--compact' : ''}`}>
-          <div className="mx-auto max-w-[1600px]">
+          <div className="w-full">
             <div className={`category-navigation-rail ${isCategoryNavCondensed ? 'category-navigation-rail--compact' : ''}`}>
             <button
               type="button"

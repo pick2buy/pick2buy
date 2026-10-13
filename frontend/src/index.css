@@ -66,8 +66,8 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .category-navigation { overflow: visible; transition: box-shadow .3s ease; }
 .category-navigation-rail { display: flex; align-items: stretch; gap: 2px; min-height: 92px; padding: 7px 18px; transition: min-height .32s cubic-bezier(.2,.8,.2,1), padding .32s cubic-bezier(.2,.8,.2,1); }
 .category-navigation-scroll { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; justify-content: flex-start; gap: 0; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; }
-.category-navigation-entry { flex: 0 0 88px; min-width: 0; }
-.category-navigation-item { position: relative; display: flex; flex: 0 0 88px; min-width: 0; flex-direction: column; align-items: center; gap: 4px; padding: 4px; color: #17213a; font-size: 11px; font-weight: 500; line-height: 1.2; text-align: center; transition: color .2s, transform .2s; scroll-snap-align: start; }
+.category-navigation-entry { flex: 1 0 88px; min-width: 0; }
+.category-navigation-item { position: relative; display: flex; flex: 1 0 88px; width: 100%; min-width: 0; flex-direction: column; align-items: center; gap: 4px; padding: 4px; color: #17213a; font-size: 11px; font-weight: 500; line-height: 1.2; text-align: center; transition: color .2s, transform .2s; scroll-snap-align: start; }
 .category-navigation-item:hover { color: var(--navy); transform: translateY(-1px); }
 .category-navigation-icon { display: grid; width: 36px; height: 40px; place-items: center; overflow: hidden; border-radius: 0; background: transparent !important; box-shadow: none; transform: scale(1); transform-origin: center; transition: width .3s ease, height .3s ease, opacity .18s ease, transform .3s ease, margin .3s ease; }
 .category-navigation-icon svg { width: 31px; height: 31px; }
@@ -253,6 +253,7 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .store-header .header-actions { gap: 0; }
   .category-navigation-rail { min-height: 82px; padding: 5px 4px; }
   .category-navigation-scroll { justify-content: flex-start; gap: 3px; }
+  .category-navigation-entry { flex-basis: 76px; }
   .category-navigation-item { flex-basis: 76px; gap: 3px; font-size: 9px; }
   .category-navigation-icon { width: 34px; height: 37px; border-radius: 0; }
   .category-navigation-icon svg { width: 27px; height: 27px; }
