@@ -1,7 +1,16 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, ShoppingBag } from 'lucide-react';
+import { formatINR } from '../../lib/utils';
 
-export const HeroBanner = () => (
+type HeroProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  images?: { url: string; altText?: string }[];
+};
+
+export const HeroBanner = ({ products = [] }: { products?: HeroProduct[] }) => (
   <section className="editorial-hero">
     <div className="hero-intro">
       <span className="eyebrow-pill"><span /> A little discovery. A better everyday.</span>
@@ -20,10 +29,12 @@ export const HeroBanner = () => (
         <Link to="/category/electronics" className="primary-pill">Explore the edit <ArrowRight size={17} /></Link>
         <span className="hero-caption"><ShoppingBag size={15} /> Curated by Pick2Buy</span>
       </div>
-      <Link to="/category/electronics" className="hero-photo" aria-label="Shop the electronics collection">
-        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1100&q=85" alt="Minimal black headphones on a warm yellow background" fetchPriority="high" />
-        <span>Sound good. Feel good. <ArrowRight size={20} /></span>
-      </Link>
+      <div className="hero-products" aria-label="Featured products">
+        {products.length ? products.map(product => <Link key={product.id} to={`/product/${product.slug}`} className="hero-product-card">
+          <div className="hero-product-image"><img src={product.images?.[0]?.url || '/product-placeholder.svg'} alt={product.images?.[0]?.altText || product.name} onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/product-placeholder.svg'; }} /></div>
+          <div className="hero-product-copy"><p>{product.name}</p><span>{formatINR(product.price)} <ArrowRight size={14} /></span></div>
+        </Link>) : <Link to="/shop" className="hero-photo" aria-label="Shop the collection"><img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1100&q=85" alt="Minimal black headphones on a warm yellow background" fetchPriority="high" /><span>Discover the collection <ArrowRight size={20} /></span></Link>}
+      </div>
     </div>
   </section>
 );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, BadgePercent, Gem, Home, Shirt, Sparkles, type LucideIcon } from 'lucide-react';
 import { api } from '../../services/api';
 
 const temporaryBanners = [
@@ -11,6 +11,7 @@ const temporaryBanners = [
     linkUrl: '/shop?sort=newest',
     eyebrow: 'JUST IN',
     accent: 'New season, new favourites.',
+    picks: [{ label: 'Fashion favourites', Icon: Shirt }, { label: 'Home refresh', Icon: Home }, { label: 'Beauty picks', Icon: Sparkles }],
   },
   {
     title: 'More to love. Less to spend.',
@@ -19,18 +20,22 @@ const temporaryBanners = [
     linkUrl: '/shop?flashDeal=true',
     eyebrow: 'EVERYDAY VALUE',
     accent: 'Good finds, better prices.',
+    picks: [{ label: 'Flash deals', Icon: BadgePercent }, { label: 'Trending finds', Icon: Gem }, { label: 'New price drops', Icon: Sparkles }],
   },
 ];
 
 const TemporaryBannerCard = ({ banner }: { banner: typeof temporaryBanners[number] }) => (
-  <Link to={banner.linkUrl} className="home-promo-marquee-card group relative flex min-h-64 flex-col overflow-hidden rounded-[24px] p-6 sm:p-8">
-    <div className="flex h-full flex-col items-start justify-between gap-9">
+  <Link to={banner.linkUrl} className="home-promo-feature-card group">
+    <div className="home-promo-copy">
       <div>
         <p className="home-promo-eyebrow">{banner.eyebrow}</p>
-        <h2 className="mt-4 max-w-sm text-[clamp(1.65rem,3vw,2.2rem)] font-medium leading-[1.08] tracking-[-.055em]">{banner.title} <em>{banner.accent}</em></h2>
+        <h2>{banner.title} <em>{banner.accent}</em></h2>
         <p className="mt-4 max-w-sm text-sm leading-6 text-slate-600">{banner.subtitle}</p>
       </div>
       <span className="home-promo-cta">{banner.buttonText} <ArrowRight size={17} className="transition-transform duration-300 group-hover:translate-x-1" /></span>
+    </div>
+    <div className="home-promo-stack">
+      {banner.picks.map(({ label, Icon }: { label: string; Icon: LucideIcon }) => <div key={label} className="home-promo-mini-card"><Icon aria-hidden="true" /><span>{label}</span></div>)}
     </div>
   </Link>
 );

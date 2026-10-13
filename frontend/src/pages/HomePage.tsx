@@ -57,7 +57,7 @@ export const HomePage = () => {
     { title: 'Meet the ', accent: 'best sellers.', label: 'EXPLORE THE COLLECTION', link: '/shop?sort=bestseller', products: products.filter(p => p.isBestSeller).slice(0, 4), promo: { eyebrow: 'PICK2BUY FAVOURITES', title: 'Made popular by shoppers like you.', link: '/shop?sort=bestseller' } },
   ];
   return <div ref={homePageRef} className="home-page">
-    <HeroBanner />
+    <HeroBanner products={(products.filter(product => product.stock > 0).length ? products.filter(product => product.stock > 0) : products).slice(0, 2)} />
     <div className="service-strip page-width home-scroll-reveal">
       {[[Truck, 'Delivery across India'], [CreditCard, 'Cash on Delivery'], [ShieldCheck, 'Secure checkout']].map(([Icon, text]: any) => <div key={text}><Icon size={20} /><span>{text}</span></div>)}
     </div>
