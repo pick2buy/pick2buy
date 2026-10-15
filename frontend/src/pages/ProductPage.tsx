@@ -172,11 +172,12 @@ export const ProductPage: React.FC = () => {
   const currentPrice = selectedVariant ? selectedVariant.price : product.price;
   const currentMrp = selectedVariant ? selectedVariant.mrp : product.mrp;
   const discount = Math.round(((currentMrp - currentPrice) / currentMrp) * 100);
+  const availableStock = selectedVariant ? selectedVariant.stock : product.stock;
   const wishlisted = isWishlisted(product.id);
   const reviews = product.reviews || [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 space-y-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 pb-24 space-y-6 sm:space-y-8">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-1.5 text-xs text-slate-500">
         <Link to="/" className="hover:text-slate-800">Home</Link>
@@ -195,40 +196,41 @@ export const ProductPage: React.FC = () => {
       </nav>
 
       {/* Main PDP Grid: Gallery & Purchase Column */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
         {/* Left: Image Gallery */}
-        <div className="space-y-4">
-          <div className="relative aspect-square rounded-3xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm group">
-            <img
-              src={selectedImage || product.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'}
-              alt={product.name}
-              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-            />
-            {discount > 0 && (
-              <span className="absolute top-4 left-4 bg-brand-accent text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                Save {discount}%
-              </span>
-            )}
-            <button
-              onClick={() => toggleWishlist(product.id)}
-              className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                wishlisted
-                  ? 'bg-rose-50 text-rose-500 shadow-md'
-                  : 'bg-white/90 backdrop-blur-sm text-slate-600 hover:text-rose-500 shadow-md'
-              }`}
-            >
-              <Heart className={`w-5 h-5 ${wishlisted ? 'fill-rose-500' : ''}`} />
-            </button>
-          </div>
+        <div className="lg:sticky lg:top-4 lg:self-start">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+            <div className="relative aspect-square lg:order-2 lg:h-[440px] lg:flex-1 lg:aspect-auto xl:h-[470px] rounded-3xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm group">
+              <img
+                src={selectedImage || product.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'}
+                alt={product.name}
+                className="w-full h-full object-contain object-center p-3 group-hover:scale-[1.02] transition-transform duration-500"
+              />
+              {discount > 0 && (
+                <span className="absolute top-4 left-4 bg-brand-accent text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                  Save {discount}%
+                </span>
+              )}
+              <button
+                onClick={() => toggleWishlist(product.id)}
+                className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  wishlisted
+                    ? 'bg-rose-50 text-rose-500 shadow-md'
+                    : 'bg-white/90 backdrop-blur-sm text-slate-600 hover:text-rose-500 shadow-md'
+                }`}
+              >
+                <Heart className={`w-5 h-5 ${wishlisted ? 'fill-rose-500' : ''}`} />
+              </button>
+            </div>
 
-          {/* Thumbnails */}
-          {product.images && product.images.length > 1 && (
-            <div className="flex items-center gap-3 overflow-x-auto pb-2">
+            {/* Thumbnails stay horizontal on mobile and form a scrollable left rail on desktop. */}
+            {product.images && product.images.length > 1 && (
+              <div className="flex order-3 gap-3 overflow-x-auto pb-2 lg:order-1 lg:max-h-[470px] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0 lg:pr-1">
               {product.images.map((img: any, idx: number) => (
                 <button
                   key={idx}
                   onClick={() => setSelectedImage(img.url)}
-                  className={`w-20 h-20 rounded-2xl overflow-hidden border-2 flex-shrink-0 transition-all ${
+                  className={`w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all ${
                     selectedImage === img.url
                       ? 'border-brand-primary ring-2 ring-brand-primary/20 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
@@ -237,12 +239,13 @@ export const ProductPage: React.FC = () => {
                   <img src={img.url} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
                 </button>
               ))}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right: Buy Controls & Specs */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-5">
           <div>
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
               <span className="font-bold uppercase tracking-wider text-brand-primary">
@@ -294,10 +297,10 @@ export const ProductPage: React.FC = () => {
           </div>
 
           {/* Variants Selector */}
-          {product.variants && product.variants.length > 1 && (
+          {product.variants && product.variants.length > 0 && (
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Select Option: <span className="text-brand-primary">{selectedVariant?.name}</span>
+                {product.variants.length === 1 ? 'Available option' : 'Select option'}: <span className="text-brand-primary">{selectedVariant?.name}</span>
               </label>
               <div className="flex flex-wrap gap-2">
                 {product.variants.map((v: any) => (
@@ -310,7 +313,7 @@ export const ProductPage: React.FC = () => {
                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                     }`}
                   >
-                    {v.name}
+                    {v.name || [v.color, v.size].filter(Boolean).join(' / ')}
                   </button>
                 ))}
               </div>
@@ -337,7 +340,7 @@ export const ProductPage: React.FC = () => {
                 </button>
               </div>
 
-              {product.stock > 0 ? (
+              {availableStock > 0 ? (
                 <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" /> In Stock & Ready to Ship
                 </span>
@@ -349,7 +352,7 @@ export const ProductPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={handleAddToCart}
-                disabled={product.stock <= 0 || isAdding}
+                disabled={availableStock <= 0 || isAdding}
                 className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50"
               >
                 <ShoppingBag className="w-4 h-4" />
@@ -358,7 +361,7 @@ export const ProductPage: React.FC = () => {
 
               <button
                 onClick={handleBuyNow}
-                disabled={product.stock <= 0 || isAdding}
+                disabled={availableStock <= 0 || isAdding}
                 className="bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50"
               >
                 <Zap className="w-4 h-4 fill-white" />

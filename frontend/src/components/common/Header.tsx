@@ -83,8 +83,9 @@ export const Header: React.FC = () => {
   const [categoryMenuLeft, setCategoryMenuLeft] = useState(8);
   const [expandedMobileCategoryId, setExpandedMobileCategoryId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCategoryNavCondensed, setIsCategoryNavCondensed] = useState(false);
-  const isCategoryNavCondensedRef = useRef(false);
+  const isProductDetailPage = pathname.startsWith('/product/');
+  const [isCategoryNavCondensed, setIsCategoryNavCondensed] = useState(isProductDetailPage);
+  const isCategoryNavCondensedRef = useRef(isProductDetailPage);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -97,6 +98,13 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     const updateCategoryNav = () => {
+      if (isProductDetailPage) {
+        if (!isCategoryNavCondensedRef.current) {
+          isCategoryNavCondensedRef.current = true;
+          setIsCategoryNavCondensed(true);
+        }
+        return;
+      }
       // Keep separate enter/exit points so the navigation height transition
       // cannot push the document back across a single threshold and flicker.
       const shouldCondense = isCategoryNavCondensedRef.current
@@ -109,7 +117,7 @@ export const Header: React.FC = () => {
     updateCategoryNav();
     window.addEventListener('scroll', updateCategoryNav, { passive: true });
     return () => window.removeEventListener('scroll', updateCategoryNav);
-  }, []);
+  }, [isProductDetailPage]);
 
   useEffect(() => {
     const strip = categoryStripRef.current;

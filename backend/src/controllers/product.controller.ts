@@ -110,7 +110,9 @@ export class ProductController {
   public static async getAdminProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const products = await prisma.product.findMany({
-        include: { images: { orderBy: { displayOrder: 'asc' } }, category: true, brand: true },
+        // The edit form needs the complete variant list so saving another product
+        // field does not silently replace the existing variants with an empty list.
+        include: { images: { orderBy: { displayOrder: 'asc' } }, variants: true, category: true, brand: true },
         orderBy: { updatedAt: 'desc' },
       });
       res.json({ success: true, data: products });
