@@ -154,7 +154,6 @@ export const ProductPage: React.FC = () => {
   const currentMrp = selectedVariant ? selectedVariant.mrp : product.mrp;
   const availableStock = selectedVariant ? selectedVariant.stock : product.stock;
   const discount = Math.round(((currentMrp - currentPrice) / currentMrp) * 100);
-  const availableStock = selectedVariant ? selectedVariant.stock : product.stock;
   const wishlisted = isWishlisted(product.id);
   const reviews = product.reviews || [];
 
