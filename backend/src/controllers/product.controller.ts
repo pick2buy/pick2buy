@@ -30,6 +30,7 @@ const productUpdateSchema = z.object({
   brandId: z.string().min(1).nullable().optional(),
   price: z.number().min(0).optional(),
   mrp: z.number().min(0).optional(),
+  stock: z.number().int().min(0).optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED']).optional(),
   imageUrl: productImageUrlSchema.optional().or(z.literal('')),
   images: z.array(z.object({

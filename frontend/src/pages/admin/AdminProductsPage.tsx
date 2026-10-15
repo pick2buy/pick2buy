@@ -127,7 +127,7 @@ export const AdminProductsPage: React.FC = () => {
         : { sourcePlatform: 'OWN', sourceProductCode: undefined, sourceUrl: undefined };
       if (editingId) await api.updateProduct(editingId, {
         name: form.name, sku: form.sku, categoryId: form.categoryId, brandId: form.brandId || null,
-        price: form.price, mrp: form.mrp, description: form.description, status: form.status,
+        price: form.price, mrp: form.mrp, stock: form.stock, description: form.description, status: form.status,
         images: imageUrls.map((url, index) => ({ url, isPrimary: index === 0 })), variants: form.variants, ...sourceDetails,
         sourceProductCode: form.sourcePlatform === 'MEESHO' ? form.sourceProductCode || null : null,
         sourceUrl: form.sourcePlatform === 'MEESHO' ? form.sourceUrl || null : null,
@@ -421,11 +421,12 @@ export const AdminProductsPage: React.FC = () => {
                   {formErrors.mrp && <p className="mt-1 text-rose-600">{formErrors.mrp}</p>}
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Initial Stock</label>
+                  <label className="font-bold text-slate-700 block mb-1">Stock</label>
                   <input
                     type="number"
                     required
-                    disabled={Boolean(editingId)}
+                    min="0"
+                    step="1"
                     value={form.stock}
                     onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
                     className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none ${formErrors.stock ? 'border-rose-500' : 'border-slate-200'}`}

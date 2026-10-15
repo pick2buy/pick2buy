@@ -139,6 +139,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           >
             {product.name}
           </Link>
+          {product.stock > 0 && product.stock < 5 && (
+            <p className="mt-1.5 text-[11px] font-bold text-amber-700" role="status">
+              Only {product.stock} left in stock
+            </p>
+          )}
         </div>
 
         {/* Pricing & Add to Cart button */}

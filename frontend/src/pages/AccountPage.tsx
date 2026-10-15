@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
-import { formatINR } from '../lib/utils';
+import { formatINR, INDIAN_STATES_AND_UTS } from '../lib/utils';
 import { ProfileSection } from '../components/account/ProfileSection';
 import { Avatar } from '../components/common/Avatar';
 import { toast } from '../store/useToastStore';
@@ -323,7 +323,12 @@ export const AccountPage: React.FC = () => {
                     ['addressLine', 'House / street address *'], ['apartment', 'Apartment (optional)'], ['landmark', 'Landmark (optional)'],
                     ['city', 'City *'], ['state', 'State *'], ['pincode', '6-digit PIN code *'],
                   ] as const).map(([field, label]) => <label key={field} className={`text-xs font-semibold text-slate-700 ${field === 'addressLine' ? 'sm:col-span-2' : ''}`}>{label}
-                    <input type={field === 'email' ? 'email' : field === 'mobile' ? 'tel' : 'text'} required={['fullName', 'mobile', 'addressLine', 'city', 'state', 'pincode'].includes(field)} maxLength={field === 'mobile' ? 10 : field === 'pincode' ? 6 : undefined} value={addressDraft[field]} onChange={event => setAddressDraft(current => current && ({ ...current, [field]: field === 'mobile' || field === 'pincode' ? event.target.value.replace(/\D/g, '') : event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                    {field === 'state' ? (
+                      <select required value={addressDraft.state} onChange={event => setAddressDraft(current => current && ({ ...current, state: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand-primary">
+                        <option value="" disabled>Select a state or union territory</option>
+                        {INDIAN_STATES_AND_UTS.map(state => <option key={state} value={state}>{state}</option>)}
+                      </select>
+                    ) : <input type={field === 'email' ? 'email' : field === 'mobile' ? 'tel' : 'text'} required={['fullName', 'mobile', 'addressLine', 'city', 'state', 'pincode'].includes(field)} maxLength={field === 'mobile' ? 10 : field === 'pincode' ? 6 : undefined} value={addressDraft[field]} onChange={event => setAddressDraft(current => current && ({ ...current, [field]: field === 'mobile' || field === 'pincode' ? event.target.value.replace(/\D/g, '') : event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand-primary" />}
                   </label>)}
                   <label className="text-xs font-semibold text-slate-700">Address type<select value={addressDraft.type} onChange={event => setAddressDraft(current => current && ({ ...current, type: event.target.value as AddressDraft['type'] }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm"><option value="HOME">Home</option><option value="WORK">Work</option><option value="OTHER">Other</option></select></label>
                   <label className="flex items-center gap-2 self-end rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700"><input type="checkbox" checked={addressDraft.isDefault} onChange={event => setAddressDraft(current => current && ({ ...current, isDefault: event.target.checked }))} /> Set as default</label>

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useCartStore } from '../store/useCartStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { formatINR } from '../lib/utils';
+import { formatINR, INDIAN_STATES_AND_UTS } from '../lib/utils';
 import { api } from '../services/api';
 
 type RazorpayResult = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
@@ -336,13 +336,15 @@ export const CheckoutPage: React.FC = () => {
 
                 <div>
                   <label className="block text-slate-700 font-medium mb-1">State *</label>
-                  <input
-                    type="text"
+                  <select
                     required
                     value={address.state}
                     onChange={(e) => updateAddressField('state', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-primary"
-                  />
+                  >
+                    <option value="" disabled>Select a state or union territory</option>
+                    {INDIAN_STATES_AND_UTS.map(state => <option key={state} value={state}>{state}</option>)}
+                  </select>
                 </div>
               </div>
 

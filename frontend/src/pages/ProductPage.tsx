@@ -8,7 +8,6 @@ import {
   Truck, 
   RefreshCw, 
   ShieldCheck, 
-  MapPin, 
   Check, 
   CheckCircle2, 
   ChevronRight,
@@ -40,11 +39,6 @@ export const ProductPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
 
-  // Pincode state
-  const [pincode, setPincode] = useState('560001');
-  const [pincodeResult, setPincodeResult] = useState<any>(null);
-  const [pincodeChecking, setPincodeChecking] = useState(false);
-
   // Review submission state
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
@@ -55,13 +49,17 @@ export const ProductPage: React.FC = () => {
   useEffect(() => {
     if (!slug) return;
     setIsLoading(true);
+    setSelectedVariant(null);
     api.getProduct(slug)
       .then((res) => {
         setProduct(res.data);
         if (res.data?.images?.length) {
           setSelectedImage(res.data.images[0].url);
         }
-        if (res.data?.variants?.length) {
+        // A single variant is not shown as a selectable option, so keep the
+        // product-level inventory as the source of truth for it. Variants only
+        // drive pricing and availability once the customer can choose one.
+        if (res.data?.variants?.length > 1) {
           setSelectedVariant(res.data.variants[0]);
         }
       })
@@ -70,23 +68,6 @@ export const ProductPage: React.FC = () => {
       })
       .finally(() => setIsLoading(false));
   }, [slug]);
-
-  const handleCheckPincode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pincode || pincode.length !== 6) {
-      toast.error('Please enter a valid 6-digit PIN code.');
-      return;
-    }
-    setPincodeChecking(true);
-    try {
-      const res = await api.checkPincode(pincode);
-      setPincodeResult(res.data);
-    } catch (err: any) {
-      toast.error(err.message || 'PIN code check failed');
-    } finally {
-      setPincodeChecking(false);
-    }
-  };
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -171,6 +152,7 @@ export const ProductPage: React.FC = () => {
 
   const currentPrice = selectedVariant ? selectedVariant.price : product.price;
   const currentMrp = selectedVariant ? selectedVariant.mrp : product.mrp;
+  const availableStock = selectedVariant ? selectedVariant.stock : product.stock;
   const discount = Math.round(((currentMrp - currentPrice) / currentMrp) * 100);
   const availableStock = selectedVariant ? selectedVariant.stock : product.stock;
   const wishlisted = isWishlisted(product.id);
@@ -333,7 +315,8 @@ export const ProductPage: React.FC = () => {
                 </button>
                 <span className="px-4 text-xs font-bold text-slate-900">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
+                  disabled={quantity >= availableStock}
                   className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold"
                 >
                   +
@@ -348,6 +331,12 @@ export const ProductPage: React.FC = () => {
                 <span className="text-xs font-bold text-rose-500">Currently Out of Stock</span>
               )}
             </div>
+
+            {availableStock > 0 && availableStock < 5 && (
+              <p className="text-xs font-bold text-amber-700" role="status">
+                Hurry — only {availableStock} left in stock.
+              </p>
+            )}
 
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
@@ -368,39 +357,6 @@ export const ProductPage: React.FC = () => {
                 <span>Buy Now</span>
               </button>
             </div>
-          </div>
-
-          {/* Delivery & Pincode Checker */}
-          <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
-              <MapPin className="w-4 h-4 text-brand-primary" />
-              <span>Check PIN for Cash on Delivery</span>
-            </div>
-
-            <form onSubmit={handleCheckPincode} className="flex gap-2">
-              <input
-                type="text"
-                maxLength={6}
-                value={pincode}
-                onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-                placeholder="Enter 6-digit PIN"
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-brand-primary"
-              />
-              <button
-                type="submit"
-                disabled={pincodeChecking}
-                className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
-              >
-                {pincodeChecking ? 'Checking...' : 'Check'}
-              </button>
-            </form>
-
-            {pincodeResult && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 space-y-1">
-                <p className="font-bold">PIN {pincodeResult.pincode}: {pincodeResult.isCodPincodeAllowed ? 'COD may be available' : 'COD is unavailable'}</p>
-                <p>Final COD eligibility depends on your order total. Delivery options are confirmed at checkout.</p>
-              </div>
-            )}
           </div>
 
           {/* Guarantees Box */}
@@ -582,7 +538,7 @@ export const ProductPage: React.FC = () => {
 
       {/* Mobile Sticky Buy Bar */}
       <StickyMobileBuyBar
-        product={product}
+        product={{ ...product, price: currentPrice, mrp: currentMrp, stock: availableStock }}
         onAddToCart={handleAddToCart}
         onBuyNow={handleBuyNow}
         isAdding={isAdding}
