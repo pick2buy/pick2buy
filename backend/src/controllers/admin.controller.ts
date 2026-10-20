@@ -4,11 +4,18 @@ import { couponCreateSchema, leadCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
 import { z } from 'zod';
 
+const bannerImage = z.string().trim()
+  .refine(
+    value => /^https?:\/\/\S+$/i.test(value) || /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=\s]+$/i.test(value),
+    'Use an HTTP(S) image URL or upload a PNG, JPEG, or WebP image',
+  )
+  .refine(value => value.length <= 700_000, 'Banner image is too large. Choose a smaller image.');
+
 const bannerFields = z.object({
   title: z.string().trim().min(2).max(160),
   subtitle: z.string().trim().max(300).nullable().optional(),
-  desktopImageUrl: z.string().url(),
-  mobileImageUrl: z.string().url().nullable().optional(),
+  desktopImageUrl: bannerImage,
+  mobileImageUrl: bannerImage.nullable().optional(),
   buttonText: z.string().trim().max(80).nullable().optional(),
   linkUrl: z.string().refine(value => /^\/(?!\/)/.test(value) || /^https:\/\//.test(value), 'Use an internal path or HTTPS link'),
   displayOrder: z.number().int().min(0),

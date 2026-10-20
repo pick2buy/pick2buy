@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Edit3, Plus, Trash2, X } from 'lucide-react';
+import { Edit3, ImagePlus, Plus, Trash2, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useModal } from '../../hooks/useModal';
@@ -13,6 +13,22 @@ type BannerForm = {
 const emptyForm = (): BannerForm => ({ title: '', subtitle: '', desktopImageUrl: '', mobileImageUrl: '', buttonText: '', linkUrl: '/shop', displayOrder: 0, isActive: true, startDate: '', endDate: '' });
 const localDate = (value?: string | null) => value ? new Date(new Date(value).getTime() - new Date(value).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
 const inputClass = 'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-indigo-100';
+const isUploadedImage = (value: string) => value.startsWith('data:image/');
+
+const resizeBannerImage = async (file: File) => {
+  const image = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / image.width, 900 / image.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.close();
+
+  let result = canvas.toDataURL('image/jpeg', 0.86);
+  if (result.length > 650_000) result = canvas.toDataURL('image/jpeg', 0.7);
+  if (result.length > 650_000) throw new Error('The image is still too large after compression. Choose a smaller image.');
+  return result;
+};
 
 export const AdminBannersPage = () => {
   const [banners, setBanners] = useState<any[]>([]);
@@ -22,6 +38,7 @@ export const AdminBannersPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BannerForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [uploadingTarget, setUploadingTarget] = useState<'desktop' | 'mobile' | null>(null);
   const canManage = ['ADMIN', 'MANAGER'].includes(useAuthStore(s => s.user?.role || ''));
   const modalRef = useModal(open, () => setOpen(false));
 
@@ -40,6 +57,27 @@ export const AdminBannersPage = () => {
       mobileImageUrl: banner.mobileImageUrl || '', buttonText: banner.buttonText || '', linkUrl: banner.linkUrl,
       displayOrder: banner.displayOrder, isActive: banner.isActive, startDate: localDate(banner.startDate), endDate: localDate(banner.endDate) });
     setError(''); setOpen(true);
+  };
+  const uploadImage = async (target: 'desktop' | 'mobile', event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Choose a PNG, JPEG, or WebP image.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError('Choose an image smaller than 8 MB.');
+      return;
+    }
+    setUploadingTarget(target); setError('');
+    try {
+      const imageUrl = await resizeBannerImage(file);
+      setForm(current => target === 'desktop'
+        ? { ...current, desktopImageUrl: imageUrl }
+        : { ...current, mobileImageUrl: imageUrl });
+    } catch (err: any) { setError(err.message || 'Could not prepare that image.'); }
+    finally { setUploadingTarget(null); }
   };
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setSaving(true); setError('');
@@ -83,8 +121,14 @@ export const AdminBannersPage = () => {
       <form onSubmit={save} className="space-y-4 text-sm font-semibold">
         <label className="block">Title *<input required minLength={2} maxLength={160} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className={inputClass} /></label>
         <label className="block">Subtitle<textarea rows={2} maxLength={300} value={form.subtitle} onChange={e => setForm({ ...form, subtitle: e.target.value })} className={inputClass} /></label>
-        <label className="block">Desktop image URL *<input required type="url" value={form.desktopImageUrl} onChange={e => setForm({ ...form, desktopImageUrl: e.target.value })} className={inputClass} placeholder="https://…" /></label>
-        <label className="block">Mobile image URL<input type="url" value={form.mobileImageUrl} onChange={e => setForm({ ...form, mobileImageUrl: e.target.value })} className={inputClass} placeholder="https://…" /></label>
+        <div>
+          <label className="block">Desktop image URL *<input type="text" inputMode="url" value={isUploadedImage(form.desktopImageUrl) ? '' : form.desktopImageUrl} onChange={e => setForm({ ...form, desktopImageUrl: e.target.value })} className={inputClass} placeholder={isUploadedImage(form.desktopImageUrl) ? 'An image has been uploaded below' : 'https://…'} /></label>
+          <div className="mt-2 flex flex-wrap items-center gap-2"><label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><ImagePlus size={15} />{uploadingTarget === 'desktop' ? 'Preparing image…' : 'Upload desktop image'}<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingTarget !== null} onChange={event => uploadImage('desktop', event)} /></label>{isUploadedImage(form.desktopImageUrl) && <><span className="text-xs font-medium text-emerald-700">Image uploaded</span><button type="button" onClick={() => setForm({ ...form, desktopImageUrl: '' })} className="text-xs font-bold text-slate-500 underline hover:text-slate-800">Remove</button></>}</div>
+        </div>
+        <div>
+          <label className="block">Mobile image URL<input type="text" inputMode="url" value={isUploadedImage(form.mobileImageUrl) ? '' : form.mobileImageUrl} onChange={e => setForm({ ...form, mobileImageUrl: e.target.value })} className={inputClass} placeholder={isUploadedImage(form.mobileImageUrl) ? 'An image has been uploaded below' : 'https://…'} /></label>
+          <div className="mt-2 flex flex-wrap items-center gap-2"><label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><ImagePlus size={15} />{uploadingTarget === 'mobile' ? 'Preparing image…' : 'Upload mobile image'}<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingTarget !== null} onChange={event => uploadImage('mobile', event)} /></label>{isUploadedImage(form.mobileImageUrl) && <><span className="text-xs font-medium text-emerald-700">Image uploaded</span><button type="button" onClick={() => setForm({ ...form, mobileImageUrl: '' })} className="text-xs font-bold text-slate-500 underline hover:text-slate-800">Remove</button></>}</div>
+        </div>
         {form.desktopImageUrl && <img src={form.desktopImageUrl} alt="Banner preview" className="h-36 w-full rounded-xl bg-slate-100 object-cover" />}
         <div className="grid gap-4 sm:grid-cols-2"><label className="block">Button text<input value={form.buttonText} maxLength={80} onChange={e => setForm({ ...form, buttonText: e.target.value })} className={inputClass} placeholder="Shop now" /></label><label className="block">Destination path or HTTPS URL *<input required value={form.linkUrl} onChange={e => setForm({ ...form, linkUrl: e.target.value })} className={inputClass} placeholder="/shop" /></label></div>
         <div className="grid gap-4 sm:grid-cols-2"><label className="block">Starts (optional)<input type="datetime-local" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className={inputClass} /></label><label className="block">Ends (optional)<input type="datetime-local" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className={inputClass} /></label></div>
