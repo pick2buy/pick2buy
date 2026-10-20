@@ -136,6 +136,16 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .home-promo-feature-card--bestsellers .home-promo-cta { background: #fff; box-shadow: 0 8px 20px #0506124d; color: #211d46; }
 .home-promo-feature-card--bestsellers .home-promo-mini-card { border-color: #ffffff1f; background: #ffffff14; box-shadow: none; color: #fff; backdrop-filter: blur(8px); }
 .home-promo-feature-card--bestsellers .home-promo-mini-card svg { color: #bdb4ff; }
+.home-promo-mini-card--visual { min-height: 82px; padding: 8px 12px 8px 8px; }
+.home-promo-mini-card--visual img { width: 74px; height: 64px; flex: 0 0 74px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 16px #17213a1f; transition: transform .3s ease; }
+.home-promo-feature-card:hover .home-promo-mini-card--visual img { transform: scale(1.06); }
+.home-promo-feature-card--bestsellers .home-promo-mini-card--visual { min-height: 82px; padding: 8px 12px 8px 8px; }
+.home-promo-feature-card--bestsellers .home-promo-mini-card--visual img { width: 74px; height: 64px; flex: 0 0 74px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 16px #05061240; transition: transform .3s ease; }
+.home-promo-feature-card--bestsellers:hover .home-promo-mini-card--visual img { transform: scale(1.06); }
+.home-promo-mini-card span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.home-promo-mini-card strong { font-weight: 650; }
+.home-promo-mini-card small { color: currentColor; font-size: 11px; font-weight: 500; opacity: .68; }
+.home-promo-mini-arrow { width: 17px; height: 17px; margin-left: auto; opacity: .75; }
 .home-promo-feature-card--weekend .home-promo-cta { background: #191b36; }
 .home-promo-feature-card--weekend .home-promo-mini-card { border-color: #fff6d4; background: #fff8df; }
 .home-promo-feature-card--value .home-promo-mini-card { border-color: #ffd0ad; background: #fffaf5; }
@@ -158,6 +168,10 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .home-promo-stack { gap: 10px; }
   .home-promo-mini-card { min-height: 60px; border-radius: 15px; padding: 13px 16px; font-size: 14px; }
   .home-promo-mini-card svg { width: 24px; height: 24px; }
+  .home-promo-feature-card--bestsellers .home-promo-mini-card--visual { min-height: 68px; }
+  .home-promo-mini-card--visual { min-height: 68px; }
+  .home-promo-mini-card--visual img { width: 60px; height: 52px; flex-basis: 60px; }
+  .home-promo-feature-card--bestsellers .home-promo-mini-card--visual img { width: 60px; height: 52px; flex-basis: 60px; }
   .home-promo-feature-card { width: calc(100vw - 64px); }
 }
 .home-section-promo { border: 1px solid #fff; background: #f4f4f3; box-shadow: 0 7px 20px #17213a0d, 0 2px 5px #17213a08; color: #151824; transition: transform .3s cubic-bezier(.22, 1, .36, 1), box-shadow .3s ease; }
