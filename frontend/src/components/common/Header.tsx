@@ -185,7 +185,9 @@ export const Header: React.FC = () => {
   };
 
   const menuRef = useModal(isMobileMenuOpen, () => setIsMobileMenuOpen(false));
-  const totalCartCount = cart?.items.reduce((sum, i) => sum + i.quantity, 0) || 0;
+  // The badge represents distinct products in the bag, not units. Changing a
+  // product's quantity should not make the cart icon count jump.
+  const totalCartCount = cart?.items.length || 0;
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

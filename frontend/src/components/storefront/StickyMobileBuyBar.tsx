@@ -1,5 +1,5 @@
-import React from 'react';
-import { ShoppingBag, Zap, Heart } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingBag, Zap, Heart, Check } from 'lucide-react';
 import { formatINR } from '../../lib/utils';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { toast } from '../../store/useToastStore';
@@ -15,6 +15,7 @@ interface StickyMobileBuyBarProps {
   onAddToCart: () => void;
   onBuyNow: () => void;
   isAdding: boolean;
+  inBag: boolean;
 }
 
 export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
@@ -22,9 +23,23 @@ export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
   onAddToCart,
   onBuyNow,
   isAdding,
+  inBag,
 }) => {
   const { toggleWishlist, isWishlisted } = useWishlistStore();
   const wishlisted = isWishlisted(product.id);
+  const [wishlistFeedback, setWishlistFeedback] = useState(false);
+
+  const handleWishlistToggle = async () => {
+    if (!wishlisted) {
+      setWishlistFeedback(true);
+      setTimeout(() => setWishlistFeedback(false), 650);
+    }
+    try {
+      await toggleWishlist(product.id);
+    } catch (error: any) {
+      toast.error(error.message || 'Could not update your wishlist.');
+    }
+  };
 
   if (product.stock <= 0) return null;
 
@@ -47,22 +62,22 @@ export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toggleWishlist(product.id).catch((error) => toast.error(error.message || 'Could not update your wishlist.'))}
-            className={`buy-wishlist p-2.5 rounded-xl border border-slate-200 ${
+            onClick={handleWishlistToggle}
+            className={`buy-wishlist p-2.5 rounded-xl border border-slate-200 transition-all ${
               wishlisted ? 'text-rose-500 bg-rose-50 border-rose-200' : 'text-slate-600 bg-slate-50'
-            }`}
+            } ${wishlistFeedback ? 'action-wishlist-pop' : ''}`}
             title="Wishlist"
           >
-            <Heart className={`w-4 h-4 ${wishlisted ? 'fill-rose-500' : ''}`} />
+            <Heart className={`w-4 h-4 ${wishlisted ? 'fill-rose-500 action-icon-pop' : ''}`} />
           </button>
 
           <button
             onClick={onAddToCart}
             disabled={isAdding}
-            className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+            className={`bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50 ${inBag ? 'action-cart-success' : ''}`}
           >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Bag</span>
+            {inBag ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <ShoppingBag className="w-3.5 h-3.5" />}
+            <span>{inBag ? 'In Bag' : 'Bag'}</span>
           </button>
 
           <button

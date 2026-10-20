@@ -3,6 +3,7 @@ import { AdminController } from '../controllers/admin.controller';
 import { ProductController } from '../controllers/product.controller';
 import { CategoryController } from '../controllers/category.controller';
 import { BrandController } from '../controllers/brand.controller';
+import { ReviewController } from '../controllers/review.controller';
 import { requireAdmin, requireStaff } from '../middlewares/auth';
 
 const router = Router();
@@ -11,6 +12,10 @@ const router = Router();
 router.get('/dashboard', requireStaff, AdminController.getDashboardMetrics);
 router.get('/orders', requireStaff, AdminController.getOrders);
 router.get('/products', requireStaff, ProductController.getAdminProducts);
+router.get('/reviews', requireStaff, ReviewController.getAdminReviews);
+router.post('/reviews', requireAdmin, ReviewController.createAdminReview);
+router.put('/reviews/:reviewId', requireAdmin, ReviewController.updateAdminReview);
+router.delete('/reviews/:reviewId', requireAdmin, ReviewController.deleteAdminReview);
 router.get('/categories', requireStaff, CategoryController.getAdminCategories);
 router.get('/brands', requireStaff, BrandController.list);
 router.post('/brands', requireAdmin, BrandController.create);

@@ -22,12 +22,12 @@ export const CartDrawer: React.FC = () => {
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+        className="cart-drawer-backdrop absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
         onClick={() => setCartDrawerOpen(false)}
       />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
-        <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Shopping bag" className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+        <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Shopping bag" className="cart-drawer-panel w-screen max-w-md bg-white shadow-2xl flex flex-col">
           {/* Header */}
           <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">

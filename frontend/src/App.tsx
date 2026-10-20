@@ -28,6 +28,7 @@ import { AdminCouponsPage } from './pages/admin/AdminCouponsPage';
 import { AdminAuditPage } from './pages/admin/AdminAuditPage';
 import { AdminCatalogPage } from './pages/admin/AdminCatalogPage';
 import { AdminBannersPage } from './pages/admin/AdminBannersPage';
+import { AdminReviewsPage } from './pages/admin/AdminReviewsPage';
 import { useAuthStore } from './store/useAuthStore';
 import { ToastViewport } from './components/common/ToastViewport';
 
@@ -87,6 +88,7 @@ export const App: React.FC = () => {
           <Route path="products" element={<AdminProductsPage />} />
           <Route path="catalog" element={<AdminCatalogPage />} />
           <Route path="banners" element={<AdminBannersPage />} />
+          <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="inventory" element={<AdminInventoryPage />} />
           <Route path="crm" element={<AdminCrmPage />} />
           <Route path="tickets" element={<AdminTicketsPage />} />

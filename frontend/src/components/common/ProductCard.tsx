@@ -32,6 +32,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const [isAdding, setIsAdding] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
+  const [wishlistFeedback, setWishlistFeedback] = useState(false);
 
   const discount = product.discountPercentage ?? (product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0);
   const primaryImage = product.images?.[0]?.url || '/product-placeholder.svg';
@@ -41,10 +42,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     e.stopPropagation();
     try {
       setIsAdding(true);
-      await addItem(product.id, null, 1);
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 2000);
+      await addItem(product.id, null, 1);
     } catch (err: any) {
+      setJustAdded(false);
       toast.error(err.message || 'Failed to add item to bag');
     } finally {
       setIsAdding(false);
@@ -57,6 +59,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     if (!user) {
       toast.info('Please sign in to save items to your wishlist.');
       return;
+    }
+    if (!activeWishlist) {
+      setWishlistFeedback(true);
+      setTimeout(() => setWishlistFeedback(false), 650);
     }
     try {
       await toggleWishlist(product.id);
@@ -102,11 +108,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             activeWishlist
               ? 'bg-rose-50 text-rose-500 shadow-sm'
               : 'bg-white/80 backdrop-blur-sm text-slate-600 hover:bg-white hover:text-rose-500 shadow-sm'
-          }`}
+          } ${wishlistFeedback ? 'action-wishlist-pop' : ''}`}
           title="Save to Wishlist"
           aria-label={activeWishlist ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
         >
-          <Heart className={`w-4 h-4 ${activeWishlist ? 'fill-rose-500' : ''}`} />
+          <Heart className={`w-4 h-4 ${activeWishlist ? 'fill-rose-500 action-icon-pop' : ''}`} />
         </button>
 
         {/* Out of Stock Overlay */}
@@ -167,7 +173,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             disabled={product.stock <= 0 || isAdding}
             className={`p-2.5 rounded-xl transition-all flex items-center justify-center ${
               justAdded
-                ? 'bg-emerald-600 text-white'
+                ? 'bg-emerald-600 text-white action-cart-success'
                 : 'bg-brand-primary hover:bg-brand-hover text-white shadow-sm hover:shadow'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title="Add to Cart"

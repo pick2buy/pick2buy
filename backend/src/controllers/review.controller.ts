@@ -1,8 +1,100 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { reviewCreateSchema } from '@pick2buy/shared';
+import { z } from 'zod';
+
+const reviewStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
+const adminReviewCreateSchema = z.object({
+  productId: z.string().uuid(),
+  userId: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  title: z.string().trim().max(160).nullable().optional(),
+  comment: z.string().trim().min(1).max(5000),
+  status: reviewStatusSchema.default('APPROVED'),
+  isVerifiedPurchase: z.boolean().default(false),
+  adminReply: z.string().trim().max(2000).nullable().optional(),
+});
+const adminReviewUpdateSchema = adminReviewCreateSchema.omit({ productId: true, userId: true }).partial();
 
 export class ReviewController {
+  public static async getAdminReviews(req: Request, res: Response, next: NextFunction) {
+    try {
+      const productId = typeof req.query.productId === 'string' ? req.query.productId : undefined;
+      const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+      const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+      const reviews = await prisma.review.findMany({
+        where: {
+          ...(productId ? { productId } : {}),
+          ...(status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status) ? { status } : {}),
+          ...(query ? {
+            OR: [
+              { title: { contains: query, mode: 'insensitive' } },
+              { comment: { contains: query, mode: 'insensitive' } },
+              { product: { name: { contains: query, mode: 'insensitive' } } },
+              { user: { name: { contains: query, mode: 'insensitive' } } },
+              { user: { email: { contains: query, mode: 'insensitive' } } },
+            ],
+          } : {}),
+        },
+        include: {
+          product: { select: { id: true, name: true, slug: true } },
+          user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      res.json({ success: true, data: reviews.map((review) => ({
+        ...review,
+        images: review.imagesJson ? JSON.parse(review.imagesJson) : [],
+      })) });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async createAdminReview(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = adminReviewCreateSchema.parse(req.body);
+      const review = await prisma.review.create({
+        data,
+        include: {
+          product: { select: { id: true, name: true, slug: true } },
+          user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+        },
+      });
+      res.status(201).json({ success: true, message: 'Review created successfully', data: review });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async updateAdminReview(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = adminReviewUpdateSchema.parse(req.body);
+      const review = await prisma.review.update({
+        where: { id: req.params.reviewId },
+        data,
+        include: {
+          product: { select: { id: true, name: true, slug: true } },
+          user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+        },
+      });
+      res.json({ success: true, message: 'Review updated successfully', data: review });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async deleteAdminReview(req: Request, res: Response, next: NextFunction) {
+    try {
+      await prisma.review.delete({ where: { id: req.params.reviewId } });
+      res.json({ success: true, message: 'Review deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async getProductReviews(req: Request, res: Response, next: NextFunction) {
     try {
       const { productId } = req.params;

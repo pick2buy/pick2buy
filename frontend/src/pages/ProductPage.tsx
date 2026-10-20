@@ -28,16 +28,19 @@ import { toast } from '../store/useToastStore';
 export const ProductPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { addItem, isLoading: isCartLoading } = useCartStore();
+  const { addItem, cart, setCartDrawerOpen, updateQuantity } = useCartStore();
   const { toggleWishlist, isWishlisted } = useWishlistStore();
   const { user } = useAuthStore();
 
   const [product, setProduct] = useState<any>(null);
   const [selectedImage, setSelectedImage] = useState<string>('');
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [wishlistFeedback, setWishlistFeedback] = useState(false);
 
   // Review submission state
   const [newRating, setNewRating] = useState(5);
@@ -69,8 +72,32 @@ export const ProductPage: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, [slug]);
 
+  const cartItemForSelection = product ? cart?.items.find((item) =>
+    item.productId === product.id && (selectedVariant ? item.variantId === selectedVariant.id : !item.variantId),
+  ) : undefined;
+  const isInBag = Boolean(cartItemForSelection);
+  const selectedQuantity = cartItemForSelection?.quantity ?? quantity;
+
+  const changeQuantity = (nextQuantity: number) => {
+    const validQuantity = Math.max(1, Math.min(availableStock, nextQuantity));
+    setQuantity(validQuantity);
+    if (cartItemForSelection) void updateQuantity(cartItemForSelection.id, validQuantity);
+  };
+
+  const updateZoomPosition = (event: React.MouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setZoomPosition({
+      x: Math.max(0, Math.min(100, ((event.clientX - bounds.left) / bounds.width) * 100)),
+      y: Math.max(0, Math.min(100, ((event.clientY - bounds.top) / bounds.height) * 100)),
+    });
+  };
+
   const handleAddToCart = async () => {
     if (!product) return;
+    if (isInBag) {
+      setCartDrawerOpen(true);
+      return;
+    }
     setIsAdding(true);
     try {
       await addItem(product.id, selectedVariant?.id, quantity);
@@ -91,6 +118,22 @@ export const ProductPage: React.FC = () => {
       toast.error(err.message || 'Could not proceed to checkout');
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    if (!user) {
+      toast.info('Please sign in to save items to your wishlist.');
+      return;
+    }
+    if (!wishlisted) {
+      setWishlistFeedback(true);
+      setTimeout(() => setWishlistFeedback(false), 650);
+    }
+    try {
+      await toggleWishlist(product.id);
+    } catch (err: any) {
+      toast.error(err.message || 'Could not update your wishlist.');
     }
   };
 
@@ -181,26 +224,41 @@ export const ProductPage: React.FC = () => {
         {/* Left: Image Gallery */}
         <div className="lg:sticky lg:top-4 lg:self-start">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-            <div className="relative aspect-square lg:order-2 lg:h-[440px] lg:flex-1 lg:aspect-auto xl:h-[470px] rounded-3xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm group">
+            <div
+              onMouseEnter={() => setIsImageZoomed(true)}
+              onMouseLeave={() => setIsImageZoomed(false)}
+              onMouseMove={updateZoomPosition}
+              className={`relative aspect-square lg:order-2 lg:h-[440px] lg:flex-1 lg:aspect-auto xl:h-[470px] rounded-3xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm ${isImageZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+            >
               <img
                 src={selectedImage || product.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'}
                 alt={product.name}
-                className="w-full h-full object-contain object-center p-3 group-hover:scale-[1.02] transition-transform duration-500"
+                className="w-full h-full object-contain object-center p-3 transition-transform duration-200 ease-out"
+                style={{
+                  transform: isImageZoomed ? 'scale(2.2)' : 'scale(1)',
+                  transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                }}
               />
+              {isImageZoomed && <div
+                aria-hidden="true"
+                className="pointer-events-none absolute hidden h-24 w-24 rounded-full border-2 border-white/90 bg-white/10 shadow-lg lg:block"
+                style={{ left: `${zoomPosition.x}%`, top: `${zoomPosition.y}%`, transform: 'translate(-50%, -50%)' }}
+              />}
               {discount > 0 && (
                 <span className="absolute top-4 left-4 bg-brand-accent text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
                   Save {discount}%
                 </span>
               )}
               <button
-                onClick={() => toggleWishlist(product.id)}
+                onClick={handleWishlistToggle}
                 className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                   wishlisted
                     ? 'bg-rose-50 text-rose-500 shadow-md'
                     : 'bg-white/90 backdrop-blur-sm text-slate-600 hover:text-rose-500 shadow-md'
-                }`}
+                } ${wishlistFeedback ? 'action-wishlist-pop' : ''}`}
+                aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
               >
-                <Heart className={`w-5 h-5 ${wishlisted ? 'fill-rose-500' : ''}`} />
+                <Heart className={`w-5 h-5 ${wishlisted ? 'fill-rose-500 action-icon-pop' : ''}`} />
               </button>
             </div>
 
@@ -307,15 +365,15 @@ export const ProductPage: React.FC = () => {
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Quantity:</span>
               <div className="flex items-center border border-slate-200 rounded-xl bg-white overflow-hidden">
                 <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={() => changeQuantity(selectedQuantity - 1)}
                   className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold"
                 >
                   -
                 </button>
-                <span className="px-4 text-xs font-bold text-slate-900">{quantity}</span>
+                <span className="px-4 text-xs font-bold text-slate-900">{selectedQuantity}</span>
                 <button
-                  onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
-                  disabled={quantity >= availableStock}
+                  onClick={() => changeQuantity(selectedQuantity + 1)}
+                  disabled={selectedQuantity >= availableStock}
                   className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold"
                 >
                   +
@@ -341,10 +399,10 @@ export const ProductPage: React.FC = () => {
               <button
                 onClick={handleAddToCart}
                 disabled={availableStock <= 0 || isAdding}
-                className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50"
+                className={`bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 ${isInBag ? 'action-cart-success' : ''}`}
               >
-                <ShoppingBag className="w-4 h-4" />
-                <span>Add to Bag</span>
+                {isInBag ? <Check className="w-4 h-4 stroke-[3]" /> : <ShoppingBag className="w-4 h-4" />}
+                <span>{isInBag ? 'Already in Bag' : 'Add to Bag'}</span>
               </button>
 
               <button
@@ -541,6 +599,7 @@ export const ProductPage: React.FC = () => {
         onAddToCart={handleAddToCart}
         onBuyNow={handleBuyNow}
         isAdding={isAdding}
+        inBag={isInBag}
       />
     </div>
   );
