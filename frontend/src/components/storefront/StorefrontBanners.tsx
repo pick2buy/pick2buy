@@ -11,6 +11,7 @@ const temporaryBanners = [
     linkUrl: '/shop?sort=newest',
     eyebrow: 'JUST IN',
     accent: 'New season, new favourites.',
+    style: 'new',
     picks: [{ label: 'Fashion favourites', Icon: Shirt }, { label: 'Home refresh', Icon: Home }, { label: 'Beauty picks', Icon: Sparkles }],
   },
   {
@@ -20,12 +21,33 @@ const temporaryBanners = [
     linkUrl: '/shop?flashDeal=true',
     eyebrow: 'EVERYDAY VALUE',
     accent: 'Good finds, better prices.',
+    style: 'value',
     picks: [{ label: 'Flash deals', Icon: BadgePercent }, { label: 'Trending finds', Icon: Gem }, { label: 'New price drops', Icon: Sparkles }],
+  },
+  {
+    title: 'Your next favourite is waiting.',
+    subtitle: 'Browse popular picks across tech, style, home and everyday essentials.',
+    buttonText: 'Shop best sellers',
+    linkUrl: '/shop?sort=popular',
+    eyebrow: 'MOST LOVED',
+    accent: 'Picked by shoppers.',
+    style: 'bestsellers',
+    picks: [{ label: 'Popular electronics', Icon: Sparkles }, { label: 'Top rated fashion', Icon: Shirt }, { label: 'Customer favourites', Icon: Gem }],
+  },
+  {
+    title: 'Weekend prices are here.',
+    subtitle: 'Save on useful finds with limited-time offers across the store.',
+    buttonText: 'See special offers',
+    linkUrl: '/shop?flashDeal=true',
+    eyebrow: 'LIMITED TIME',
+    accent: 'More value in every cart.',
+    style: 'weekend',
+    picks: [{ label: 'Up to 50% off', Icon: BadgePercent }, { label: 'Extra checkout savings', Icon: Sparkles }, { label: 'Fast delivery picks', Icon: Home }],
   },
 ];
 
 const TemporaryBannerCard = ({ banner }: { banner: typeof temporaryBanners[number] }) => (
-  <Link to={banner.linkUrl} className="home-promo-feature-card group">
+  <Link to={banner.linkUrl} className={`home-promo-feature-card home-promo-feature-card--${banner.style} group`}>
     <div className="home-promo-copy">
       <div>
         <p className="home-promo-eyebrow">{banner.eyebrow}</p>

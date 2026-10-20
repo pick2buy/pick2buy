@@ -11,7 +11,9 @@ export default defineConfig({
     },
   },
   server: {
+    host: 'localhost',
     port: 5173,
+    strictPort: true,
     // Allows this active Cloudflare quick-tunnel hostname during mobile testing.
     allowedHosts: ['thumbnails-antibody-neighbor-weddings.trycloudflare.com'],
     proxy: {
