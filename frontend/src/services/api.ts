@@ -283,6 +283,26 @@ class ApiClient {
 
   public getAdminProducts() { return this.request('/admin/products'); }
 
+  public getAdminReviews(params: { productId?: string; status?: string; q?: string } = {}) {
+    const query = new URLSearchParams();
+    if (params.productId) query.set('productId', params.productId);
+    if (params.status) query.set('status', params.status);
+    if (params.q) query.set('q', params.q);
+    return this.request(`/admin/reviews${query.size ? `?${query}` : ''}`);
+  }
+
+  public createAdminReview(payload: any) {
+    return this.request('/admin/reviews', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  public updateAdminReview(id: string, payload: any) {
+    return this.request(`/admin/reviews/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  }
+
+  public deleteAdminReview(id: string) {
+    return this.request(`/admin/reviews/${id}`, { method: 'DELETE' });
+  }
+
   public getAdminInventory() {
     return this.request('/admin/inventory');
   }

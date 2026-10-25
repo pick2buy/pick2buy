@@ -9,6 +9,7 @@ export class CartController {
         where: { userId },
         include: {
           items: {
+            orderBy: { createdAt: 'asc' },
             include: {
               product: {
                 include: { images: true },
@@ -23,6 +24,7 @@ export class CartController {
           data: { userId },
           include: {
             items: {
+              orderBy: { createdAt: 'asc' },
               include: {
                 product: { include: { images: true } },
                 variant: true,
@@ -40,6 +42,7 @@ export class CartController {
       where: { sessionId: sid },
       include: {
         items: {
+          orderBy: { createdAt: 'asc' },
           include: {
             product: { include: { images: true } },
             variant: true,
@@ -53,6 +56,7 @@ export class CartController {
         data: { sessionId: sid },
         include: {
           items: {
+            orderBy: { createdAt: 'asc' },
             include: {
               product: { include: { images: true } },
               variant: true,
@@ -185,9 +189,12 @@ export class CartController {
       if (existingItem) {
         const newQty = existingItem.quantity + quantity;
         if (availableStock < newQty || newQty > 99) {
+          const isAtAvailableStock = existingItem.quantity >= availableStock;
           return res.status(400).json({
             success: false,
-            message: `Cannot add more. Total in cart exceeds available stock (${availableStock})`,
+            message: isAtAvailableStock
+              ? `Already added to bag. You already have all available items (${availableStock}) in your bag.`
+              : `You can add only ${availableStock - existingItem.quantity} more item${availableStock - existingItem.quantity === 1 ? '' : 's'} to your bag.`,
           });
         }
         await prisma.cartItem.update({

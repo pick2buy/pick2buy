@@ -24,11 +24,23 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
   },
 
   toggleWishlist: async (productId: string) => {
+    const previousItems = get().items;
+    const alreadyWishlisted = previousItems.some((item) => item.productId === productId);
+
+    // Update locally first so hearts and wishlist counts respond at tap time.
+    // The server remains the source of truth and restores the full list below.
+    set({
+      items: alreadyWishlisted
+        ? previousItems.filter((item) => item.productId !== productId)
+        : [...previousItems, { id: `optimistic-${productId}`, productId }],
+    });
+
     try {
       const res = await api.toggleWishlist(productId);
-      await get().fetchWishlist();
+      void get().fetchWishlist();
       return res.action === 'added';
     } catch (err) {
+      set({ items: previousItems });
       throw err;
     }
   },

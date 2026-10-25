@@ -10,7 +10,7 @@ export const MobileBottomNav: React.FC = () => {
   const { cart } = useCartStore();
   const { items: wishlist } = useWishlistStore();
 
-  const totalCartCount = cart?.items.reduce((sum, i) => sum + i.quantity, 0) || 0;
+  const totalCartCount = cart?.items.length || 0;
 
   if (isAuthPage) return null;
 
