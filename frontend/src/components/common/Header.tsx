@@ -75,6 +75,9 @@ export const Header: React.FC = () => {
   const { items: wishlistItems, fetchWishlist } = useWishlistStore();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const categoryStripRef = useRef<HTMLDivElement>(null);
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -95,6 +98,26 @@ export const Header: React.FC = () => {
       setCategories(res.data || []);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
+
+    let active = true;
+    setIsSearching(true);
+    const request = window.setTimeout(() => {
+      api.getProducts({ q: query, limit: 6 })
+        .then((response) => { if (active) setSearchSuggestions(response.data || []); })
+        .catch(() => { if (active) setSearchSuggestions([]); })
+        .finally(() => { if (active) setIsSearching(false); });
+    }, 220);
+
+    return () => { active = false; window.clearTimeout(request); };
+  }, [searchQuery]);
 
   useEffect(() => {
     const updateCategoryNav = () => {
@@ -194,6 +217,26 @@ export const Header: React.FC = () => {
       setIsMobileMenuOpen(false);
     }
   };
+  const openProductSuggestion = (product: any) => {
+    setSearchQuery('');
+    setSearchSuggestions([]);
+    setIsSearchFocused(false);
+    navigate(`/product/${product.slug || product.id}`);
+  };
+  const renderSearchSuggestions = () => {
+    if (!isSearchFocused || searchQuery.trim().length < 2) return null;
+    return <div className="search-suggestions" role="listbox" aria-label="Search suggestions">
+      {isSearching && <p className="search-suggestions-status">Searching products…</p>}
+      {!isSearching && searchSuggestions.map((product) => {
+        const image = product.images?.find((item: any) => item.isPrimary)?.url || product.images?.[0]?.url || product.imageUrl;
+        return <button type="button" key={product.id} role="option" onMouseDown={(event) => event.preventDefault()} onClick={() => openProductSuggestion(product)} className="search-suggestion-item">
+          <span className="search-suggestion-image">{image ? <img src={image} alt="" /> : <Search size={18} />}</span>
+          <span className="min-w-0 text-left"><span className="search-suggestion-name">{product.name}</span><span className="search-suggestion-category">in {product.category?.name || 'Products'}</span></span>
+        </button>;
+      })}
+      {!isSearching && !searchSuggestions.length && <p className="search-suggestions-status">No products found. Press Enter to search all products.</p>}
+    </div>;
+  };
 
   return (
     <header className="store-header sticky top-0 z-40 bg-white border-b border-slate-200">
@@ -252,6 +295,8 @@ export const Header: React.FC = () => {
                 aria-label="Search products" type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => window.setTimeout(() => setIsSearchFocused(false), 120)}
                 placeholder="Search products, brands, electronics, apparel..."
                 className="header-search-input w-full bg-slate-100 hover:bg-slate-50 focus:bg-white text-sm text-slate-800 rounded-full pl-11 pr-24 py-2.5 border border-slate-200 focus:border-slate-200 focus:ring-0 outline-none transition-all placeholder:text-slate-500"
               />
@@ -262,6 +307,7 @@ export const Header: React.FC = () => {
               >
                 Search
               </button>
+              {renderSearchSuggestions()}
             </form>
           </div>
 
@@ -388,6 +434,8 @@ export const Header: React.FC = () => {
               aria-label="Search products" type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => window.setTimeout(() => setIsSearchFocused(false), 120)}
               placeholder="Search products..."
               className="w-full bg-slate-100 text-sm text-slate-800 rounded-full pl-10 pr-20 py-2 border border-slate-200 outline-none"
             />
@@ -398,6 +446,7 @@ export const Header: React.FC = () => {
             >
               Search
             </button>
+              {renderSearchSuggestions()}
           </form>
         </div>
       </div>

@@ -69,6 +69,15 @@ textarea:focus {
   box-shadow: none;
   outline: none;
 }
+.search-suggestions { position: absolute; top: calc(100% + 8px); left: 0; z-index: 70; width: min(100%, 680px); max-height: min(27rem, calc(100dvh - 11rem)); overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 18px 42px #14213d24; padding: 8px; }
+.search-suggestion-item { display: flex; width: 100%; align-items: center; gap: 12px; border-radius: 12px; padding: 8px 10px; color: #18223a; transition: background .16s ease; }
+.search-suggestion-item:hover, .search-suggestion-item:focus-visible { background: #f1f5f9; outline: none; }
+.search-suggestion-image { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; overflow: hidden; border-radius: 9px; background: #f1f5f9; color: #64748b; }
+.search-suggestion-image img { width: 100%; height: 100%; object-fit: cover; }
+.search-suggestion-name, .search-suggestion-category { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-suggestion-name { font-size: 14px; font-weight: 650; }
+.search-suggestion-category { margin-top: 2px; color: #2563eb; font-size: 12px; }
+.search-suggestions-status { padding: 14px 12px; color: #64748b; font-size: 13px; }
 .grid > *, .flex > * { min-width: 0; }
 h1, h2, h3, p { overflow-wrap: break-word; }
 .page-width { width: min(1280px, calc(100% - 64px)); margin-inline: auto; }
@@ -122,9 +131,10 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .home-promo-marquee-track { display: flex; width: max-content; gap: 20px; animation: home-promo-marquee 42s linear infinite; }
 .home-promo-carousel { overflow: hidden; }
 .storefront-banner-shell { width: min(1280px, calc(100% - 64px)); margin: 28px auto 0; }
-.storefront-banner-desktop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.storefront-banner-desktop { overflow: hidden; margin: 0 -10px; padding: 0 10px; }
+.storefront-banner-desktop-track { display: grid; grid-auto-columns: 33.333333%; grid-auto-flow: column; transition: transform .65s cubic-bezier(.22, 1, .36, 1); }
 .storefront-banner-mobile { display: none; }
-.storefront-banner-card { position: relative; display: block; aspect-ratio: 1.82 / 1; overflow: hidden; border-radius: 22px; background: #10182e; color: #fff; box-shadow: 0 12px 30px #17213a1a; }
+.storefront-banner-card { position: relative; display: block; aspect-ratio: 1.82 / 1; overflow: hidden; margin: 0 10px; border-radius: 22px; background: #10182e; color: #fff; box-shadow: 0 12px 30px #17213a1a; }
 .storefront-banner-card picture, .storefront-banner-card img { display: block; width: 100%; height: 100%; }
 .storefront-banner-card img { object-fit: cover; transition: transform .7s cubic-bezier(.22, 1, .36, 1); }
 .storefront-banner-card:hover img { transform: scale(1.025); }
@@ -352,6 +362,9 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .storefront-banner-slide .storefront-banner-cta { display: none; }
   .storefront-banner-arrow { display: none; }
   .storefront-banner-dots { right: 16px; bottom: 14px; }
+  .home-section-promo { min-height: 104px; padding: 16px !important; border-radius: 20px; }
+  .home-section-promo > div { min-width: 0; }
+  .home-section-promo-cta { flex: 0 0 auto; min-height: 40px; padding: 0 15px; white-space: nowrap; }
   .hero-intro { padding: 38px 20px 30px; }
   .hero-intro h1 { margin-top: 22px; }
   .hero-intro p { font-size: 13px; }
@@ -433,6 +446,13 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .mobile-buy-bar .buy-price-mrp, .mobile-buy-bar .buy-wishlist { display: none; }
   .mobile-buy-bar button { padding-inline: 12px; }
   .admin-main > div > .flex.justify-between { flex-wrap: wrap; gap: 14px; }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .storefront-banner-shell { width: min(900px, calc(100% - 48px)); margin-top: 22px; }
+  .storefront-banner-desktop { display: none; }
+  .storefront-banner-mobile { display: block; }
+  .storefront-banner-slide { aspect-ratio: 2.1 / 1; }
+  .storefront-banner-arrow { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
