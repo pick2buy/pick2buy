@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CreditCard, ShieldCheck, Truck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
@@ -51,18 +51,15 @@ export const HomePage = () => {
   }, []);
 
   const sections = [
-    { title: 'Just in. ', accent: 'New arrivals.', label: 'FRESHLY ADDED', link: '/shop?sort=newest', products: products.slice(0, 4), promo: { eyebrow: 'NEW THIS WEEK', title: 'Fresh picks, ready for your next order.', link: '/shop?sort=newest' } },
+    { title: 'Just in. ', accent: 'New arrivals.', label: '', link: '/shop?sort=newest', products: products.slice(0, 4), promo: { eyebrow: 'NEW THIS WEEK', title: 'Fresh picks, ready for your next order.', link: '/shop?sort=newest' } },
     { title: 'Good finds. ', accent: 'Great favourites.', label: 'THE TRENDING EDIT', link: '/shop?trending=true', products: products.filter(p => p.isTrending).slice(0, 4), promo: { eyebrow: 'TRENDING NOW', title: 'The looks everyone is loving.', link: '/shop?trending=true' } },
     { title: 'More to love. ', accent: 'Less to spend.', label: 'PICKS WITH A LITTLE EXTRA VALUE', link: '/shop?flashDeal=true', products: products.filter(p => p.isFlashDeal).slice(0, 4), promo: { eyebrow: 'LIMITED-TIME PICKS', title: 'A little extra value in every basket.', link: '/shop?flashDeal=true' } },
     { title: 'Meet the ', accent: 'best sellers.', label: 'EXPLORE THE COLLECTION', link: '/shop?sort=bestseller', products: products.filter(p => p.isBestSeller).slice(0, 4), promo: { eyebrow: 'PICK2BUY FAVOURITES', title: 'Made popular by shoppers like you.', link: '/shop?sort=bestseller' } },
   ];
   return <div ref={homePageRef} className="home-page">
     <div className="home-scroll-reveal"><StorefrontBanners /></div>
-    <div className="service-strip page-width home-scroll-reveal">
-      {[[Truck, 'Delivery across India'], [CreditCard, 'Cash on Delivery'], [ShieldCheck, 'Secure checkout']].map(([Icon, text]: any) => <div key={text}><Icon size={20} /><span>{text}</span></div>)}
-    </div>
     {sections.map((section, index) => <section key={section.label} className={`page-width home-section home-scroll-reveal ${index === 1 ? 'value-section' : ''}`}>
-      <div className="section-heading"><div><span className="eyebrow">{section.label}</span><h2>{section.title}<em>{section.accent}</em></h2></div><Link to={section.link} className="text-link">View collection <ArrowRight size={16} /></Link></div>
+      <div className="section-heading"><div>{section.label && <span className="eyebrow">{section.label}</span>}<h2>{section.title}<em>{section.accent}</em></h2></div><Link to={section.link} className="text-link">View collection <ArrowRight size={16} /></Link></div>
       <div className="home-product-grid">{loading ? Array.from({ length: 4 }, (_, i) => <div key={i} className="h-80 rounded-2xl bg-slate-100 animate-pulse" />) : section.products.map(product => <ProductCard key={product.id} product={product} />)}</div>
       {!loading && !error && !section.products.length && <p className="catalog-message">New picks are on their way. <Link to="/shop">Explore the full collection →</Link></p>}
       <Link to={section.promo.link} className="home-section-promo group mt-5 flex min-h-28 items-center justify-between gap-5 rounded-[22px] px-5 py-5 sm:px-7">
