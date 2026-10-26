@@ -41,6 +41,7 @@ import { useCartStore } from '../../store/useCartStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { api } from '../../services/api';
 import { Avatar } from './Avatar';
+import { CategoryNavIcon } from './CategoryNavIcon';
 
 type CategoryIcon = { icon: LucideIcon; tint: string; ink: string };
 
@@ -95,7 +96,10 @@ export const Header: React.FC = () => {
     fetchCart();
     fetchWishlist();
     api.getCategories().then((res) => {
-      setCategories(res.data || []);
+      setCategories((res.data || []).filter((category: any) => category.isVisible !== false).map((category: any) => ({
+        ...category,
+        children: category.children?.filter((child: any) => child.isVisible !== false),
+      })));
     }).catch(() => {});
   }, []);
 
@@ -128,11 +132,17 @@ export const Header: React.FC = () => {
         }
         return;
       }
-      // Keep separate enter/exit points so the navigation height transition
+      // Keep separate enter/exit points so the header's height transition
       // cannot push the document back across a single threshold and flicker.
+      // Mobile gets a wider buffer because it collapses more of the masthead.
+      const isMobile = window.matchMedia('(max-width: 639px)').matches;
+      const enterAt = isMobile ? 112 : 128;
+      // On phones, only restore the full masthead at the actual top. This
+      // prevents the changing header height from bouncing across the exit point.
+      const exitAt = isMobile ? 2 : 64;
       const shouldCondense = isCategoryNavCondensedRef.current
-        ? window.scrollY > 64
-        : window.scrollY > 128;
+        ? window.scrollY > exitAt
+        : window.scrollY > enterAt;
       if (shouldCondense === isCategoryNavCondensedRef.current) return;
       isCategoryNavCondensedRef.current = shouldCondense;
       setIsCategoryNavCondensed(shouldCondense);
@@ -212,14 +222,25 @@ export const Header: React.FC = () => {
   // product's quantity should not make the cart icon count jump.
   const totalCartCount = cart?.items.length || 0;
 
+  const rememberSearch = (query: string) => {
+      try {
+        const previous = JSON.parse(localStorage.getItem('pick2buy_recent_searches') || '[]');
+        const searches = [query, ...previous.filter((item: unknown) => typeof item === 'string' && item.toLowerCase() !== query.toLowerCase())].slice(0, 6);
+        localStorage.setItem('pick2buy_recent_searches', JSON.stringify(searches));
+        window.dispatchEvent(new Event('pick2buy-search-history'));
+      } catch { /* Search remains available if browser storage is unavailable. */ }
+  };
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      const query = searchQuery.trim();
+      rememberSearch(query);
+      navigate(`/search?q=${encodeURIComponent(query)}`);
       setIsMobileMenuOpen(false);
     }
   };
   const openProductSuggestion = (product: any) => {
+    if (searchQuery.trim()) rememberSearch(searchQuery.trim());
     setSearchQuery('');
     setSearchSuggestions([]);
     setIsSearchFocused(false);
@@ -241,7 +262,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="store-header sticky top-0 z-40 bg-white border-b border-slate-200">
+    <header className={`store-header sticky top-0 z-40 bg-white border-b border-slate-200 ${isCategoryNavCondensed ? 'store-header--scrolled' : ''}`}>
       {/* Top Announcement Bar */}
       <div className="announcement bg-slate-900 text-slate-100 text-xs py-2 px-4 font-medium">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -430,7 +451,7 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Mobile Search input */}
-        <div className={`${isAuthPage ? 'hidden' : 'mt-3'} md:hidden`}>
+        <div className={`${isAuthPage ? 'hidden' : 'mt-3'} mobile-search-row md:hidden ${isCategoryNavCondensed ? 'mobile-search-row--compact' : ''}`}>
           <form onSubmit={handleSearchSubmit} className="relative w-full">
             <input
               aria-label="Search products" type="text"
@@ -441,12 +462,14 @@ export const Header: React.FC = () => {
               placeholder="Search products..."
               className="w-full bg-slate-100 text-sm text-slate-800 rounded-full pl-10 pr-20 py-2 border border-slate-200 outline-none"
             />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="mobile-search-leading-icon w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <button
               type="submit"
-              className="absolute right-1 top-1/2 -translate-y-1/2 bg-brand-primary text-white text-xs font-semibold px-3 py-1 rounded-full"
+              aria-label="Search"
+              className="mobile-search-submit absolute right-1 top-1/2 -translate-y-1/2 bg-brand-primary text-white text-xs font-semibold px-3 py-1 rounded-full"
             >
-              Search
+              <span className="mobile-search-submit-label">Search</span>
+              <Search className="mobile-search-submit-icon h-4 w-4" />
             </button>
               {renderSearchSuggestions()}
           </form>
@@ -467,8 +490,8 @@ export const Header: React.FC = () => {
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div ref={categoryStripRef} className={`category-strip-scroll category-navigation-scroll ${isCategoryNavCondensed ? 'category-navigation-scroll--compact' : ''}`}>
-              <Link to="/shop?sort=bestseller" className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'} aria-label="Popular products" title="Popular">
-                <span className="category-navigation-icon" style={{ color: '#8b6b00' }}><Sparkles className="h-6 w-6" /></span>
+              <Link to="/shop?sort=bestseller" className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item category-navigation-item--featured'} aria-current={pathname === '/' ? 'page' : undefined} aria-label="Popular products" title="Popular">
+                <span className="category-navigation-icon"><CategoryNavIcon slug="popular" icon={Sparkles} /></span>
                 <span>Popular</span>
               </Link>
               {categories.map((cat) => {
@@ -482,8 +505,8 @@ export const Header: React.FC = () => {
                     title={cat.name}
                     className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'}
                   >
-                    <span className="category-navigation-icon" style={{ color: visual.ink }}>
-                      {cat.imageUrl ? <img src={cat.imageUrl} alt="" /> : <Icon className="h-6 w-6" strokeWidth={1.8} />}
+                    <span className="category-navigation-icon">
+                      <CategoryNavIcon slug={cat.slug} icon={Icon} />
                     </span>
                     <span>{cat.name}</span>
                   </Link>

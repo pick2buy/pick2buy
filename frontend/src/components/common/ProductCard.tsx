@@ -88,7 +88,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
       </Link>
         {/* Badges */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
+        <div className="product-badges absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
           {discount > 0 && (
             <span className="bg-brand-accent text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
               {discount}% OFF
@@ -104,7 +104,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* Wishlist Button */}
         <button
           onClick={handleWishlistToggle}
-          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all z-10 ${
+          className={`product-wishlist-button absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all z-10 ${
             activeWishlist
               ? 'bg-rose-50 text-rose-500 shadow-sm'
               : 'bg-white/80 backdrop-blur-sm text-slate-600 hover:bg-white hover:text-rose-500 shadow-sm'
@@ -114,6 +114,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         >
           <Heart className={`w-4 h-4 ${activeWishlist ? 'fill-rose-500 action-icon-pop' : ''}`} />
         </button>
+
+        {Boolean(product.reviewCount) && (
+          <span className="product-rating-pill">
+            <Star className="h-3 w-3 fill-emerald-600 stroke-emerald-600" />
+            {product.averageRating || '4.0'} <span>({product.reviewCount})</span>
+          </span>
+        )}
 
         {/* Out of Stock Overlay */}
         {product.stock <= 0 && (
@@ -131,7 +138,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {/* Category / Brand label */}
           <div className="product-meta flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
             <span className="truncate">{product.brand?.name || product.category?.name || 'Pick2Buy Exclusive'}</span>
-            {Boolean(product.reviewCount) && <div className="flex items-center gap-1 text-amber-500 font-bold">
+            {Boolean(product.reviewCount) && <div className="product-meta-rating flex items-center gap-1 text-amber-500 font-bold">
               <Star className="w-3 h-3 fill-amber-400 stroke-amber-400" />
               <span>{product.averageRating}</span>
               <span className="text-slate-500 text-[10px]">({product.reviewCount})</span>
@@ -165,7 +172,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-slate-500 font-medium">Shipping shown at checkout</p>
+            <p className="product-offer-copy text-[10px] text-slate-500 font-medium">Special offer available</p>
           </div>
 
           <button

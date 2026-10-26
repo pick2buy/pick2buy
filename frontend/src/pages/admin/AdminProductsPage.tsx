@@ -43,6 +43,8 @@ export const AdminProductsPage: React.FC = () => {
     sourceProductCode: '',
     sourceUrl: '',
     variants: [] as ProductVariantForm[],
+    isTrending: false,
+    isFlashDeal: false,
   });
 
   const loadData = () => {
@@ -71,7 +73,7 @@ export const AdminProductsPage: React.FC = () => {
     setEditingId(null);
     setFormErrors({});
     setImageUrlInput('');
-    setForm({ name: '', sku: '', categoryId: categories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '', imageUrls: [], sourcePlatform: 'OWN', sourceProductCode: '', sourceUrl: '', variants: [] });
+    setForm({ name: '', sku: '', categoryId: categories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '', imageUrls: [], sourcePlatform: 'OWN', sourceProductCode: '', sourceUrl: '', variants: [], isTrending: false, isFlashDeal: false });
     setIsModalOpen(true);
   };
 
@@ -82,7 +84,7 @@ export const AdminProductsPage: React.FC = () => {
       price: product.price, mrp: product.mrp, stock: product.stock, status: product.status,
       description: product.description, imageUrl: product.images?.[0]?.url || '', imageUrls: product.images?.map((image: any) => image.url) || [],
       sourcePlatform: product.sourcePlatform || 'OWN', sourceProductCode: product.sourceProductCode || '', sourceUrl: product.sourceUrl || '',
-      variants: (product.variants || []).map((variant: any) => ({ name: variant.name, sku: variant.sku, size: variant.size || '', color: variant.color || '', price: variant.price, mrp: variant.mrp, stock: variant.stock })) });
+      variants: (product.variants || []).map((variant: any) => ({ name: variant.name, sku: variant.sku, size: variant.size || '', color: variant.color || '', price: variant.price, mrp: variant.mrp, stock: variant.stock })), isTrending: Boolean(product.isTrending), isFlashDeal: Boolean(product.isFlashDeal) });
     setIsModalOpen(true);
   };
 
@@ -128,6 +130,7 @@ export const AdminProductsPage: React.FC = () => {
       if (editingId) await api.updateProduct(editingId, {
         name: form.name, sku: form.sku, categoryId: form.categoryId, brandId: form.brandId || null,
         price: form.price, mrp: form.mrp, stock: form.stock, description: form.description, status: form.status,
+        isTrending: form.isTrending, isFlashDeal: form.isFlashDeal,
         images: imageUrls.map((url, index) => ({ url, isPrimary: index === 0 })), variants: form.variants, ...sourceDetails,
         sourceProductCode: form.sourcePlatform === 'MEESHO' ? form.sourceProductCode || null : null,
         sourceUrl: form.sourcePlatform === 'MEESHO' ? form.sourceUrl || null : null,
@@ -449,6 +452,11 @@ export const AdminProductsPage: React.FC = () => {
                     <input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={isProcessingImages} onChange={handleImageUpload} className="sr-only" />
                   </label>
                 </div>
+              </div>
+
+              <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-bold text-slate-700"><input type="checkbox" checked={form.isTrending} onChange={event => setForm({ ...form, isTrending: event.target.checked })} /> Show in Trending</label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-bold text-slate-700"><input type="checkbox" checked={form.isFlashDeal} onChange={event => setForm({ ...form, isFlashDeal: event.target.checked })} /> Show in Best Offers</label>
               </div>
 
               <div>
