@@ -24,6 +24,9 @@
     "db:seed": "npm --prefix backend run db:seed",
     "db:categories": "npm --prefix backend run db:categories"
   },
+  "devDependencies": {
+    "typescript": "5.4.5"
+  },
   "keywords": ["ecommerce", "fullstack", "react", "express", "prisma", "pick2buy"],
   "author": "Pick2Buy Team <pick2buy.in@gmail.com>",
   "license": "ISC"
