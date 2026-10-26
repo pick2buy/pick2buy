@@ -1,6 +1,8 @@
 import { getSessionId } from '../lib/utils';
 
-const API_BASE = '/api';
+// Local development uses Vite's /api proxy. Hosted deployments can point the
+// storefront at a separately deployed API, for example https://api.pick2buy.in/api.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 class ApiClient {
   private getToken(): string | null {
