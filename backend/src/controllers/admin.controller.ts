@@ -12,7 +12,7 @@ const bannerImage = z.string().trim()
   .refine(value => value.length <= 700_000, 'Banner image is too large. Choose a smaller image.');
 
 const bannerFields = z.object({
-  title: z.string().trim().min(2).max(160),
+  title: z.string().trim().max(160).nullable().optional(),
   subtitle: z.string().trim().max(300).nullable().optional(),
   desktopImageUrl: bannerImage,
   mobileImageUrl: bannerImage.nullable().optional(),

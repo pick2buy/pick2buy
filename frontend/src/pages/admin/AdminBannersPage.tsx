@@ -54,7 +54,7 @@ export const AdminBannersPage = () => {
   const beginCreate = () => { setEditingId(null); setForm(emptyForm()); setError(''); setOpen(true); };
   const beginEdit = (banner: any) => {
     setEditingId(banner.id);
-    setForm({ title: banner.title, subtitle: banner.subtitle || '', desktopImageUrl: banner.desktopImageUrl,
+    setForm({ title: banner.title || '', subtitle: banner.subtitle || '', desktopImageUrl: banner.desktopImageUrl,
       mobileImageUrl: banner.mobileImageUrl || '', buttonText: banner.buttonText || '', linkUrl: banner.linkUrl,
       displayOrder: banner.displayOrder, isActive: banner.isActive, startDate: localDate(banner.startDate), endDate: localDate(banner.endDate) });
     setError(''); setOpen(true);
@@ -86,7 +86,7 @@ export const AdminBannersPage = () => {
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setSaving(true); setError('');
     try {
-      const payload = { title: form.title.trim(), subtitle: form.subtitle.trim() || null,
+      const payload = { title: form.title.trim() || null, subtitle: form.subtitle.trim() || null,
         desktopImageUrl: form.desktopImageUrl.trim(), mobileImageUrl: form.mobileImageUrl.trim() || null,
         buttonText: form.buttonText.trim() || null, linkUrl: form.linkUrl.trim(), displayOrder: Number(form.displayOrder),
         isActive: form.isActive, startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
@@ -110,7 +110,7 @@ export const AdminBannersPage = () => {
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {!loading && banners.map(banner => <article key={banner.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <img src={banner.desktopImageUrl} alt="" className="h-40 w-full bg-slate-100 object-cover" />
-        <div className="space-y-2 p-4"><div className="flex items-start justify-between gap-2"><h2 className="font-bold text-slate-900">{banner.title}</h2><span className={`rounded-full px-2 py-0.5 text-xs font-bold ${banner.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{banner.isActive ? 'Active' : 'Inactive'}</span></div>
+        <div className="space-y-2 p-4"><div className="flex items-start justify-between gap-2"><h2 className="font-bold text-slate-900">{banner.title || 'Image banner'}</h2><span className={`rounded-full px-2 py-0.5 text-xs font-bold ${banner.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{banner.isActive ? 'Active' : 'Inactive'}</span></div>
           <p className="line-clamp-2 text-sm text-slate-500">{banner.subtitle || banner.linkUrl}</p>
           <p className="text-xs text-slate-500">Order {banner.displayOrder}{banner.startDate ? ` · Starts ${new Date(banner.startDate).toLocaleDateString()}` : ''}{banner.endDate ? ` · Ends ${new Date(banner.endDate).toLocaleDateString()}` : ''}</p>
           {canManage && <div className="flex gap-2 pt-2"><button type="button" onClick={() => beginEdit(banner)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold hover:bg-slate-50"><Edit3 size={14} /> Edit</button><button type="button" onClick={() => remove(banner)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"><Trash2 size={14} /> Delete</button></div>}
@@ -123,7 +123,7 @@ export const AdminBannersPage = () => {
       <div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-black text-slate-900">{editingId ? 'Edit' : 'Add'} Banner</h2><button type="button" aria-label="Close" onClick={() => setOpen(false)} className="rounded-lg p-2 hover:bg-slate-100"><X size={20} /></button></div>
       {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
       <form onSubmit={save} className="space-y-4 text-sm font-semibold">
-        <label className="block">Title *<input required minLength={2} maxLength={160} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className={inputClass} /></label>
+        <label className="block">Title (optional)<input maxLength={160} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className={inputClass} placeholder="Only needed when it is not already in the image" /></label>
         <label className="block">Subtitle<textarea rows={2} maxLength={300} value={form.subtitle} onChange={e => setForm({ ...form, subtitle: e.target.value })} className={inputClass} /></label>
         <div>
           <label className="block">Desktop image URL *<input type="text" inputMode="url" value={isUploadedImage(form.desktopImageUrl) ? '' : form.desktopImageUrl} onChange={e => setForm({ ...form, desktopImageUrl: e.target.value })} className={inputClass} placeholder={isUploadedImage(form.desktopImageUrl) ? 'An image has been uploaded below' : 'https://…'} /></label>

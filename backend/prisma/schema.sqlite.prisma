@@ -550,7 +550,7 @@ model Notification {
 
 model Banner {
   id              String    @id @default(uuid())
-  title           String
+  title           String?
   subtitle        String?
   desktopImageUrl String
   mobileImageUrl  String?

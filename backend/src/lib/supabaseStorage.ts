@@ -56,7 +56,9 @@ const uploadImageBuffer = async (buffer: Buffer, contentType: SupportedContentTy
         'cache-control': PRODUCT_IMAGE_CACHE_CONTROL,
         'x-upsert': 'false',
       },
-      body: buffer,
+      // Copy into a plain typed array so Node's fetch type accepts it across
+      // the installed Node/TypeScript type versions.
+      body: Uint8Array.from(buffer),
       signal: AbortSignal.timeout(20_000),
     });
   } catch {
