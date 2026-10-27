@@ -6,6 +6,7 @@ import { useCartStore } from '../../store/useCartStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { toast } from '../../store/useToastStore';
+import { optimizedImageUrl, productImageSrcSet } from '../../lib/image';
 
 interface ProductCardProps {
   product: {
@@ -23,9 +24,10 @@ interface ProductCardProps {
     brand?: { name: string };
     isFlashDeal?: boolean;
   };
+  priority?: boolean;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) => {
   const { addItem } = useCartStore();
   const { toggleWishlist, isWishlisted } = useWishlistStore();
   const { user } = useAuthStore();
@@ -35,7 +37,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [wishlistFeedback, setWishlistFeedback] = useState(false);
 
   const discount = product.discountPercentage ?? (product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0);
-  const primaryImage = product.images?.[0]?.url || '/product-placeholder.svg';
+  const rawPrimaryImage = product.images?.[0]?.url || '/product-placeholder.svg';
+  const primaryImage = optimizedImageUrl(rawPrimaryImage);
+  const primaryImageSrcSet = productImageSrcSet(rawPrimaryImage);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -80,9 +84,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       <Link to={`/product/${product.slug}`} aria-label={product.name}>
         <img
           src={primaryImage}
+          srcSet={primaryImageSrcSet}
+          sizes="(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 320px"
           alt={product.name}
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'low'}
+          decoding="async"
           onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/product-placeholder.svg'; }}
         />
 

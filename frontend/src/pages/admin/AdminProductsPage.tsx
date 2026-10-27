@@ -176,7 +176,7 @@ export const AdminProductsPage: React.FC = () => {
 
   const resizeImage = async (file: File) => {
     const image = await createImageBitmap(file);
-    const maxSide = 1200;
+    const maxSide = 960;
     const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(image.width * scale));
@@ -185,9 +185,11 @@ export const AdminProductsPage: React.FC = () => {
     if (!context) throw new Error('Image processing is unavailable in this browser.');
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     image.close();
-    let result = canvas.toDataURL('image/jpeg', 0.82);
-    if (result.length > 380_000) result = canvas.toDataURL('image/jpeg', 0.64);
-    if (result.length > 380_000) throw new Error(`${file.name} is too large after compression. Choose a smaller photo.`);
+    let result = canvas.toDataURL('image/webp', 0.78);
+    // WebP is supported by modern browsers; retain a JPEG fallback for an older canvas implementation.
+    if (!result.startsWith('data:image/webp')) result = canvas.toDataURL('image/jpeg', 0.76);
+    if (result.length > 300_000) result = canvas.toDataURL(result.startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg', 0.62);
+    if (result.length > 300_000) throw new Error(`${file.name} is too large after compression. Choose a smaller photo.`);
     return result;
   };
 

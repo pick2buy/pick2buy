@@ -85,7 +85,7 @@ export const HomePage = () => {
   ];
   const renderSection = (section: { key: string; title: string; accent: string; label: string; link: string; products: any[] }, className = '') => <section key={section.key} className={`page-width home-section home-product-section home-scroll-reveal ${className}`}>
     <div className="section-heading"><div><h2>{section.title}<em>{section.accent}</em></h2></div><Link to={section.link} className="text-link">View collection <ArrowRight size={16} /></Link></div>
-    <div className="home-product-grid">{loading ? Array.from({ length: 4 }, (_, index) => <div key={index} className="h-80 rounded-2xl bg-slate-100 animate-pulse" />) : section.products.map(product => <ProductCard key={product.id} product={product} />)}</div>
+    <div className="home-product-grid">{loading ? Array.from({ length: 4 }, (_, index) => <div key={index} className="h-80 rounded-2xl bg-slate-100 animate-pulse" />) : section.products.map((product, index) => <ProductCard key={product.id} product={product} priority={section.key === 'trending' && index < 4} />)}</div>
     {!loading && !error && !section.products.length && <p className="catalog-message">Products are on their way. <Link to={section.link}>Explore the full collection →</Link></p>}
   </section>;
   return <div ref={homePageRef} className="home-page">

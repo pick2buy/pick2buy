@@ -24,9 +24,10 @@ const resizeBannerImage = async (file: File) => {
   canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
   image.close();
 
-  let result = canvas.toDataURL('image/jpeg', 0.86);
-  if (result.length > 650_000) result = canvas.toDataURL('image/jpeg', 0.7);
-  if (result.length > 650_000) throw new Error('The image is still too large after compression. Choose a smaller image.');
+  let result = canvas.toDataURL('image/webp', 0.8);
+  if (!result.startsWith('data:image/webp')) result = canvas.toDataURL('image/jpeg', 0.78);
+  if (result.length > 550_000) result = canvas.toDataURL(result.startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg', 0.66);
+  if (result.length > 550_000) throw new Error('The image is still too large after compression. Choose a smaller image.');
   return result;
 };
 
