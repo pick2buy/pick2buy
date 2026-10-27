@@ -15,6 +15,7 @@
     "db:setup": "npm run db:generate && npm run db:deploy",
     "images:convert-webp": "node scripts/convert-product-images-to-webp.cjs",
     "images:migrate-supabase": "tsx src/database/migrateProductImagesToSupabase.ts",
+    "images:refresh-cache": "tsx src/database/refreshProductImageCache.ts",
     "test": "npm run build && node scripts/run-tests.cjs"
   },
   "dependencies": {
