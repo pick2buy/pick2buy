@@ -316,8 +316,8 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .service-strip svg { color: var(--navy); flex-shrink: 0; }
 .home-section { margin-top: 76px; margin-bottom: 76px; }
 .service-strip + .home-section { margin-top: 24px; }
-.home-page > .home-scroll-reveal:first-child + .home-section { margin-top: 5px; }
-.home-page > .home-scroll-reveal:first-child + .home-section .section-heading { margin-bottom: 5px; }
+.home-page > .home-scroll-reveal:first-child + .home-section { margin-top: 24px; }
+.home-page > .home-scroll-reveal:first-child + .home-section .section-heading { margin-bottom: 20px; }
 .personalized-section { margin-top: 34px; padding: 26px; border-radius: 24px; background: linear-gradient(135deg, #f0eaff 0%, #ede7ff 50%, #f9f7ff 100%); }
 .personalized-section .section-heading { margin-bottom: 18px; }
 .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
