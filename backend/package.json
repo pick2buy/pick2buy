@@ -16,6 +16,7 @@
     "images:convert-webp": "node scripts/convert-product-images-to-webp.cjs",
     "images:migrate-supabase": "tsx src/database/migrateProductImagesToSupabase.ts",
     "images:refresh-cache": "tsx src/database/refreshProductImageCache.ts",
+    "images:migrate-banners": "tsx src/database/migrateBannerImagesToSupabase.ts",
     "test": "npm run build && node scripts/run-tests.cjs"
   },
   "dependencies": {

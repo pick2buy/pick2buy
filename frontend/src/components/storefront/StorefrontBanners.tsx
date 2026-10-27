@@ -6,8 +6,8 @@ import { api } from '../../services/api';
 type Banner = { id: string; title: string; subtitle?: string | null; desktopImageUrl: string; mobileImageUrl?: string | null; buttonText?: string | null; linkUrl: string; hideCopy?: boolean };
 
 const fallbackBanners: Banner[] = [
-  { id: 'riding-jacket', title: 'Men Riding Jacket', desktopImageUrl: '/banners/riding-jacket.png', linkUrl: '/product/men-riding-jacket', hideCopy: true },
-  { id: 'wooden-money-piggi', title: '1 Lakh Wooden Money Piggi', desktopImageUrl: '/banners/wooden-money-piggi.png', linkUrl: '/product/1-lakh-wooden-money-piggi', hideCopy: true },
+  { id: 'riding-jacket', title: 'Men Riding Jacket', desktopImageUrl: '/banners/riding-jacket.webp', linkUrl: '/product/men-riding-jacket', hideCopy: true },
+  { id: 'wooden-money-piggi', title: '1 Lakh Wooden Money Piggi', desktopImageUrl: '/banners/wooden-money-piggi.webp', linkUrl: '/product/1-lakh-wooden-money-piggi', hideCopy: true },
 ];
 
 const BannerContent = ({ banner, priority = false }: { banner: Banner; priority?: boolean }) => <><picture><source media="(max-width: 639px)" srcSet={banner.mobileImageUrl || banner.desktopImageUrl} /><img src={banner.desktopImageUrl} alt={banner.title} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'low'} decoding="async" /></picture>{!banner.hideCopy && <div className="storefront-banner-copy"><p className="storefront-banner-eyebrow">Pick2Buy exclusive</p><h2>{banner.title}</h2>{banner.subtitle && <p>{banner.subtitle}</p>}</div>}</>;

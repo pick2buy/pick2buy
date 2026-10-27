@@ -73,7 +73,10 @@ export const AdminBannersPage = () => {
     }
     setUploadingTarget(target); setError('');
     try {
-      const imageUrl = await resizeBannerImage(file);
+      // Store the compressed banner in Supabase rather than keeping a Base64
+      // string in the database response. The stored URL receives CDN caching.
+      const preparedImage = await resizeBannerImage(file);
+      const imageUrl = (await api.uploadProductImage(preparedImage)).data.url;
       setForm(current => target === 'desktop'
         ? { ...current, desktopImageUrl: imageUrl }
         : { ...current, mobileImageUrl: imageUrl });
