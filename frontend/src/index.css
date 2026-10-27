@@ -316,7 +316,7 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .service-strip svg { color: var(--navy); flex-shrink: 0; }
 .home-section { margin-top: 76px; margin-bottom: 76px; }
 .service-strip + .home-section { margin-top: 24px; }
-.home-page > .home-scroll-reveal:first-child + .home-section { margin-top: 42px; }
+.home-page > .home-scroll-reveal:first-child + .home-section { margin-top: 18px; }
 .home-page > .home-scroll-reveal:first-child + .home-section .section-heading { margin-bottom: 22px; }
 .personalized-section { margin-top: 34px; padding: 26px; border-radius: 24px; background: linear-gradient(135deg, #f0eaff 0%, #ede7ff 50%, #f9f7ff 100%); }
 .personalized-section .section-heading { margin-bottom: 18px; }
@@ -461,7 +461,7 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .service-strip > div { flex: 1; flex-direction: column; font-size: 9px; text-align: center; }
   .home-section { margin-block: 46px; }
   .service-strip + .home-section { margin-top: 20px; }
-  .home-page > .home-scroll-reveal:first-child + .home-section { margin-top: 28px; }
+  .home-page > .home-scroll-reveal:first-child + .home-section { margin-top: 18px; }
   .personalized-section { margin-top: 28px; padding: 16px 10px; border-radius: 18px; }
   .section-heading { flex-direction: column; align-items: flex-start; gap: 5px; margin-bottom: 18px; }
   .category-heading-actions { width: 100%; justify-content: space-between; }
