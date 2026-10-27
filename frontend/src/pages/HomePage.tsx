@@ -80,7 +80,9 @@ export const HomePage = () => {
   } : null;
   const sections = [
     { key: 'trending', title: 'Trending ', accent: 'now.', label: 'POPULAR RIGHT NOW', link: '/shop?trending=true', products: products.filter(product => product.isTrending).slice(0, 4) },
-    { key: 'new-arrivals', title: 'Just in. ', accent: 'New arrivals.', label: '', link: '/shop?sort=newest', products: products.slice(0, 4) },
+    // Flash deals have their own section. Keep regular catalogue products in
+    // New arrivals so a new offer does not replace the products shown here.
+    { key: 'new-arrivals', title: 'Just in. ', accent: 'New arrivals.', label: '', link: '/shop?sort=newest', products: products.filter(product => !product.isFlashDeal).slice(0, 4) },
     { key: 'best-offers', title: 'Best ', accent: 'offers.', label: 'SAVE MORE TODAY', link: '/shop?flashDeal=true', products: products.filter(product => product.isFlashDeal).slice(0, 4) },
   ];
   const renderSection = (section: { key: string; title: string; accent: string; label: string; link: string; products: any[] }, className = '') => <section key={section.key} className={`page-width home-section home-product-section home-scroll-reveal ${className}`}>
