@@ -10,19 +10,31 @@ const fallbackBanners: Banner[] = [
   { id: 'wooden-money-piggi', title: '1 Lakh Wooden Money Piggi', desktopImageUrl: '/banners/wooden-money-piggi.webp', linkUrl: '/product/1-lakh-wooden-money-piggi', hideCopy: true },
 ];
 
-const BannerContent = ({ banner, priority = false }: { banner: Banner; priority?: boolean }) => <><picture><source media="(max-width: 639px)" srcSet={banner.mobileImageUrl || banner.desktopImageUrl} /><img src={banner.desktopImageUrl} alt={banner.title || 'Pick2Buy promotion'} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'low'} decoding="async" /></picture>{!banner.hideCopy && (banner.title || banner.subtitle) && <div className="storefront-banner-copy"><p className="storefront-banner-eyebrow">Pick2Buy exclusive</p>{banner.title && <h2>{banner.title}</h2>}{banner.subtitle && <p>{banner.subtitle}</p>}</div>}</>;
+const BannerContent = ({ banner, priority = false }: { banner: Banner; priority?: boolean }) => {
+  const title = banner.title === 'Pick2Buy promotion' ? null : banner.title;
+  const showCopy = !banner.hideCopy && Boolean(title || banner.subtitle);
+  return <><picture><source media="(max-width: 639px)" srcSet={banner.mobileImageUrl || banner.desktopImageUrl} /><img src={banner.desktopImageUrl} alt={title || 'Pick2Buy promotion'} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'low'} decoding="async" /></picture>{showCopy && <div className="storefront-banner-copy"><p className="storefront-banner-eyebrow">Pick2Buy exclusive</p>{title && <h2>{title}</h2>}{banner.subtitle && <p>{banner.subtitle}</p>}</div>}</>;
+};
 
 const BannerLink = ({ banner, className, priority = false }: { banner: Banner; className: string; priority?: boolean }) => banner.linkUrl.startsWith('/') ? <Link to={banner.linkUrl} className={className}><BannerContent banner={banner} priority={priority} /></Link> : <a href={banner.linkUrl} className={className}><BannerContent banner={banner} priority={priority} /></a>;
 
 export const StorefrontBanners = () => {
-  const [banners, setBanners] = useState<Banner[]>(fallbackBanners);
+  const [banners, setBanners] = useState<Banner[] | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const displayedBanners = banners;
+  const displayedBanners = banners || [];
 
-  useEffect(() => { let active = true; api.getActiveBanners().then(response => { if (active && response.data?.length) setBanners(response.data); }).catch(() => {}); return () => { active = false; }; }, []);
+  useEffect(() => {
+    let active = true;
+    api.getActiveBanners()
+      .then(response => { if (active) setBanners(response.data?.length ? response.data : fallbackBanners); })
+      .catch(() => { if (active) setBanners(fallbackBanners); });
+    return () => { active = false; };
+  }, []);
   useEffect(() => { setActiveIndex(current => Math.min(current, displayedBanners.length - 1)); }, [displayedBanners.length]);
   useEffect(() => { if (displayedBanners.length < 2) return; const interval = window.setInterval(() => setActiveIndex(current => (current + 1) % displayedBanners.length), 6000); return () => window.clearInterval(interval); }, [displayedBanners.length]);
   const goTo = (index: number) => setActiveIndex((index + displayedBanners.length) % displayedBanners.length);
+
+  if (!banners || !displayedBanners.length) return null;
 
   return <section aria-label="Featured promotions" className="storefront-banner-shell">
     <div className="storefront-banner-desktop"><div className="storefront-banner-desktop-track" style={{ transform: `translateX(-${activeIndex * (100 / 3)}%)` }}>{[...displayedBanners, ...displayedBanners].map((banner, index) => <BannerLink key={`${banner.id}-${index}`} banner={banner} className="storefront-banner-card group" priority={index < 3} />)}</div></div>

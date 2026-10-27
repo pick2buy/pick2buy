@@ -18,14 +18,12 @@ async function migrateBannerImages() {
       : banner.mobileImageUrl;
 
     if (desktopImageUrl === banner.desktopImageUrl && mobileImageUrl === banner.mobileImageUrl) continue;
-    // A legacy seed can contain a null title even though the current schema
-    // requires one. Use SQL here so that row can be repaired and its image can
-    // still be migrated instead of blocking the whole homepage optimization.
+    // Banner titles are optional because AI-generated banners often include
+    // their headline directly in the artwork.
     await prisma.$executeRaw`
       UPDATE "banners"
       SET "desktopImageUrl" = ${desktopImageUrl},
           "mobileImageUrl" = ${mobileImageUrl},
-          "title" = COALESCE("title", 'Pick2Buy promotion'),
           "updatedAt" = NOW()
       WHERE "id" = ${banner.id}
     `;
