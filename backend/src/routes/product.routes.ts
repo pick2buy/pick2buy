@@ -7,6 +7,7 @@ const router = Router();
 router.get('/', ProductController.getProducts);
 router.get('/check-pincode/:pincode', ProductController.checkDeliveryPincode);
 router.post('/import-meesho', requireAdmin, ProductController.importMeeshoProduct);
+router.post('/images', requireAdmin, ProductController.uploadImage);
 router.get('/:slugOrId', ProductController.getProductBySlugOrId);
 
 // Admin product endpoints

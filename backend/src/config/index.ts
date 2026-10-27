@@ -30,6 +30,11 @@ export const config = {
     .trim(),
   backendUrl: process.env.BACKEND_URL || 'http://localhost:5000',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  supabase: {
+    url: process.env.SUPABASE_URL || '',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    productImageBucket: process.env.SUPABASE_PRODUCT_IMAGE_BUCKET || 'product-images',
+  },
 
   jwt: {
     secret: process.env.JWT_SECRET || 'super_secret_pick2buy_jwt_access_key_2026',

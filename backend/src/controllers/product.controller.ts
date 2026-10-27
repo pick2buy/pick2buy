@@ -4,6 +4,7 @@ import { productCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
 import { z } from 'zod';
 import { config } from '../config';
+import { StorageError, uploadProductImage } from '../lib/supabaseStorage';
 
 const productImageUrlSchema = z.string().refine(
   (value) => /^data:image\/(png|jpeg|webp);base64,/i.test(value) || z.string().url().safeParse(value).success,
@@ -87,6 +88,19 @@ const parseMeeshoProduct = (html: string, sourceUrl: string) => {
 };
 
 export class ProductController {
+  public static async uploadImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const image = z.object({ image: z.string().min(1) }).parse(req.body).image;
+      const url = await uploadProductImage(image);
+      res.status(201).json({ success: true, data: { url } });
+    } catch (error) {
+      if (error instanceof StorageError) {
+        return res.status(error.statusCode).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
   public static async importMeeshoProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const sourceUrl = z.string().url('Enter a valid Meesho product URL').parse(req.body?.url);
@@ -199,7 +213,9 @@ export class ProductController {
         prisma.product.findMany({
           where,
           include: {
-            images: { orderBy: { displayOrder: 'asc' } },
+            // Cards only render a primary image. Returning all gallery photos here
+            // made the catalog response unnecessarily large.
+            images: { orderBy: { displayOrder: 'asc' }, take: 1 },
             variants: true,
             category: true,
             brand: true,

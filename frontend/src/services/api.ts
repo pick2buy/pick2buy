@@ -155,6 +155,10 @@ class ApiClient {
     return this.request('/products/import-meesho', { method: 'POST', body: JSON.stringify({ url }) });
   }
 
+  public uploadProductImage(image: string): Promise<{ success: boolean; data: { url: string } }> {
+    return this.request('/products/images', { method: 'POST', body: JSON.stringify({ image }) });
+  }
+
   public updateProduct(id: string, payload: any) {
     return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
   }

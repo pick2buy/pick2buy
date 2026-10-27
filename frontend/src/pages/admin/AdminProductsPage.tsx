@@ -203,7 +203,8 @@ export const AdminProductsPage: React.FC = () => {
     }
     setIsProcessingImages(true);
     try {
-      const uploaded = await Promise.all(files.slice(0, 6).map(resizeImage));
+      const preparedImages = await Promise.all(files.slice(0, 6).map(resizeImage));
+      const uploaded = await Promise.all(preparedImages.map(async (image) => (await api.uploadProductImage(image)).data.url));
       setForm(current => {
         const imageUrls = [...current.imageUrls, ...uploaded].slice(0, 6);
         return { ...current, imageUrls, imageUrl: imageUrls[0] || '' };
