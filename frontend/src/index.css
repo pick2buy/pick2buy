@@ -326,6 +326,8 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .home-page > .home-product-section { margin-bottom: 0; }
 .home-page > .home-product-section + .home-product-section { margin-top: 10px; }
 .home-product-section .section-heading h2 { margin-top: 0; }
+/* Product-section titles use one consistent typeface (for example, “Trending now.”). */
+.home-product-section .section-heading em { font-family: inherit; font-size: inherit; font-style: normal; font-weight: inherit; letter-spacing: inherit; }
 .category-heading-actions, .category-scroll-buttons { display: flex; align-items: center; gap: 14px; }
 .category-scroll-buttons { gap: 7px; }
 .category-scroll-buttons button { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #dce2eb; border-radius: 50%; background: white; color: var(--navy); transition: background .2s, border-color .2s; }
