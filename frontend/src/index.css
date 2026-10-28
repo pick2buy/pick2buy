@@ -205,9 +205,9 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .storefront-banner-desktop { overflow: hidden; margin: 0 -10px; padding: 0 10px; }
 .storefront-banner-desktop-track { display: grid; grid-auto-columns: 33.333333%; grid-auto-flow: column; transition: transform .65s cubic-bezier(.22, 1, .36, 1); }
 .storefront-banner-mobile { display: none; }
-.storefront-banner-card { position: relative; display: block; aspect-ratio: 1.82 / 1; overflow: hidden; margin: 0 10px; border-radius: 22px; background: #10182e; color: #fff; box-shadow: 0 12px 30px #17213a1a; }
+.storefront-banner-card { position: relative; display: block; aspect-ratio: 2 / 1; overflow: hidden; margin: 0 10px; border-radius: 22px; background: #10182e; color: #fff; box-shadow: 0 12px 30px #17213a1a; }
 .storefront-banner-card picture, .storefront-banner-card img { display: block; width: 100%; height: 100%; }
-.storefront-banner-card img { object-fit: cover; transition: transform .7s cubic-bezier(.22, 1, .36, 1); }
+.storefront-banner-card img { object-fit: cover; object-position: center; transition: transform .7s cubic-bezier(.22, 1, .36, 1); }
 .storefront-banner-card:hover img { transform: scale(1.025); }
 .storefront-banner-viewport { position: relative; overflow: hidden; border-radius: 24px; background: #10182e; box-shadow: 0 16px 40px #17213a1f; }
 .storefront-banner-track { display: flex; transition: transform .55s cubic-bezier(.22, 1, .36, 1); }
@@ -364,6 +364,22 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .discovery-banner { text-align: center; border: 1px solid #e1e3ea; border-radius: 24px; padding: 62px 24px; background: #eceef3; }
 .discovery-banner h2 { font-size: clamp(34px, 4vw, 52px); line-height: 1.1; letter-spacing: -.055em; margin: 22px 0; }
 .discovery-banner p { font-size: 13px; line-height: 1.8; color: #626878; margin-bottom: 25px; }
+.seasonal-banner { position: relative; display: flex; min-height: 260px; align-items: center; gap: clamp(24px, 5vw, 74px); overflow: hidden; border-radius: 24px; padding: 46px clamp(28px, 6vw, 86px); background: radial-gradient(circle at 8% 88%, #f8951d 0 2%, transparent 14%), radial-gradient(circle at 91% 83%, #f8951d 0 2%, transparent 15%), linear-gradient(115deg, #8b0711 0%, #d0141b 47%, #ef3228 100%); box-shadow: 0 16px 30px #9d171c2e; color: #fff; isolation: isolate; }
+.seasonal-banner::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: .18; background-image: radial-gradient(#ffd866 1px, transparent 1px); background-size: 22px 22px; mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); }
+.seasonal-banner::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #65000b3d, transparent 36%, transparent 64%, #65000b3d); }
+.seasonal-banner__lights { position: absolute; top: 12px; left: 0; right: 0; height: 23px; background: radial-gradient(circle, #fff7b6 0 3px, #ffc62f 3px 5px, transparent 6px) 0 0 / 30px 20px repeat-x; filter: drop-shadow(0 0 6px #ffe469); opacity: .95; }
+.seasonal-banner__badge { display: grid; place-items: center; flex: 0 0 136px; width: 136px; aspect-ratio: 1; border: 4px solid #ffdc3a; border-radius: 50%; background: #121f72; box-shadow: 0 0 0 8px #f9a21d, 0 12px 20px #65000b45; color: #ffe732; text-align: center; transform: rotate(-7deg); }
+.seasonal-banner__badge svg { position: absolute; margin-top: -112px; color: #fff; }
+.seasonal-banner__badge strong { font-size: 23px; font-weight: 900; line-height: .83; letter-spacing: -.07em; text-shadow: 2px 2px #eb5a18; }
+.seasonal-banner__copy { flex: 1; min-width: 0; }
+.seasonal-banner__copy > span { color: #ffe6a3; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+.seasonal-banner__copy h2 { margin: 10px 0 9px; color: #fff; font-size: clamp(28px, 3.3vw, 45px); font-weight: 750; line-height: 1.04; letter-spacing: -.045em; }
+.seasonal-banner__copy h2 em { color: #ffda28; font-style: normal; }
+.seasonal-banner__copy p { max-width: 520px; color: #fff4df; font-size: 13px; line-height: 1.55; }
+.seasonal-banner__button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 10px; border-radius: 999px; background: #fff; padding: 15px 20px; color: #7e0710; font-size: 13px; font-weight: 800; box-shadow: 0 7px 15px #65000b35; transition: transform .2s ease, box-shadow .2s ease; }
+.seasonal-banner:hover .seasonal-banner__button { box-shadow: 0 10px 20px #65000b4a; transform: translateX(4px); }
+.seasonal-banner__diya { position: absolute; bottom: -7px; z-index: 1; font-size: 46px; filter: drop-shadow(0 0 9px #ffc52e); }
+.seasonal-banner__diya--left { left: 24px; }.seasonal-banner__diya--right { right: 24px; }
 .faq-section { display: grid; grid-template-columns: 1fr 1.3fr; gap: 60px; }
 .faq-section .text-link { margin-top: 22px; }
 .faq-section details { border-bottom: 1px solid #dfe1e7; }
@@ -497,6 +513,16 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .value-section .section-heading { padding-inline: 6px; }
   .faq-section { grid-template-columns: 1fr; gap: 20px; }
   .discovery-banner { padding: 40px 16px; }
+  .seasonal-banner { min-height: 238px; align-items: flex-start; gap: 15px; border-radius: 18px; padding: 39px 24px 27px; }
+  .seasonal-banner__badge { flex-basis: 72px; width: 72px; border-width: 2px; box-shadow: 0 0 0 4px #f9a21d, 0 7px 12px #65000b45; }
+  .seasonal-banner__badge svg { width: 14px; height: 14px; margin-top: -62px; }
+  .seasonal-banner__badge strong { font-size: 12px; }
+  .seasonal-banner__copy h2 { margin-top: 7px; font-size: clamp(23px, 7vw, 31px); }
+  .seasonal-banner__copy p { margin-top: 9px; font-size: 11px; }
+  .seasonal-banner__copy > span { font-size: 8px; letter-spacing: .1em; }
+  .seasonal-banner__button { position: absolute; left: 111px; bottom: 24px; padding: 10px 14px; font-size: 11px; }
+  .seasonal-banner__button svg { width: 16px; height: 16px; }
+  .seasonal-banner__diya { bottom: -6px; font-size: 29px; }.seasonal-banner__diya--left { left: 11px; }.seasonal-banner__diya--right { right: 11px; }
   .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 20px; }
   .footer-grid > :first-child, .footer-note { grid-column: 1 / -1; }
   .footer-bottom { flex-direction: column; gap: 8px; }
