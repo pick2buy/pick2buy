@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Flame, Sparkles } from 'lucide-react';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
@@ -91,12 +91,24 @@ export const HomePage = () => {
     {!loading && !error && !section.products.length && <p className="catalog-message">Products are on their way. <Link to={section.link}>Explore the full collection →</Link></p>}
   </section>;
   return <div ref={homePageRef} className="home-page">
-    <div className="home-scroll-reveal"><StorefrontBanners /></div>
+    <section className="page-width home-section home-section--seasonal home-scroll-reveal">
+      <Link to="/shop?flashDeal=true" className="seasonal-banner" aria-label="Explore Diwali offers">
+        <span className="seasonal-banner__lights" aria-hidden="true" />
+        <span className="seasonal-banner__diya seasonal-banner__diya--left" aria-hidden="true"><Flame /></span>
+        <span className="seasonal-banner__diya seasonal-banner__diya--right" aria-hidden="true"><Flame /></span>
+        <div className="seasonal-banner__badge"><Sparkles size={23} /><strong>BIG<br />DIWALI<br />SALE</strong></div>
+        <div className="seasonal-banner__copy"><span>FESTIVE PICKS, BETTER PRICES</span><h2>Celebrate Diwali with<br /><em>extra savings.</em></h2><p>Discover festive essentials, gifts and everyday favourites at special prices.</p></div>
+        <span className="seasonal-banner__button">Shop offers <ArrowRight size={22} /></span>
+      </Link>
+    </section>
     {renderSection(sections[0], 'home-section--first')}
+    <section className="home-banner-section home-scroll-reveal">
+      <div className="page-width home-banner-section__heading"><span className="eyebrow">SMART PICKS FOR EVERYDAY LIFE</span><h2>Everyday <em>Essentials.</em></h2><p>Smart picks for a simpler day.</p></div>
+      <StorefrontBanners />
+    </section>
     {contextualSection && renderSection({ ...contextualSection, key: 'contextual' }, 'personalized-section')}
     {renderSection(sections[1])}
     {renderSection(sections[2])}
-    <section className="page-width home-section home-scroll-reveal"><div className="discovery-banner"><span className="eyebrow">LESS SEARCHING. MORE DISCOVERING.</span><h2>A fresh pick for<br /><em>every part of your day.</em></h2><p>From the first song of the morning to the comforts of home.<br />Make room for something you'll love.</p><Link to="/shop?sort=newest" className="primary-pill">Discover what's new <ArrowRight size={17} /></Link></div></section>
     <section className="page-width home-section faq-section home-scroll-reveal"><div><span className="eyebrow">A LITTLE HELP GOES A LONG WAY</span><h2>Good questions.<br /><em>Simple answers.</em></h2><a className="text-link" href="mailto:pick2buy.in@gmail.com">Talk to our team <ArrowRight size={16} /></a></div><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
   </div>;
 };

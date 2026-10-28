@@ -41,15 +41,16 @@ import { useCartStore } from '../../store/useCartStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { api } from '../../services/api';
 import { Avatar } from './Avatar';
-import { CategoryNavIcon } from './CategoryNavIcon';
 
 type CategoryIcon = { icon: LucideIcon; tint: string; ink: string };
 
 const categoryIcons: Record<string, CategoryIcon> = {
+  fashion: { icon: Shirt, tint: '#f3e8f7', ink: '#875191' },
   'kurti-saree-and-lehenga': { icon: Layers3, tint: '#f7e9e5', ink: '#a34d51' },
   'women-western': { icon: Shirt, tint: '#eee9f8', ink: '#6a55a0' },
   lingerie: { icon: Flower2, tint: '#f8eaf0', ink: '#a34b76' },
   men: { icon: PersonStanding, tint: '#e8eef8', ink: '#365a9a' },
+  'gen-z': { icon: Zap, tint: '#fff0db', ink: '#a66a1f' },
   'kids-and-toys': { icon: Baby, tint: '#fff0db', ink: '#a66a1f' },
   'home-and-kitchen': { icon: Home, tint: '#e9f4ee', ink: '#3b7658' },
   'beauty-and-health': { icon: Sparkles, tint: '#f7e9ed', ink: '#a04f6e' },
@@ -491,7 +492,7 @@ export const Header: React.FC = () => {
             </button>
             <div ref={categoryStripRef} className={`category-strip-scroll category-navigation-scroll ${isCategoryNavCondensed ? 'category-navigation-scroll--compact' : ''}`}>
               <Link to="/shop?sort=bestseller" className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item category-navigation-item--featured'} aria-current={pathname === '/' ? 'page' : undefined} aria-label="Popular products" title="Popular">
-                <span className="category-navigation-icon"><CategoryNavIcon slug="popular" icon={Sparkles} /></span>
+                <span className="category-navigation-icon"><Sparkles aria-hidden="true" /></span>
                 <span>Popular</span>
               </Link>
               {categories.map((cat) => {
@@ -505,9 +506,7 @@ export const Header: React.FC = () => {
                     title={cat.name}
                     className={isCategoryNavCondensed ? 'category-navigation-label' : 'category-navigation-item'}
                   >
-                    <span className="category-navigation-icon">
-                      <CategoryNavIcon slug={cat.slug} icon={Icon} />
-                    </span>
+                    <span className="category-navigation-icon"><Icon aria-hidden="true" /></span>
                     <span>{cat.name}</span>
                   </Link>
                   {isCategoryNavCondensed && cat.children?.length > 0 && <button
