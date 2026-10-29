@@ -45,6 +45,7 @@ const productUpdateSchema = z.object({
   sourcePlatform: z.enum(['OWN', 'MEESHO']).optional(),
   sourceProductCode: z.string().trim().min(1).max(120).nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
+  seasonCategoryIds: z.array(z.string().min(1)).optional(),
 }).strict();
 
 const isMeeshoUrl = (value: string) => {
@@ -55,6 +56,19 @@ const isMeeshoUrl = (value: string) => {
     return false;
   }
 };
+
+async function validateSeasonCategoryIds(ids: string[] = []) {
+  const uniqueIds = [...new Set(ids)];
+  if (!uniqueIds.length) return uniqueIds;
+  const matches = await prisma.category.findMany({
+    where: { id: { in: uniqueIds }, parent: { is: { slug: 'seasonal' } } },
+    select: { id: true },
+  });
+  if (matches.length !== uniqueIds.length) {
+    throw Object.assign(new Error('Season assignments must use subcategories under the Seasonal category.'), { statusCode: 400 });
+  }
+  return uniqueIds;
+}
 
 const decodeHtml = (value: string) => value
   .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
@@ -129,7 +143,7 @@ export class ProductController {
       const products = await prisma.product.findMany({
         // The edit form needs the complete variant list so saving another product
         // field does not silently replace the existing variants with an empty list.
-        include: { images: { orderBy: { displayOrder: 'asc' } }, variants: true, category: true, brand: true },
+        include: { images: { orderBy: { displayOrder: 'asc' } }, variants: true, category: true, brand: true, seasonTags: { include: { category: { include: { parent: true } } } } },
         orderBy: { updatedAt: 'desc' },
       });
       res.json({ success: true, data: products });
@@ -150,6 +164,7 @@ export class ProductController {
         trending,
         bestSeller,
         flashDeal,
+        season,
         sort = 'featured',
         page = '1',
         limit = '20',
@@ -171,6 +186,7 @@ export class ProductController {
           { sku: { contains: query, mode: 'insensitive' } },
           { category: { name: { contains: query, mode: 'insensitive' } } },
           { brand: { name: { contains: query, mode: 'insensitive' } } },
+          { seasonTags: { some: { category: { name: { contains: query, mode: 'insensitive' } } } } },
         ];
       }
 
@@ -185,6 +201,8 @@ export class ProductController {
           OR: [{ slug: String(brand) }, { name: String(brand) }],
         };
       }
+
+      if (season) where.seasonTags = { some: { category: { slug: String(season) } } };
 
       if (minPrice || maxPrice) {
         where.price = {};
@@ -219,6 +237,7 @@ export class ProductController {
             variants: true,
             category: true,
             brand: true,
+            seasonTags: { include: { category: { select: { id: true, name: true, slug: true } } } },
             reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
           },
           orderBy,
@@ -269,6 +288,7 @@ export class ProductController {
           variants: true,
           category: true,
           brand: true,
+          seasonTags: { include: { category: { select: { id: true, name: true, slug: true, parentId: true } } } },
           reviews: {
             where: { status: 'APPROVED' },
             include: {
@@ -290,16 +310,21 @@ export class ProductController {
       const ratings = product.reviews.map((r) => r.rating);
       const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
-      // Find related products in same category
+      // Similar products can share the main category or a seasonal collection.
+      const seasonCategoryIds = product.seasonTags.map((tag) => tag.categoryId);
       const relatedProducts = await prisma.product.findMany({
         where: {
-          categoryId: product.categoryId,
           id: { not: product.id },
           status: 'ACTIVE',
+          OR: [
+            { categoryId: product.categoryId },
+            ...(seasonCategoryIds.length ? [{ seasonTags: { some: { categoryId: { in: seasonCategoryIds } } } }] : []),
+          ],
         },
         include: {
           images: { orderBy: { displayOrder: 'asc' } },
           category: true,
+          seasonTags: { include: { category: { select: { id: true, name: true, slug: true } } } },
         },
         take: 4,
       });
@@ -345,6 +370,7 @@ export class ProductController {
   public static async createProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const data = productCreateSchema.parse(req.body);
+      const seasonCategoryIds = await validateSeasonCategoryIds(data.seasonCategoryIds);
       if (data.mrp < data.price) return res.status(400).json({ success: false, message: 'MRP cannot be lower than selling price' });
       const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
@@ -375,6 +401,7 @@ export class ProductController {
           isBestSeller: data.isBestSeller,
           isTrending: data.isTrending,
           isFlashDeal: data.isFlashDeal,
+          seasonTags: { create: seasonCategoryIds.map((categoryId) => ({ categoryId })) },
           highlights: JSON.stringify(data.highlights || []),
           specifications: JSON.stringify(data.specifications || {}),
           images: {
@@ -403,6 +430,7 @@ export class ProductController {
         include: {
           images: true,
           variants: true,
+          seasonTags: { include: { category: true } },
         },
       });
 
@@ -434,6 +462,9 @@ export class ProductController {
       }
 
       const parsed = productUpdateSchema.parse(req.body);
+      const seasonCategoryIds = parsed.seasonCategoryIds === undefined
+        ? undefined
+        : await validateSeasonCategoryIds(parsed.seasonCategoryIds);
       const sourcePlatform = parsed.sourcePlatform ?? existing.sourcePlatform;
       const sourceProductCode = parsed.sourceProductCode === undefined ? existing.sourceProductCode : parsed.sourceProductCode;
       const sourceUrl = parsed.sourceUrl === undefined ? existing.sourceUrl : parsed.sourceUrl;
@@ -443,8 +474,8 @@ export class ProductController {
       if (sourcePlatform === 'MEESHO' && sourceUrl && !isMeeshoUrl(sourceUrl)) {
         return res.status(400).json({ success: false, message: 'Use a meesho.com product URL' });
       }
-      const { imageUrl, images, variants, ...data } = parsed;
-      if (!Object.keys(data).length && imageUrl === undefined && images === undefined && variants === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
+      const { imageUrl, images, variants, seasonCategoryIds: _seasonCategoryIds, ...data } = parsed;
+      if (!Object.keys(data).length && imageUrl === undefined && images === undefined && variants === undefined && seasonCategoryIds === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
       const price = data.price ?? existing.price;
       const mrp = data.mrp ?? existing.mrp;
       if (mrp < price) return res.status(400).json({ success: false, message: 'MRP cannot be lower than selling price' });
@@ -477,6 +508,10 @@ export class ProductController {
             stock: variant.stock,
             imageUrl: variant.imageUrl,
           })) });
+        }
+        if (seasonCategoryIds !== undefined) {
+          await tx.productSeasonTag.deleteMany({ where: { productId: id } });
+          if (seasonCategoryIds.length) await tx.productSeasonTag.createMany({ data: seasonCategoryIds.map((categoryId) => ({ productId: id, categoryId })) });
         }
         if (!images && imageUrl) {
           const firstImage = await tx.productImage.findFirst({ where: { productId: id }, orderBy: { displayOrder: 'asc' } });

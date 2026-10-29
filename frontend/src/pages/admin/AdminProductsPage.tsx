@@ -16,6 +16,11 @@ export const AdminProductsPage: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [stockFilter, setStockFilter] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +30,8 @@ export const AdminProductsPage: React.FC = () => {
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [pendingAction, setPendingAction] = useState<{ type: 'archive' | 'delete'; product: any } | null>(null);
   const canManage = ['ADMIN', 'MANAGER'].includes(useAuthStore(s => s.user?.role || ''));
+  const primaryCategories = categories.filter(category => category.slug !== 'seasonal' && category.parent?.slug !== 'seasonal' && category.parent?.name?.toLowerCase() !== 'seasonal');
+  const seasonCategories = categories.filter(category => category.parent?.slug === 'seasonal' || category.parent?.name?.toLowerCase() === 'seasonal');
 
   // New product form
   const [form, setForm] = useState({
@@ -45,13 +52,16 @@ export const AdminProductsPage: React.FC = () => {
     variants: [] as ProductVariantForm[],
     isTrending: false,
     isFlashDeal: false,
+    seasonCategoryIds: [] as string[],
   });
 
   const loadData = () => {
     setIsLoading(true);
     Promise.all([
       api.getAdminProducts(),
-      api.getCategories(),
+      // Admin needs hidden categories too so products can be assigned to them
+      // even while those categories stay out of storefront navigation.
+      api.getAdminCategories(),
       api.getAdminBrands(),
     ]).then(([prodRes, catRes, brandRes]) => {
       setError('');
@@ -59,7 +69,8 @@ export const AdminProductsPage: React.FC = () => {
       setCategories(catRes.data || []);
       setBrands(brandRes.data || []);
       if (catRes.data?.length) {
-        setForm((prev) => ({ ...prev, categoryId: catRes.data[0].id }));
+        const firstPrimary = catRes.data.find((category: any) => category.slug !== 'seasonal' && category.parent?.slug !== 'seasonal' && category.parent?.name?.toLowerCase() !== 'seasonal');
+        if (firstPrimary) setForm((prev) => ({ ...prev, categoryId: firstPrimary.id }));
       }
     }).catch(err => setError(err.message || 'Could not load products'))
       .finally(() => setIsLoading(false));
@@ -73,7 +84,7 @@ export const AdminProductsPage: React.FC = () => {
     setEditingId(null);
     setFormErrors({});
     setImageUrlInput('');
-    setForm({ name: '', sku: '', categoryId: categories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '', imageUrls: [], sourcePlatform: 'OWN', sourceProductCode: '', sourceUrl: '', variants: [], isTrending: false, isFlashDeal: false });
+    setForm({ name: '', sku: '', categoryId: primaryCategories.find(category => !category.parentId)?.id || primaryCategories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '', imageUrls: [], sourcePlatform: 'OWN', sourceProductCode: '', sourceUrl: '', variants: [], isTrending: false, isFlashDeal: false, seasonCategoryIds: [] });
     setIsModalOpen(true);
   };
 
@@ -84,7 +95,7 @@ export const AdminProductsPage: React.FC = () => {
       price: product.price, mrp: product.mrp, stock: product.stock, status: product.status,
       description: product.description, imageUrl: product.images?.[0]?.url || '', imageUrls: product.images?.map((image: any) => image.url) || [],
       sourcePlatform: product.sourcePlatform || 'OWN', sourceProductCode: product.sourceProductCode || '', sourceUrl: product.sourceUrl || '',
-      variants: (product.variants || []).map((variant: any) => ({ name: variant.name, sku: variant.sku, size: variant.size || '', color: variant.color || '', price: variant.price, mrp: variant.mrp, stock: variant.stock })), isTrending: Boolean(product.isTrending), isFlashDeal: Boolean(product.isFlashDeal) });
+      variants: (product.variants || []).map((variant: any) => ({ name: variant.name, sku: variant.sku, size: variant.size || '', color: variant.color || '', price: variant.price, mrp: variant.mrp, stock: variant.stock })), isTrending: Boolean(product.isTrending), isFlashDeal: Boolean(product.isFlashDeal), seasonCategoryIds: (product.seasonTags || []).map((tag: any) => tag.categoryId) });
     setIsModalOpen(true);
   };
 
@@ -131,6 +142,7 @@ export const AdminProductsPage: React.FC = () => {
         name: form.name, sku: form.sku, categoryId: form.categoryId, brandId: form.brandId || null,
         price: form.price, mrp: form.mrp, stock: form.stock, description: form.description, status: form.status,
         isTrending: form.isTrending, isFlashDeal: form.isFlashDeal,
+        seasonCategoryIds: form.seasonCategoryIds,
         images: imageUrls.map((url, index) => ({ url, isPrimary: index === 0 })), variants: form.variants, ...sourceDetails,
         sourceProductCode: form.sourcePlatform === 'MEESHO' ? form.sourceProductCode || null : null,
         sourceUrl: form.sourcePlatform === 'MEESHO' ? form.sourceUrl || null : null,
@@ -255,10 +267,22 @@ export const AdminProductsPage: React.FC = () => {
 
   const removeVariant = (index: number) => setForm(current => ({ ...current, variants: current.variants.filter((_, variantIndex) => variantIndex !== index) }));
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredProducts = products.filter((p) => {
+    const query = search.trim().toLowerCase();
+    const matchesSearch = !query || [p.name, p.sku, p.category?.name, p.brand?.name]
+      .some(value => String(value || '').toLowerCase().includes(query));
+    return matchesSearch
+      && (!categoryFilter || p.categoryId === categoryFilter)
+      && (!statusFilter || p.status === statusFilter)
+      && (!sourceFilter || (p.sourcePlatform || 'OWN') === sourceFilter)
+      && (!stockFilter || (stockFilter === 'in-stock' ? p.stock > 0 : p.stock <= 5));
+  }).sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'price-low') return a.price - b.price;
+    if (sortBy === 'price-high') return b.price - a.price;
+    if (sortBy === 'stock-low') return a.stock - b.stock;
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
 
   const modalRef = useModal(isModalOpen, () => setIsModalOpen(false));
   const actionModalRef = useModal(Boolean(pendingAction), () => setPendingAction(null));
@@ -279,17 +303,36 @@ export const AdminProductsPage: React.FC = () => {
         </button>}
       </div>
 
-      {/* Search Input */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-        <div className="relative w-full sm:w-80">
+      {/* Search and catalog filters */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
+        <div className="relative sm:col-span-2 xl:col-span-2">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by product name or SKU..."
+            placeholder="Search name, SKU, category or brand..."
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:border-brand-primary"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        </div>
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} aria-label="Filter by category" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-primary">
+          <option value="">All categories</option>
+          {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} aria-label="Filter by status" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-primary">
+          <option value="">All statuses</option><option value="ACTIVE">Active</option><option value="ARCHIVED">Archived</option>
+        </select>
+        <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} aria-label="Filter by source" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-primary">
+          <option value="">All sources</option><option value="OWN">Own products</option><option value="MEESHO">Meesho</option>
+        </select>
+        <select value={stockFilter} onChange={e => setStockFilter(e.target.value)} aria-label="Filter by stock" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-primary">
+          <option value="">Any stock</option><option value="in-stock">In stock</option><option value="low-stock">Low stock (5 or less)</option>
+        </select>
+        <div className="flex items-center justify-between gap-3 sm:col-span-2 xl:col-span-6">
+          <span className="text-xs text-slate-500">Showing {filteredProducts.length} of {products.length} products</span>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} aria-label="Sort products" className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-primary">
+            <option value="newest">Newest first</option><option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="stock-low">Lowest stock</option>
+          </select>
         </div>
       </div>
 
@@ -326,7 +369,10 @@ export const AdminProductsPage: React.FC = () => {
                   </td>
                   <td className="py-3 px-4 font-mono text-slate-500">{p.sku}</td>
                   <td className="py-3 px-4"><span className={`rounded-full px-2 py-0.5 font-bold text-[10px] ${p.sourcePlatform === 'MEESHO' ? 'bg-fuchsia-50 text-fuchsia-700' : 'bg-slate-100 text-slate-600'}`}>{p.sourcePlatform === 'MEESHO' ? 'Meesho' : 'Own'}</span></td>
-                  <td className="py-3 px-4 text-slate-600">{p.category?.name || 'Uncategorized'}</td>
+                  <td className="py-3 px-4 text-slate-600">
+                    <div>{p.category?.name || 'Uncategorized'}</div>
+                    {!!p.seasonTags?.length && <div className="mt-1 flex flex-wrap gap-1">{p.seasonTags.map((tag: any) => <span key={tag.categoryId} className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{tag.category?.name}</span>)}</div>}
+                  </td>
                   <td className="py-3 px-4">
                     <span className="font-bold text-slate-900 block">{formatINR(p.price)}</span>
                     <span className="text-[10px] text-slate-400 line-through">{formatINR(p.mrp)}</span>
@@ -395,10 +441,25 @@ export const AdminProductsPage: React.FC = () => {
                     onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"
                   >
-                    {categories.map((c) => <React.Fragment key={c.id}><option value={c.id}>{c.name}</option>{c.children?.map((child: any) => <option key={child.id} value={child.id}>↳ {child.name}</option>)}</React.Fragment>)}
+                    {primaryCategories.map((c) => <option key={c.id} value={c.id}>{c.parent ? `↳ ${c.name} (${c.parent.name})` : c.name}</option>)}
                   </select>
                   {formErrors.categoryId && <p className="mt-1 text-rose-600">{formErrors.categoryId}</p>}
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="font-bold text-slate-700">Seasonal collections <span className="font-normal text-slate-400">(optional)</span></p>
+                <p className="mt-1 text-[11px] text-slate-500">Keep the main category above, and tag this product for one or more seasons too.</p>
+                {seasonCategories.length ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {seasonCategories.map(category => (
+                      <label key={category.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700">
+                        <input type="checkbox" checked={form.seasonCategoryIds.includes(category.id)} onChange={event => setForm(current => ({ ...current, seasonCategoryIds: event.target.checked ? [...new Set([...current.seasonCategoryIds, category.id])] : current.seasonCategoryIds.filter(id => id !== category.id) }))} />
+                        {category.name}
+                      </label>
+                    ))}
+                  </div>
+                ) : <p className="mt-2 text-[11px] text-slate-500">Add seasonal subcategories under the “Seasonal” category to tag products here.</p>}
               </div>
 
               <div><label className="font-bold text-slate-700 block mb-1">Brand (optional)</label><select value={form.brandId} onChange={e => setForm({ ...form, brandId: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"><option value="">No brand</option>{brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></div>

@@ -90,6 +90,10 @@ class ApiClient {
     return this.request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
   }
 
+  public logout() {
+    return this.request('/auth/logout', { method: 'POST' });
+  }
+
   public linkGoogle(credential: string) {
     return this.request('/auth/google/link', { method: 'POST', body: JSON.stringify({ credential }) });
   }

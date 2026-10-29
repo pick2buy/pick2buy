@@ -20,6 +20,7 @@ router.post('/verify-code', otpLimiter, AuthController.verifyCode);
 router.post('/resend-code', otpLimiter, AuthController.resendCode);
 router.post('/google', googleAuthLimiter, AuthController.google);
 router.post('/google/link', googleAuthLimiter, requireAuth, AuthController.linkGoogle);
+router.post('/logout', requireAuth, AuthController.logout);
 router.get('/me', requireAuth, AuthController.me);
 router.patch('/me', requireAuth, AuthController.updateProfile);
 router.post('/me/addresses', requireAuth, AddressController.create);

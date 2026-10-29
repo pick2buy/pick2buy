@@ -56,7 +56,7 @@ export class CategoryController {
   public static async getAdminCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const categories = await prisma.category.findMany({
-        include: { parent: { select: { id: true, name: true } }, _count: { select: { products: true, children: true } } },
+        include: { parent: { select: { id: true, name: true, slug: true } }, _count: { select: { products: true, children: true, seasonalProductTags: true } } },
         orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
       });
       res.json({ success: true, data: categories });
@@ -69,6 +69,7 @@ export class CategoryController {
       const category = await prisma.category.findFirst({
         where: { slug, isVisible: true },
         include: {
+          parent: { select: { id: true, name: true, slug: true } },
           children: {
             where: { isVisible: true },
             include: { products: { where: { status: 'ACTIVE' }, include: { images: { orderBy: { displayOrder: 'asc' } }, brand: true, reviews: { select: { rating: true } } } } },
@@ -92,9 +93,26 @@ export class CategoryController {
         });
       }
 
+      const seasonalCategoryIds = category.slug === 'seasonal'
+        ? [category.id, ...category.children.map((child) => child.id)]
+        : category.parent?.slug === 'seasonal' ? [category.id] : [];
+      const seasonalProducts = seasonalCategoryIds.length
+        ? await prisma.product.findMany({
+          where: { status: 'ACTIVE', seasonTags: { some: { categoryId: { in: seasonalCategoryIds } } } },
+          include: {
+            images: { orderBy: { displayOrder: 'asc' } },
+            brand: true,
+            reviews: { select: { rating: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+        : [];
+      const categoryProducts = [...category.products, ...category.children.flatMap(child => child.products)];
+      const products = Array.from(new Map([...categoryProducts, ...seasonalProducts].map((product) => [product.id, product])).values());
+
       res.json({
         success: true,
-        data: { ...category, products: [...category.products, ...category.children.flatMap(child => child.products)] },
+        data: { ...category, products },
       });
     } catch (error) {
       next(error);

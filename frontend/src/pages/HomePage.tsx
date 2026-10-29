@@ -66,10 +66,14 @@ export const HomePage = () => {
   }, [products.length, cart?.items.length, recentSearches.length]);
 
   const cartProductIds = new Set(cart?.items.map(item => item.productId) || []);
-  const cartCategoryIds = new Set(products.filter(product => cartProductIds.has(product.id)).map(product => product.categoryId));
-  const cartSuggestions = products.filter(product => !cartProductIds.has(product.id) && cartCategoryIds.has(product.categoryId)).slice(0, 4);
+  const cartProducts = products.filter(product => cartProductIds.has(product.id));
+  const cartCategoryIds = new Set(cartProducts.map(product => product.categoryId));
+  const cartSeasonCategoryIds = new Set(cartProducts.flatMap(product => (product.seasonTags || []).map((tag: any) => tag.categoryId)));
+  const cartSuggestions = products.filter(product => !cartProductIds.has(product.id) && (
+    cartCategoryIds.has(product.categoryId) || (product.seasonTags || []).some((tag: any) => cartSeasonCategoryIds.has(tag.categoryId))
+  )).slice(0, 4);
   const searchTerm = recentSearches[0] || '';
-  const searchSuggestions = searchTerm ? products.filter(product => `${product.name} ${product.description} ${product.category?.name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 4) : [];
+  const searchSuggestions = searchTerm ? products.filter(product => `${product.name} ${product.description} ${product.category?.name || ''} ${(product.seasonTags || []).map((tag: any) => tag.category?.name || '').join(' ')}`.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 4) : [];
   const contextualProducts = cart?.items.length ? (cartSuggestions.length ? cartSuggestions : products.filter(product => !cartProductIds.has(product.id)).slice(0, 4)) : searchSuggestions;
   const contextualSection = contextualProducts.length ? {
     title: cart?.items.length ? 'Suggested ' : 'Still looking for ',
@@ -92,7 +96,7 @@ export const HomePage = () => {
   </section>;
   return <div ref={homePageRef} className="home-page">
     <section className="page-width home-section home-section--seasonal home-scroll-reveal">
-      <Link to="/shop?flashDeal=true" className="seasonal-banner" aria-label="Explore Diwali offers">
+      <Link to="/category/diwali" className="seasonal-banner" aria-label="Shop Diwali collection">
         <span className="seasonal-banner__lights" aria-hidden="true" />
         <span className="seasonal-banner__diya seasonal-banner__diya--left" aria-hidden="true"><Flame /></span>
         <span className="seasonal-banner__diya seasonal-banner__diya--right" aria-hidden="true"><Flame /></span>
@@ -103,7 +107,7 @@ export const HomePage = () => {
     </section>
     {renderSection(sections[0], 'home-section--first')}
     <section className="home-banner-section home-scroll-reveal">
-      <div className="page-width home-banner-section__heading"><span className="eyebrow">SMART PICKS FOR EVERYDAY LIFE</span><h2>Everyday <em>Essentials.</em></h2><p>Smart picks for a simpler day.</p></div>
+      <div className="page-width home-banner-section__heading section-heading"><div><h2>Everyday Essentials.</h2></div></div>
       <StorefrontBanners />
     </section>
     {contextualSection && renderSection({ ...contextualSection, key: 'contextual' }, 'personalized-section')}

@@ -54,6 +54,18 @@ async function verifyGoogleCredential(credential: unknown) {
 }
 
 export class AuthController {
+  public static async logout(req: Request, res: Response, next: NextFunction) {
+    try {
+      // Incrementing the version invalidates every access token issued before
+      // this sign-out, including tokens from Google sign-in.
+      await prisma.user.update({
+        where: { id: req.user!.id },
+        data: { refreshToken: null, tokenVersion: { increment: 1 } },
+      });
+      res.json({ success: true, message: 'Signed out successfully' });
+    } catch (error) { next(error); }
+  }
+
   public static async checkEmail(req: Request, res: Response, next: NextFunction) {
     try {
       const { email } = forgotPasswordSchema.parse(req.body);

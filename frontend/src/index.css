@@ -201,9 +201,7 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 }
 .home-promo-marquee-track { display: flex; width: max-content; gap: 20px; animation: home-promo-marquee 42s linear infinite; }
 .home-promo-carousel { overflow: hidden; }
-.storefront-banner-shell { width: min(1280px, calc(100% - 64px)); margin: 28px auto 0; }
-.home-banner-section__heading h2 { margin-top: 8px; color: #17213a; font-size: clamp(22px, 2.1vw, 28px); font-weight: 700; letter-spacing: -.03em; line-height: 1.25; }
-.home-banner-section__heading h2 em { font-family: inherit; font-size: inherit; font-style: normal; font-weight: inherit; letter-spacing: inherit; }
+.storefront-banner-shell { width: min(1280px, calc(100% - 64px)); margin: 0 auto; }
 .home-banner-section__heading p { margin-top: 5px; color: #64748b; font-size: 13px; }
 .storefront-banner-desktop { overflow: hidden; margin: 0 -10px; padding: 0 10px; }
 .storefront-banner-desktop-track { display: grid; grid-auto-columns: 33.333333%; grid-auto-flow: column; transition: transform .65s cubic-bezier(.22, 1, .36, 1); }
@@ -330,7 +328,8 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .section-heading h2, .faq-section h2 { font-size: clamp(24px, 2.7vw, 36px); line-height: 1.2; letter-spacing: -.05em; margin-top: 12px; }
 .home-page > .home-product-section { margin-bottom: 0; }
 .home-page > .home-product-section + .home-product-section { margin-top: 10px; }
-.home-product-section .section-heading h2 { margin-top: 0; font-size: clamp(22px, 2.1vw, 28px); font-weight: 700; letter-spacing: -.03em; line-height: 1.25; }
+.home-product-section .section-heading h2, .home-banner-section__heading h2 { margin-top: 0; font-family: inherit; font-size: clamp(22px, 2.1vw, 28px); font-weight: 700; letter-spacing: -.03em; line-height: 1.25; }
+.home-banner-section__heading h2 em { font-family: inherit; font-size: inherit; font-style: normal; font-weight: inherit; letter-spacing: inherit; }
 /* Product-section titles use one consistent typeface (for example, “Trending now.”). */
 .home-product-section .section-heading em { font-family: inherit; font-size: inherit; font-style: normal; font-weight: inherit; letter-spacing: inherit; }
 .category-heading-actions, .category-scroll-buttons { display: flex; align-items: center; gap: 14px; }
@@ -453,7 +452,7 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 }
 @media (max-width: 639px) {
   .page-width { width: calc(100% - 32px); }
-  .storefront-banner-shell { width: calc(100% - 32px); margin-top: 16px; }
+  .storefront-banner-shell { width: calc(100% - 32px); margin-top: 0; }
   .home-banner-section__heading p { font-size: 12px; }
   .storefront-banner-desktop { display: none; }
   .storefront-banner-mobile { display: block; }

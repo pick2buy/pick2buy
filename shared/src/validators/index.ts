@@ -97,6 +97,7 @@ export const productCreateSchema = z.object({
   sourceProductCode: optionalProductSourceCodeSchema,
   sourceUrl: optionalProductSourceUrlSchema,
   categoryId: z.string().min(1, 'Category is required'),
+  seasonCategoryIds: z.array(z.string().min(1)).default([]),
   brandId: z.string().optional(),
   price: z.number().min(0, 'Price must be positive'),
   mrp: z.number().min(0, 'MRP must be positive'),

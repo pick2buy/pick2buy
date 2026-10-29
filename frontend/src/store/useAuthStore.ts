@@ -102,6 +102,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    // Revoke the server-side session first. Clear the local state immediately
+    // so the interface signs out even if the user has just gone offline.
+    api.logout().catch(() => {});
     localStorage.removeItem('pick2buy_token');
     set({ user: null, token: null, hasCheckedAuth: true });
   },
