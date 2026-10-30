@@ -102,7 +102,6 @@ export const HomePage = () => {
         <span className="seasonal-banner__diya seasonal-banner__diya--right" aria-hidden="true"><Flame /></span>
         <div className="seasonal-banner__badge"><Sparkles size={23} /><strong>BIG<br />DIWALI<br />SALE</strong></div>
         <div className="seasonal-banner__copy"><span>FESTIVE PICKS, BETTER PRICES</span><h2>Celebrate Diwali with<br /><em>extra savings.</em></h2><p>Discover festive essentials, gifts and everyday favourites at special prices.</p></div>
-        <span className="seasonal-banner__button">Shop offers <ArrowRight size={22} /></span>
       </Link>
     </section>
     {renderSection(sections[0], 'home-section--first')}

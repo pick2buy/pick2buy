@@ -393,8 +393,6 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .seasonal-banner__copy h2 { margin: 10px 0 9px; color: #fff; font-size: clamp(28px, 3.3vw, 45px); font-weight: 750; line-height: 1.04; letter-spacing: -.045em; }
 .seasonal-banner__copy h2 em { color: #ffda28; font-style: normal; }
 .seasonal-banner__copy p { max-width: 520px; color: #fff4df; font-size: 13px; line-height: 1.55; }
-.seasonal-banner__button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 10px; border-radius: 999px; background: #fff; padding: 15px 20px; color: #7e0710; font-size: 13px; font-weight: 800; box-shadow: 0 7px 15px #65000b35; transition: transform .2s ease, box-shadow .2s ease; }
-.seasonal-banner:hover .seasonal-banner__button { box-shadow: 0 10px 20px #65000b4a; transform: translateX(4px); }
 .seasonal-banner__diya { position: absolute; bottom: -7px; z-index: 1; font-size: 46px; filter: drop-shadow(0 0 9px #ffc52e); }
 .seasonal-banner__diya svg { width: 1em; height: 1em; stroke: #ffe36d; stroke-width: 1.7; fill: #f58a16; }
 .seasonal-banner__diya--left { left: 24px; }.seasonal-banner__diya--right { right: 24px; }
@@ -534,15 +532,13 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .value-section .section-heading { padding-inline: 6px; }
   .faq-section { grid-template-columns: 1fr; gap: 20px; }
   .discovery-banner { padding: 40px 16px; }
-  .seasonal-banner { min-height: 238px; align-items: flex-start; gap: 15px; border-radius: 18px; padding: 39px 24px 27px; }
+  .seasonal-banner { min-height: 180px; align-items: flex-start; gap: 15px; border-radius: 18px; padding: 30px 18px 16px; }
   .seasonal-banner__badge { flex-basis: 72px; width: 72px; border-width: 2px; box-shadow: 0 0 0 4px #f9a21d, 0 7px 12px #65000b45; }
   .seasonal-banner__badge svg { width: 14px; height: 14px; margin-top: -62px; }
   .seasonal-banner__badge strong { font-size: 12px; }
-  .seasonal-banner__copy h2 { margin-top: 7px; font-size: clamp(23px, 7vw, 31px); }
+  .seasonal-banner__copy h2 { margin-top: 7px; font-size: clamp(21px, 6vw, 27px); }
   .seasonal-banner__copy p { margin-top: 9px; font-size: 11px; }
   .seasonal-banner__copy > span { font-size: 8px; letter-spacing: .1em; }
-  .seasonal-banner__button { position: absolute; left: 111px; bottom: 24px; padding: 10px 14px; font-size: 11px; }
-  .seasonal-banner__button svg { width: 16px; height: 16px; }
   .seasonal-banner__diya { bottom: -6px; font-size: 29px; }.seasonal-banner__diya--left { left: 11px; }.seasonal-banner__diya--right { right: 11px; }
   .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 20px; }
   .footer-grid > :first-child, .footer-note { grid-column: 1 / -1; }

@@ -205,17 +205,20 @@ export const AdminProductsPage: React.FC = () => {
     return result;
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    event.target.value = '';
+  const addImageFiles = async (files: File[]) => {
     if (!files.length) return;
+    if (isProcessingImages) return;
+    if (form.imageUrls.length >= 6) {
+      setFormErrors(current => ({ ...current, images: 'Remove a photo before adding another. The limit is 6.' }));
+      return;
+    }
     if (files.some(file => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 8_000_000)) {
       setFormErrors(current => ({ ...current, images: 'Choose PNG, JPEG, or WebP images under 8 MB each.' }));
       return;
     }
     setIsProcessingImages(true);
     try {
-      const preparedImages = await Promise.all(files.slice(0, 6).map(resizeImage));
+      const preparedImages = await Promise.all(files.slice(0, 6 - form.imageUrls.length).map(resizeImage));
       const uploaded = await Promise.all(preparedImages.map(async (image) => (await api.uploadProductImage(image)).data.url));
       setForm(current => {
         const imageUrls = [...current.imageUrls, ...uploaded].slice(0, 6);
@@ -225,6 +228,22 @@ export const AdminProductsPage: React.FC = () => {
     } catch (error) {
       setFormErrors(current => ({ ...current, images: error instanceof Error ? error.message : 'Could not process these images.' }));
     } finally { setIsProcessingImages(false); }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    void addImageFiles(files);
+  };
+
+  const handleImagePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const files = Array.from(event.clipboardData.items)
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (!files.length) return;
+    event.preventDefault();
+    void addImageFiles(files);
   };
 
   const setPrimaryImage = (index: number) => setForm(current => {
@@ -403,7 +422,7 @@ export const AdminProductsPage: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Products form" className="max-h-[calc(100dvh-2rem)] overflow-y-auto relative bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl z-10 space-y-4">
+          <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Products form" onPaste={handleImagePaste} className="max-h-[calc(100dvh-2rem)] overflow-y-auto relative bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl z-10 space-y-4">
             <h3 className="text-lg font-black text-slate-900">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
 
             <form noValidate onSubmit={handleSaveProduct} className="space-y-3 text-xs">
@@ -533,7 +552,7 @@ export const AdminProductsPage: React.FC = () => {
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-2 flex items-center justify-between"><div><p className="font-bold text-slate-700">Product photos</p><p className="text-[10px] text-slate-500">First photo is primary. Add up to 6 PNG, JPEG, or WebP images.</p></div><span className="text-[10px] font-bold text-slate-500">{form.imageUrls.length}/6</span></div>
+                <div className="mb-2 flex items-center justify-between"><div><p className="font-bold text-slate-700">Product photos</p><p className="text-[10px] text-slate-500">Copy an image and press Ctrl+V anywhere in this form, or upload it. First photo is primary; limit 6.</p></div><span className="text-[10px] font-bold text-slate-500">{form.imageUrls.length}/6</span></div>
                 {form.imageUrls.length ? <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Product photos">{form.imageUrls.map((url, index) => <div key={`${url}-${index}`} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white"><img src={url} alt={`Product photo ${index + 1}`} className="h-full w-full object-cover" /><span className="absolute left-1 top-1 rounded bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{index === 0 ? 'Primary' : index + 1}</span>{index > 0 && <button type="button" onClick={() => setPrimaryImage(index)} className="absolute bottom-1 left-1 rounded bg-white px-1.5 py-1 text-[9px] font-bold text-slate-700 shadow">Make primary</button>}<button type="button" onClick={() => removeImage(index)} aria-label={`Remove product photo ${index + 1}`} className="absolute right-1 top-1 rounded-full bg-white p-1 text-rose-600 shadow"><X size={11} /></button></div>)}</div> : <p className="py-2 text-[11px] text-slate-500">Upload a primary image to create this product.</p>}
                 {formErrors.images && <p className="mt-2 text-rose-600">{formErrors.images}</p>}
               </div>
