@@ -130,12 +130,12 @@ export const AdminProductsPage: React.FC = () => {
       if (!Number.isInteger(variant.stock) || variant.stock < 0) errors[`variant-${index}`] = 'Variant stock must be a whole number.';
     });
     if (form.sourcePlatform === 'MEESHO') {
-      if (!form.sourceProductCode.trim() && !form.sourceUrl.trim()) errors.sourceProductCode = 'Add the Meesho product code or listing URL.';
+      if (!form.sourceProductCode.trim() && !form.sourceUrl.trim()) errors.sourceProductCode = 'Add the source product code or listing URL.';
       if (form.sourceUrl) {
         try {
           const hostname = new URL(form.sourceUrl).hostname.toLowerCase();
-          if (hostname !== 'meesho.com' && !hostname.endsWith('.meesho.com')) errors.sourceUrl = 'Use a valid meesho.com listing URL.';
-        } catch { errors.sourceUrl = 'Enter a valid Meesho listing URL.'; }
+          if (hostname !== 'meesho.com' && !hostname.endsWith('.meesho.com')) errors.sourceUrl = 'Use a valid source listing URL.';
+        } catch { errors.sourceUrl = 'Enter a valid source listing URL.'; }
       }
     }
     if (Object.keys(errors).length) { setFormErrors(errors); return; }
@@ -349,7 +349,7 @@ export const AdminProductsPage: React.FC = () => {
           <option value="">All statuses</option><option value="ACTIVE">Active</option><option value="ARCHIVED">Archived</option>
         </select>
         <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} aria-label="Filter by source" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-primary">
-          <option value="">All sources</option><option value="OWN">Own products</option><option value="MEESHO">Meesho</option>
+          <option value="">All sources</option><option value="OWN">Own products</option><option value="MEESHO">Marketplace imports</option>
         </select>
         <select value={stockFilter} onChange={e => setStockFilter(e.target.value)} aria-label="Filter by stock" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-primary">
           <option value="">Any stock</option><option value="in-stock">In stock</option><option value="low-stock">Low stock (5 or less)</option>
@@ -394,7 +394,7 @@ export const AdminProductsPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="py-3 px-4 font-mono text-slate-500">{p.sku}</td>
-                  <td className="py-3 px-4"><span className={`rounded-full px-2 py-0.5 font-bold text-[10px] ${p.sourcePlatform === 'MEESHO' ? 'bg-fuchsia-50 text-fuchsia-700' : 'bg-slate-100 text-slate-600'}`}>{p.sourcePlatform === 'MEESHO' ? 'Meesho' : 'Own'}</span></td>
+                  <td className="py-3 px-4"><span className={`rounded-full px-2 py-0.5 font-bold text-[10px] ${p.sourcePlatform === 'MEESHO' ? 'bg-fuchsia-50 text-fuchsia-700' : 'bg-slate-100 text-slate-600'}`}>{p.sourcePlatform === 'MEESHO' ? 'Marketplace' : 'Own'}</span></td>
                   <td className="py-3 px-4 text-slate-600">
                     <div>{p.category?.name || 'Uncategorized'}</div>
                     {!!p.seasonTags?.length && <div className="mt-1 flex flex-wrap gap-1">{p.seasonTags.map((tag: any) => <span key={tag.categoryId} className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{tag.category?.name}</span>)}</div>}

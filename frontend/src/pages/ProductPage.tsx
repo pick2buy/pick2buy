@@ -51,6 +51,7 @@ export const ProductPage: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewMessage, setReviewMessage] = useState('');
+  const [showAllReviews, setShowAllReviews] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -58,6 +59,7 @@ export const ProductPage: React.FC = () => {
     setIsTitleExpanded(false);
     setIsImageViewerOpen(false);
     setSelectedVariant(null);
+    setShowAllReviews(false);
     api.getProduct(slug)
       .then((res) => {
         setProduct(res.data);
@@ -218,6 +220,19 @@ export const ProductPage: React.FC = () => {
   const discount = Math.round(((currentMrp - currentPrice) / currentMrp) * 100);
   const wishlisted = isWishlisted(product.id);
   const reviews = product.reviews || [];
+  const sortedReviews = [...reviews].sort((a: any, b: any) => {
+    const ratingDifference = Number(b.rating || 0) - Number(a.rating || 0);
+    if (ratingDifference !== 0) return ratingDifference;
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
+  const visibleReviews = showAllReviews ? sortedReviews : sortedReviews.slice(0, 5);
+  const ratingCounts = [5, 4, 3, 2, 1].map((rating) => ({
+    rating,
+    count: reviews.filter((review: any) => Number(review.rating) === rating).length,
+  }));
+  const maxRatingCount = Math.max(1, ...ratingCounts.map((item) => item.count));
+  const ratingLabels: Record<number, string> = { 5: 'Excellent', 4: 'Very Good', 3: 'Good', 2: 'Average', 1: 'Poor' };
+  const ratingBarColors: Record<number, string> = { 5: 'bg-emerald-500', 4: 'bg-emerald-500', 3: 'bg-amber-400', 2: 'bg-orange-400', 1: 'bg-rose-500' };
   const averageRating = reviews.length
     ? reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length
     : 0;
@@ -496,27 +511,29 @@ export const ProductPage: React.FC = () => {
 
       {/* Customer Reviews & Form */}
       <section className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 space-y-8 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-          <div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">Customer Reviews & Ratings</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Customer opinions</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {reviews.length > 0 && <div className="text-3xl font-black text-slate-900">{averageRating.toFixed(1)}</div>}
+        <div className="border-b border-slate-100 pb-6">
+          <h2 className="text-xl font-black tracking-tight text-slate-900">Product Ratings &amp; Reviews</h2>
+          <div className="mt-6 grid gap-7 sm:grid-cols-[150px_1fr] sm:items-center">
             <div>
-              <div className="flex" role="img" aria-label={reviews.length ? `${averageRating.toFixed(1)} out of 5 stars` : 'No ratings yet'}>
-                {[...Array(5)].map((_, i) => (
-                  <span key={i} className="relative block h-3.5 w-3.5" aria-hidden="true">
-                    <Star className="h-3.5 w-3.5 text-slate-300" />
-                    <span className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${Math.max(0, Math.min(1, averageRating - i)) * 100}%` }}>
-                      <Star className="h-3.5 w-3.5 max-w-none fill-amber-400 text-amber-400" />
-                    </span>
-                  </span>
-                ))}
+              <div className="flex items-center gap-1 text-5xl font-black text-emerald-600">
+                {reviews.length ? averageRating.toFixed(1) : '—'}
+                {reviews.length > 0 && <Star className="h-8 w-8 fill-emerald-600 text-emerald-600" />}
               </div>
-              <p className="mt-1 text-xs text-slate-500">
-                {reviews.length ? `${reviews.length} customer review${reviews.length === 1 ? '' : 's'}` : 'No ratings yet'}
+              <p className="mt-2 text-sm font-medium leading-5 text-slate-500">
+                {reviews.length.toLocaleString()} Ratings,<br />
+                {reviews.length.toLocaleString()} Reviews
               </p>
+            </div>
+            <div className="space-y-3">
+              {ratingCounts.map(({ rating, count }) => (
+                <div key={rating} className="grid grid-cols-[76px_1fr_42px] items-center gap-3 text-sm">
+                  <span className="text-right font-semibold text-slate-700">{ratingLabels[rating]}</span>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div className={`h-full rounded-full ${ratingBarColors[rating]}`} style={{ width: `${(count / maxRatingCount) * 100}%` }} />
+                  </div>
+                  <span className="font-medium text-slate-500">{count}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -526,7 +543,7 @@ export const ProductPage: React.FC = () => {
           {reviews.length === 0 ? (
             <p className="text-xs text-slate-500 italic">Be the first to review this product!</p>
           ) : (
-            reviews.map((r: any) => (
+            visibleReviews.map((r: any) => (
               <div key={r.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -554,6 +571,15 @@ export const ProductPage: React.FC = () => {
             ))
           )}
         </div>
+        {reviews.length > 5 && (
+          <button
+            type="button"
+            onClick={() => setShowAllReviews((current) => !current)}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-brand-primary transition-colors hover:bg-slate-50"
+          >
+            {showAllReviews ? 'Show less' : `See more reviews (${reviews.length - 5})`}
+          </button>
+        )}
 
         {/* Write a Review Section */}
         <div className="pt-6 border-t border-slate-100">

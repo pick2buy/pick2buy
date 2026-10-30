@@ -126,7 +126,7 @@ const parseMeeshoProduct = (html: string, sourceUrl: string) => {
   const imageValues = jsonProduct?.image || metadata(html, 'og:image');
   const images = (Array.isArray(imageValues) ? imageValues : [imageValues]).filter(Boolean).map(String);
   const price = Number(jsonProduct?.offers?.price || metadata(html, 'product:price:amount'));
-  const name = decodeHtml(jsonProduct?.name || metadata(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || 'Imported Meesho product');
+  const name = decodeHtml(jsonProduct?.name || metadata(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || 'Imported marketplace product');
   const description = decodeHtml(jsonProduct?.description || metadata(html, 'og:description') || name);
   const code = String(jsonProduct?.sku || jsonProduct?.mpn || sourceUrl.match(/p-([\w-]+)/i)?.[1] || `MEESHO-${Date.now()}`).slice(0, 80);
   return { name: name.slice(0, 180), description: description.slice(0, 5000), specifications: extractMeeshoSpecifications(html), sourceUrl, sourceProductCode: code, supplierPrice: Number.isFinite(price) ? price : null, images: [...new Set(images)].slice(0, 12) };
@@ -164,7 +164,7 @@ export class ProductController {
       if (!response.ok) return res.status(422).json({ success: false, message: `Meesho returned HTTP ${response.status}. Try another public product URL.` });
       const html = (await response.text()).slice(0, 4_000_000);
       const product = parseMeeshoProduct(html, response.url || sourceUrl);
-      if (!product.name || product.name === 'Imported Meesho product') return res.status(422).json({ success: false, message: 'Product details are not publicly available at this URL.' });
+      if (!product.name || product.name === 'Imported marketplace product') return res.status(422).json({ success: false, message: 'Product details are not publicly available at this URL.' });
       res.json({ success: true, data: product });
     } catch (error) { next(error); }
   }
@@ -500,10 +500,10 @@ export class ProductController {
       const sourceProductCode = parsed.sourceProductCode === undefined ? existing.sourceProductCode : parsed.sourceProductCode;
       const sourceUrl = parsed.sourceUrl === undefined ? existing.sourceUrl : parsed.sourceUrl;
       if (sourcePlatform === 'MEESHO' && !sourceProductCode && !sourceUrl) {
-        return res.status(400).json({ success: false, message: 'Add the Meesho product code or listing URL' });
+        return res.status(400).json({ success: false, message: 'Add the source product code or listing URL' });
       }
       if (sourcePlatform === 'MEESHO' && sourceUrl && !isMeeshoUrl(sourceUrl)) {
-        return res.status(400).json({ success: false, message: 'Use a meesho.com product URL' });
+        return res.status(400).json({ success: false, message: 'Use a valid source product URL' });
       }
       const { imageUrl, images, variants, specifications, seasonCategoryIds: _seasonCategoryIds, ...data } = parsed;
       if (!Object.keys(data).length && specifications === undefined && imageUrl === undefined && images === undefined && variants === undefined && seasonCategoryIds === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });

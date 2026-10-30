@@ -136,13 +136,13 @@ export const productCreateSchema = z.object({
 }).superRefine((data, ctx) => {
   if (data.sourcePlatform !== 'MEESHO') return;
   if (!data.sourceProductCode && !data.sourceUrl) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sourceProductCode'], message: 'Add the Meesho product code or listing URL' });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sourceProductCode'], message: 'Add the source product code or listing URL' });
   }
   if (data.sourceUrl) {
     try {
       const hostname = new URL(data.sourceUrl).hostname.toLowerCase();
       if (hostname !== 'meesho.com' && !hostname.endsWith('.meesho.com')) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sourceUrl'], message: 'Use a meesho.com product URL' });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sourceUrl'], message: 'Use a valid source product URL' });
       }
     } catch { /* The URL schema reports this validation error. */ }
   }
