@@ -10,6 +10,8 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialEmail = searchParams.get('email') || '';
+  const requestedRedirect = searchParams.get('redirect') || '/';
+  const redirectTo = /^\/(?!\/)/.test(requestedRedirect) && !requestedRedirect.includes('\\') ? requestedRedirect : '/';
   const { login, googleLogin, isLoading } = useAuthStore();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
@@ -30,7 +32,7 @@ export const LoginPage: React.FC = () => {
         setEmail(normalizedEmail);
         setStep('password');
       } else {
-        navigate(`/register?email=${encodeURIComponent(normalizedEmail)}`);
+        navigate(`/register?email=${encodeURIComponent(normalizedEmail)}&redirect=${encodeURIComponent(redirectTo)}`);
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Could not check this email. Please try again.');
@@ -70,7 +72,7 @@ export const LoginPage: React.FC = () => {
         {errorMessage && <div role="alert" className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-xl">{errorMessage}</div>}
 
         {step === 'code' && challenge ? (
-          <EmailCodeForm challenge={challenge} onVerified={() => navigate('/')}
+          <EmailCodeForm challenge={challenge} onVerified={() => navigate(redirectTo, { replace: true })}
             onBack={() => { setChallenge(null); setStep('email'); setErrorMessage(''); }} />
         ) : step === 'email' ? (
           <form onSubmit={handleEmail} className="login-form space-y-3">
@@ -121,11 +123,11 @@ export const LoginPage: React.FC = () => {
 
         {step !== 'code' && import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
           <div className="login-divider flex items-center gap-3 text-xs text-slate-500"><span className="h-px bg-slate-200 flex-1" />or<span className="h-px bg-slate-200 flex-1" /></div>
-          <div className="login-google"><GoogleSignIn onCredential={async (credential) => { await googleLogin(credential); navigate('/'); }} /></div>
+          <div className="login-google"><GoogleSignIn onCredential={async (credential) => { await googleLogin(credential); navigate(redirectTo, { replace: true }); }} /></div>
         </>}
 
         {step !== 'code' && <div className="login-bottom-link text-sm text-slate-600">
-          New to Pick2Buy? <Link to={email ? `/register?email=${encodeURIComponent(email.trim())}` : '/register'} className="font-semibold text-brand-primary hover:underline">Create an account →</Link>
+          New to Pick2Buy? <Link to={`/register?redirect=${encodeURIComponent(redirectTo)}${email ? `&email=${encodeURIComponent(email.trim())}` : ''}`} className="font-semibold text-brand-primary hover:underline">Create an account →</Link>
         </div>}
 
       </div>

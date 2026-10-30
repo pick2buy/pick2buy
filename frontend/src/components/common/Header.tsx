@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BrandMark } from './BrandMark';
 import { 
   Search, 
+  ArrowLeft,
   ShoppingBag, 
   Heart, 
   User as UserIcon, 
@@ -81,6 +82,7 @@ export const Header: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
+  const headerRef = useRef<HTMLElement>(null);
   const categoryStripRef = useRef<HTMLDivElement>(null);
   const categoryNavRef = useRef<HTMLElement>(null);
   const [categoryScroll, setCategoryScroll] = useState({ left: false, right: false });
@@ -88,6 +90,7 @@ export const Header: React.FC = () => {
   const [categoryMenuLeft, setCategoryMenuLeft] = useState(8);
   const [expandedMobileCategoryId, setExpandedMobileCategoryId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileMenuMounted, setIsMobileMenuMounted] = useState(false);
   const isProductDetailPage = pathname.startsWith('/product/');
   const [isCategoryNavCondensed, setIsCategoryNavCondensed] = useState(isProductDetailPage);
   const isCategoryNavCondensedRef = useRef(isProductDetailPage);
@@ -183,6 +186,40 @@ export const Header: React.FC = () => {
   }, [pathname]);
 
   useEffect(() => {
+    if (!isCategoryNavCondensed) return;
+    const strip = categoryStripRef.current;
+    if (!strip) return;
+    strip.scrollLeft = 0;
+    // iOS Safari can restore the previous horizontal offset after the compact
+    // nav changes item widths, so reset once more after that layout is applied.
+    const frame = window.requestAnimationFrame(() => { strip.scrollLeft = 0; });
+    return () => window.cancelAnimationFrame(frame);
+  }, [categories.length, isCategoryNavCondensed]);
+
+  useEffect(() => {
+    if (isCategoryNavCondensed && !isProductDetailPage) return;
+    const header = headerRef.current;
+    if (!header) return;
+
+    const updateMobileHeaderHeight = () => {
+      if (!window.matchMedia('(max-width: 639px)').matches) return;
+      document.documentElement.style.setProperty(
+        isProductDetailPage ? '--product-mobile-header-height' : '--storefront-mobile-header-height',
+        `${Math.ceil(header.getBoundingClientRect().height)}px`,
+      );
+    };
+
+    updateMobileHeaderHeight();
+    const resizeObserver = new ResizeObserver(updateMobileHeaderHeight);
+    resizeObserver.observe(header);
+    window.addEventListener('resize', updateMobileHeaderHeight);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateMobileHeaderHeight);
+    };
+  }, [categories.length, isAuthPage, isCategoryNavCondensed, isProductDetailPage]);
+
+  useEffect(() => {
     if (!openCategoryId) return;
     const closeOnOutsideClick = (event: PointerEvent) => {
       if (!categoryNavRef.current?.contains(event.target as Node)) setOpenCategoryId(null);
@@ -218,7 +255,18 @@ export const Header: React.FC = () => {
     strip.scrollBy({ left: direction * Math.max(strip.clientWidth * 0.75, 240), behavior: 'smooth' });
   };
 
-  const menuRef = useModal(isMobileMenuOpen, () => setIsMobileMenuOpen(false));
+  const openMobileMenu = () => {
+    setIsMobileMenuMounted(true);
+    setIsMobileMenuOpen(true);
+  };
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  useEffect(() => {
+    if (isMobileMenuOpen || !isMobileMenuMounted) return;
+    const timeout = window.setTimeout(() => setIsMobileMenuMounted(false), 260);
+    return () => window.clearTimeout(timeout);
+  }, [isMobileMenuOpen, isMobileMenuMounted]);
+
+  const menuRef = useModal(isMobileMenuOpen, closeMobileMenu);
   // The badge represents distinct products in the bag, not units. Changing a
   // product's quantity should not make the cart icon count jump.
   const totalCartCount = cart?.items.length || 0;
@@ -237,7 +285,7 @@ export const Header: React.FC = () => {
       const query = searchQuery.trim();
       rememberSearch(query);
       navigate(`/search?q=${encodeURIComponent(query)}`);
-      setIsMobileMenuOpen(false);
+      closeMobileMenu();
     }
   };
   const openProductSuggestion = (product: any) => {
@@ -263,7 +311,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className={`store-header sticky top-0 z-40 bg-white border-b border-slate-200 ${isCategoryNavCondensed ? 'store-header--scrolled' : ''}`}>
+    <header ref={headerRef} className={`store-header sticky top-0 z-40 bg-white border-b border-slate-200 ${isCategoryNavCondensed ? 'store-header--scrolled' : ''}`}>
       {/* Top Announcement Bar */}
       <div className="announcement bg-slate-900 text-slate-100 text-xs py-2 px-4 font-medium">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -290,7 +338,7 @@ export const Header: React.FC = () => {
           {/* Mobile Menu Button & Brand Logo */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              onClick={() => isMobileMenuOpen ? closeMobileMenu() : openMobileMenu()}
               className="lg:hidden p-2 -ml-2 text-slate-700 hover:text-slate-900 rounded-lg hover:bg-slate-100"
               aria-label="Toggle Navigation"
             >
@@ -387,9 +435,9 @@ export const Header: React.FC = () => {
               ) : (
                 <Link
                   to="/login" aria-label="Sign in"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-brand-primary py-2 px-3 rounded-full hover:bg-slate-100 transition-colors"
+                  className="inline-flex min-h-0 items-center justify-center gap-1.5 rounded-full p-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-brand-primary sm:px-3"
                 >
-                  <UserIcon className="w-4 h-4" />
+                  <UserIcon className="h-5 w-5" />
                   <span className="hidden sm:inline">Sign In</span>
                 </Link>
               )}
@@ -452,7 +500,17 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Mobile Search input */}
-        <div className={`${isAuthPage ? 'hidden' : 'mt-3'} mobile-search-row md:hidden ${isCategoryNavCondensed ? 'mobile-search-row--compact' : ''}`}>
+        <div className={`${isAuthPage ? 'hidden' : 'mt-3'} mobile-search-row md:hidden ${isCategoryNavCondensed ? 'mobile-search-row--compact' : ''} ${isProductDetailPage ? 'mobile-search-row--product' : ''}`}>
+          {isProductDetailPage && (
+            <button
+              type="button"
+              aria-label="Go back"
+              className="mobile-product-header-action hidden"
+              onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/shop')}
+            >
+              <ArrowLeft className="h-6 w-6" aria-hidden="true" />
+            </button>
+          )}
           <form onSubmit={handleSearchSubmit} className="relative w-full">
             <input
               aria-label="Search products" type="text"
@@ -540,13 +598,13 @@ export const Header: React.FC = () => {
       )}
 
       {/* Mobile Drawer Menu */}
-      {isMobileMenuOpen && createPortal(
-        <div className="lg:hidden fixed inset-0 z-[60] flex h-screen h-[100dvh]">
+      {isMobileMenuMounted && createPortal(
+        <div className={`mobile-menu-shell lg:hidden fixed inset-0 z-[60] flex h-screen h-[100dvh] ${isMobileMenuOpen ? 'is-open' : 'is-closing'}`}>
           <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            onClick={() => setIsMobileMenuOpen(false)}
+            className="mobile-menu-backdrop absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={closeMobileMenu}
           />
-          <div ref={menuRef} role="dialog" aria-modal="true" aria-label="Navigation" className="relative z-10 flex h-full w-4/5 max-w-sm flex-col overflow-y-auto bg-white p-6 shadow-2xl">
+          <div ref={menuRef} role="dialog" aria-modal="true" aria-label="Navigation" className="mobile-menu-panel relative z-10 flex h-full w-4/5 max-w-sm flex-col overflow-y-auto bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center">
@@ -555,7 +613,7 @@ export const Header: React.FC = () => {
                 <span className="font-black text-slate-900 text-lg">Pick2Buy</span>
               </div>
               <button
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 aria-label="Close navigation" className="p-1 rounded-lg hover:bg-slate-100"
               >
                 <X className="w-5 h-5 text-slate-600" />
@@ -565,21 +623,21 @@ export const Header: React.FC = () => {
             <div className="py-4 space-y-1">
               <Link
                 to="/"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 className="block py-2.5 px-3 text-sm font-semibold text-slate-800 rounded-lg hover:bg-slate-50"
               >
                 Home
               </Link>
               <Link
                 to="/shop"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 className="block py-2.5 px-3 text-sm font-semibold text-slate-800 rounded-lg hover:bg-slate-50"
               >
                 All Products
               </Link>
               <Link
                 to="/shop?flashDeal=true"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 className="flex items-center gap-2 py-2.5 px-3 text-sm font-bold text-brand-accent rounded-lg hover:bg-orange-50"
               >
                 <Zap className="w-4 h-4 fill-brand-accent" />
@@ -595,10 +653,10 @@ export const Header: React.FC = () => {
                 {categories.map((cat) => (
                   <div key={cat.id}>
                     <div className="flex items-center">
-                      <Link to={`/category/${cat.slug}`} onClick={() => setIsMobileMenuOpen(false)} className="min-w-0 flex-1 py-2 px-3 text-xs font-medium text-slate-700 rounded-lg hover:bg-slate-50">{cat.name}</Link>
+                      <Link to={`/category/${cat.slug}`} onClick={closeMobileMenu} className="min-w-0 flex-1 py-2 px-3 text-xs font-medium text-slate-700 rounded-lg hover:bg-slate-50">{cat.name}</Link>
                       {cat.children?.length > 0 && <button type="button" onClick={() => setExpandedMobileCategoryId(current => current === cat.id ? null : cat.id)} aria-label={`Show ${cat.name} subcategories`} aria-expanded={expandedMobileCategoryId === cat.id} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"><ChevronDown className={`h-4 w-4 transition-transform ${expandedMobileCategoryId === cat.id ? 'rotate-180' : ''}`} /></button>}
                     </div>
-                    {cat.children?.length > 0 && expandedMobileCategoryId === cat.id && <div className="ml-3 border-l border-slate-200 pl-2">{cat.children.map((child: any) => <Link key={child.id} to={`/category/${child.slug}`} onClick={() => setIsMobileMenuOpen(false)} className="block rounded-lg px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-brand-primary">{child.name}</Link>)}</div>}
+                    {cat.children?.length > 0 && expandedMobileCategoryId === cat.id && <div className="ml-3 border-l border-slate-200 pl-2">{cat.children.map((child: any) => <Link key={child.id} to={`/category/${child.slug}`} onClick={closeMobileMenu} className="block rounded-lg px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-brand-primary">{child.name}</Link>)}</div>}
                   </div>
                 ))}
               </div>
@@ -611,7 +669,7 @@ export const Header: React.FC = () => {
                   <p className="text-xs text-slate-500 mb-3">{user.email}</p>
                   <Link
                     to="/account"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                     className="block w-full text-center bg-slate-100 text-slate-800 py-2 rounded-lg text-xs font-bold mb-2"
                   >
                     Account & Orders
@@ -619,7 +677,7 @@ export const Header: React.FC = () => {
                   <button
                     onClick={() => {
                       logout();
-                      setIsMobileMenuOpen(false);
+                      closeMobileMenu();
                       navigate('/');
                     }}
                     className="w-full text-center text-xs font-semibold text-rose-600 py-2"
@@ -631,14 +689,14 @@ export const Header: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     to="/login"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                     className="text-center py-2 text-xs font-bold text-slate-700 bg-slate-100 rounded-lg"
                   >
                     Sign In
                   </Link>
                   <Link
                     to="/register"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                     className="text-center py-2 text-xs font-bold text-white bg-brand-primary rounded-lg"
                   >
                     Register

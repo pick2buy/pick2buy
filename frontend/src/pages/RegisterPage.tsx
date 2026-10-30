@@ -11,6 +11,8 @@ type RegisterFieldErrors = Partial<Record<RegisterField, string>>;
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const requestedRedirect = searchParams.get('redirect') || '/';
+  const redirectTo = /^\/(?!\/)/.test(requestedRedirect) && !requestedRedirect.includes('\\') ? requestedRedirect : '/';
   const { register: registerUser, googleLogin, isLoading } = useAuthStore();
 
   const [form, setForm] = useState({
@@ -88,7 +90,7 @@ export const RegisterPage: React.FC = () => {
           </div>
         )}
 
-        {challenge ? <EmailCodeForm challenge={challenge} onVerified={() => navigate('/')}
+        {challenge ? <EmailCodeForm challenge={challenge} onVerified={() => navigate(redirectTo, { replace: true })}
           onBack={() => { setChallenge(null); setErrorMessage(''); }} /> : <form noValidate onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="register-name" className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
@@ -185,12 +187,12 @@ export const RegisterPage: React.FC = () => {
 
         {!challenge && import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
           <div className="flex items-center gap-3 text-xs text-slate-400"><span className="h-px bg-slate-200 flex-1" />or<span className="h-px bg-slate-200 flex-1" /></div>
-          <GoogleSignIn text="signup_with" onCredential={async (credential) => { await googleLogin(credential); navigate('/'); }} />
+          <GoogleSignIn text="signup_with" onCredential={async (credential) => { await googleLogin(credential); navigate(redirectTo, { replace: true }); }} />
         </>}
 
         {!challenge && <div className="text-center pt-2 text-xs text-slate-500">
           <span>Already registered? </span>
-          <Link to="/login" className="font-bold text-brand-primary hover:underline">
+          <Link to={`/login?redirect=${encodeURIComponent(redirectTo)}`} className="font-bold text-brand-primary hover:underline">
             Sign in
           </Link>
         </div>}

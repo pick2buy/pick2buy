@@ -22,6 +22,7 @@ import { useCartStore } from '../store/useCartStore';
 import { useWishlistStore } from '../store/useWishlistStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { StickyMobileBuyBar } from '../components/storefront/StickyMobileBuyBar';
+import { ProductImageViewer } from '../components/storefront/ProductImageViewer';
 import { toast } from '../store/useToastStore';
 
 export const ProductPage: React.FC = () => {
@@ -32,8 +33,10 @@ export const ProductPage: React.FC = () => {
   const { user } = useAuthStore();
 
   const [product, setProduct] = useState<any>(null);
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [isImageZoomed, setIsImageZoomed] = useState(false);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
@@ -51,6 +54,8 @@ export const ProductPage: React.FC = () => {
   useEffect(() => {
     if (!slug) return;
     setIsLoading(true);
+    setIsTitleExpanded(false);
+    setIsImageViewerOpen(false);
     setSelectedVariant(null);
     api.getProduct(slug)
       .then((res) => {
@@ -93,6 +98,10 @@ export const ProductPage: React.FC = () => {
 
   const handleAddToCart = async () => {
     if (!product) return;
+    if (!user) {
+      navigate(`/login?redirect=${encodeURIComponent(`/product/${product.slug}`)}`);
+      return;
+    }
     if (isInBag) {
       setCartDrawerOpen(true);
       return;
@@ -109,9 +118,19 @@ export const ProductPage: React.FC = () => {
 
   const handleBuyNow = async () => {
     if (!product) return;
+    if (!user) {
+      sessionStorage.setItem('pick2buy_pending_buy_now', JSON.stringify({
+        productId: product.id,
+        variantId: selectedVariant?.id || null,
+        quantity,
+      }));
+      navigate('/login?redirect=%2Fbuy-now');
+      return;
+    }
     setIsAdding(true);
     try {
       await addItem(product.id, selectedVariant?.id, quantity);
+      setCartDrawerOpen(false);
       navigate('/checkout');
     } catch (err: any) {
       toast.error(err.message || 'Could not proceed to checkout');
@@ -198,9 +217,18 @@ export const ProductPage: React.FC = () => {
   const discount = Math.round(((currentMrp - currentPrice) / currentMrp) * 100);
   const wishlisted = isWishlisted(product.id);
   const reviews = product.reviews || [];
+  const averageRating = reviews.length
+    ? reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length
+    : 0;
+  // Keep the identifying name and size; move appended benefits to See more.
+  const fullTitle = String(product.name).trim();
+  const mainTitle = fullTitle.split(/\s*\|\s*|\s+(?:removes|suitable for|ideal for)\s+/i)[0].trim();
+  const titleWords = mainTitle.split(/\s+/);
+  const compactTitle = titleWords.length > 12 ? titleWords.slice(0, 12).join(' ') : mainTitle;
+  const hasMoreTitle = compactTitle !== fullTitle;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 pb-24 space-y-6 sm:space-y-8">
+    <div className="product-page max-w-7xl mx-auto px-4 sm:px-6 py-4 pb-24 space-y-6 sm:space-y-8">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-1.5 text-xs text-slate-500">
         <Link to="/" className="hover:text-slate-800">Home</Link>
@@ -224,11 +252,12 @@ export const ProductPage: React.FC = () => {
         <div className="lg:sticky lg:top-4 lg:self-start">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
             <div
-              onMouseEnter={() => setIsImageZoomed(true)}
+              onMouseEnter={() => setIsImageZoomed(window.matchMedia('(hover: hover) and (pointer: fine)').matches)}
               onMouseLeave={() => setIsImageZoomed(false)}
               onMouseMove={updateZoomPosition}
               className={`relative aspect-square lg:order-2 lg:h-[440px] lg:flex-1 lg:aspect-auto xl:h-[470px] rounded-3xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm ${isImageZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
             >
+              <button type="button" aria-label={`Open full-size images of ${product.name}`} onClick={() => { setIsImageZoomed(false); setIsImageViewerOpen(true); }} className="block h-full w-full cursor-zoom-in">
               <img
                 src={selectedImage || product.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'}
                 alt={product.name}
@@ -238,6 +267,7 @@ export const ProductPage: React.FC = () => {
                   transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
                 }}
               />
+              </button>
               {isImageZoomed && <div
                 aria-hidden="true"
                 className="pointer-events-none absolute hidden h-24 w-24 rounded-full border-2 border-white/90 bg-white/10 shadow-lg lg:block"
@@ -280,22 +310,6 @@ export const ProductPage: React.FC = () => {
               </div>
             )}
           </div>
-          {product.relatedProducts && product.relatedProducts.length > 0 && (
-            <section className="mt-6 space-y-3">
-              <h2 className="text-lg font-bold text-slate-900">Similar products</h2>
-              <div className="grid grid-cols-3 gap-3">
-                {product.relatedProducts.slice(0, 3).map((p: any) => (
-                  <Link key={p.id} to={`/product/${p.slug || p.id}`} className="group min-w-0 overflow-hidden rounded-2xl border border-slate-100 bg-white p-2 transition-shadow hover:shadow-md">
-                    <div className="aspect-square overflow-hidden rounded-xl bg-slate-50">
-                      <img src={p.images?.[0]?.url || '/product-placeholder.svg'} alt={p.name} loading="lazy" className="h-full w-full object-contain transition-transform group-hover:scale-105" />
-                    </div>
-                    <p className="mt-2 line-clamp-2 text-xs font-semibold text-slate-800">{p.name}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-900">{formatINR(p.price)}</p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
 
         {/* Right: Buy Controls & Specs */}
@@ -308,15 +322,27 @@ export const ProductPage: React.FC = () => {
               <span className="font-mono">SKU: {selectedVariant?.sku || product.sku}</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              {product.name}
+            <h1 id="product-title" className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              <span className="sm:hidden">{isTitleExpanded ? fullTitle : compactTitle}</span>
+              <span className="hidden sm:inline">{fullTitle}</span>
             </h1>
+            {hasMoreTitle && (
+              <button
+                type="button"
+                className="sm:hidden mt-1 text-sm font-semibold text-brand-primary underline underline-offset-2"
+                aria-expanded={isTitleExpanded}
+                aria-controls="product-title"
+                onClick={() => setIsTitleExpanded((expanded) => !expanded)}
+              >
+                {isTitleExpanded ? 'See less' : 'See more'}
+              </button>
+            )}
 
             {/* Ratings Summary */}
             <div className="flex items-center gap-3 mt-3">
               <div className="flex items-center gap-1 bg-amber-50 text-amber-800 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-200/50">
                 <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
-                <span>{reviews.length ? (reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length).toFixed(1) : "New"}</span>
+                <span>{reviews.length ? averageRating.toFixed(1) : 'No ratings yet'}</span>
               </div>
               <span className="text-xs text-slate-500">
                 Based on <strong>{reviews.length}</strong> customer reviews
@@ -475,6 +501,23 @@ export const ProductPage: React.FC = () => {
         </div>
       </div>
 
+      {product.relatedProducts && product.relatedProducts.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold text-slate-900">Similar products</h2>
+          <div className="grid grid-cols-3 gap-3 sm:max-w-2xl">
+            {product.relatedProducts.slice(0, 3).map((p: any) => (
+              <Link key={p.id} to={`/product/${p.slug || p.id}`} className="group min-w-0 overflow-hidden rounded-2xl border border-slate-100 bg-white p-2 transition-shadow hover:shadow-md">
+                <div className="aspect-square overflow-hidden rounded-xl bg-slate-50">
+                  <img src={p.images?.[0]?.url || '/product-placeholder.svg'} alt={p.name} loading="lazy" className="h-full w-full object-contain transition-transform group-hover:scale-105" />
+                </div>
+                <p className="mt-2 line-clamp-2 text-xs font-semibold text-slate-800">{p.name}</p>
+                <p className="mt-1 text-xs font-bold text-slate-900">{formatINR(p.price)}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Customer Reviews & Form */}
       <section className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 space-y-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
@@ -483,14 +526,21 @@ export const ProductPage: React.FC = () => {
             <p className="text-xs text-slate-500 mt-0.5">Customer opinions</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-3xl font-black text-slate-900">{reviews.length ? (reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length).toFixed(1) : "New"}</div>
+            {reviews.length > 0 && <div className="text-3xl font-black text-slate-900">{averageRating.toFixed(1)}</div>}
             <div>
-              <div className="flex text-amber-400">
+              <div className="flex" role="img" aria-label={reviews.length ? `${averageRating.toFixed(1)} out of 5 stars` : 'No ratings yet'}>
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                  <span key={i} className="relative block h-3.5 w-3.5" aria-hidden="true">
+                    <Star className="h-3.5 w-3.5 text-slate-300" />
+                    <span className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${Math.max(0, Math.min(1, averageRating - i)) * 100}%` }}>
+                      <Star className="h-3.5 w-3.5 max-w-none fill-amber-400 text-amber-400" />
+                    </span>
+                  </span>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-400">Verified Buyers</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {reviews.length ? `${reviews.length} customer review${reviews.length === 1 ? '' : 's'}` : 'No ratings yet'}
+              </p>
             </div>
           </div>
         </div>
@@ -583,6 +633,12 @@ export const ProductPage: React.FC = () => {
       </section>
 
       {/* Mobile Sticky Buy Bar */}
+      {isImageViewerOpen && <ProductImageViewer
+        images={product.images?.length ? product.images.map((image: { url: string }) => image.url) : [selectedImage || '/product-placeholder.svg']}
+        initialImage={selectedImage}
+        name={product.name}
+        onClose={() => setIsImageViewerOpen(false)}
+      />}
       <StickyMobileBuyBar
         product={{ ...product, price: currentPrice, mrp: currentMrp, stock: availableStock }}
         onAddToCart={handleAddToCart}

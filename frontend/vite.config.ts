@@ -11,7 +11,9 @@ export default defineConfig({
     },
   },
   server: {
-    host: 'localhost',
+    // Bind to every interface so the app is reachable from other devices on
+    // the local network (for example, http://192.168.1.9:5173).
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
     // Allows this active Cloudflare quick-tunnel hostname during mobile testing.

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { 
   ShieldCheck, 
   Truck, 
@@ -40,7 +40,7 @@ const loadRazorpay = async () => {
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { cart, fetchCart } = useCartStore();
-  const { user, fetchMe } = useAuthStore();
+  const { user, fetchMe, hasCheckedAuth } = useAuthStore();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const appliedAddressForUser = useRef<string | null>(null);
   useEffect(() => { if (user?.id) fetchMe(); }, [user?.id, fetchMe]);
@@ -94,6 +94,8 @@ export const CheckoutPage: React.FC = () => {
 
   const items = cart?.items || [];
   const payableTotal = (cart?.grandTotal || 0) + (paymentMethod === 'COD' ? 49 : 0);
+  if (!hasCheckedAuth) return <p role="status" className="p-6 text-center">Checking sign-in…</p>;
+  if (!user) return <Navigate to="/login?redirect=%2Fcheckout" replace />;
   if (items.length === 0) {
     return (
       <div className="max-w-md mx-auto text-center py-20 px-4">

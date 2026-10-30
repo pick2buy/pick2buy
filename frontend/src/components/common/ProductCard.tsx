@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Star, Heart, ShoppingBag, Check } from 'lucide-react';
 import { formatINR } from '../../lib/utils';
 import { useCartStore } from '../../store/useCartStore';
@@ -28,6 +28,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) => {
+  const navigate = useNavigate();
   const { addItem } = useCartStore();
   const { toggleWishlist, isWishlisted } = useWishlistStore();
   const { user } = useAuthStore();
@@ -44,6 +45,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, priority = fa
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      navigate(`/login?redirect=${encodeURIComponent(`/product/${product.slug}`)}`);
+      return;
+    }
     try {
       setIsAdding(true);
       setJustAdded(true);

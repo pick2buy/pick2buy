@@ -11,6 +11,7 @@ import { ProductPage } from './pages/ProductPage';
 import { CartPage } from './pages/CartPage';
 import { WishlistPage } from './pages/WishlistPage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { BuyNowPage } from './pages/BuyNowPage';
 import { OrderSuccessPage } from './pages/OrderSuccessPage';
 import { OrderTrackingPage } from './pages/OrderTrackingPage';
 import { AccountPage } from './pages/AccountPage';
@@ -39,11 +40,13 @@ const ScrollToTop = () => {
 };
 
 const StorefrontLayout: React.FC = () => {
+  const { pathname } = useLocation();
+  const isProductPage = pathname.startsWith('/product/');
   return (
     <div className="storefront min-h-screen flex flex-col">
       <Header />
       <CartDrawer />
-      <main className="flex-1">
+      <main className={`storefront-main flex-1 ${isProductPage ? 'storefront-main--product' : ''}`}>
         <Outlet />
       </main>
       <Footer />
@@ -73,6 +76,7 @@ export const App: React.FC = () => {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/buy-now" element={<BuyNowPage />} />
           <Route path="/order-success/:orderNumber" element={<OrderSuccessPage />} />
           <Route path="/account/orders/:orderNumber" element={<OrderTrackingPage />} />
           <Route path="/account" element={<AccountPage />} />
