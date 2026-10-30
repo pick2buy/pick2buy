@@ -27,6 +27,7 @@ const productUpdateSchema = z.object({
   name: z.string().min(3).optional(),
   sku: z.string().min(2).optional(),
   description: z.string().min(10).optional(),
+  specifications: z.record(z.string()).optional(),
   categoryId: z.string().min(1).optional(),
   brandId: z.string().min(1).nullable().optional(),
   price: z.number().min(0).optional(),
@@ -82,6 +83,36 @@ const metadata = (html: string, property: string) => {
   return match ? decodeHtml(match[1]) : '';
 };
 
+// Meesho places the full specification table in page state on many listings,
+// separately from the shopper-facing description. Read only explicit label /
+// value pairs; never infer values from marketing copy.
+const extractMeeshoSpecifications = (html: string) => {
+  const specifications: Record<string, string> = {};
+  const add = (label: unknown, value: unknown) => {
+    if (typeof label !== 'string' || typeof value !== 'string') return;
+    const key = decodeHtml(label).trim();
+    const text = decodeHtml(value).trim();
+    if (key.length < 2 || key.length > 80 || !text || text.length > 2000 || specifications[key]) return;
+    specifications[key] = text;
+  };
+  const visit = (node: unknown, depth = 0): void => {
+    if (depth > 10 || !node) return;
+    if (Array.isArray(node)) { node.forEach(item => visit(item, depth + 1)); return; }
+    if (typeof node !== 'object') return;
+    const item = node as Record<string, unknown>;
+    add(item.label ?? item.name ?? item.title ?? item.key ?? item.attributeName, item.value ?? item.displayValue ?? item.attributeValue);
+    for (const [key, value] of Object.entries(item)) {
+      if (/specification|attribute|product.?detail|detail.?list|catalog.?detail/i.test(key)) visit(value, depth + 1);
+    }
+  };
+  for (const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)) {
+    const raw = script[1].trim();
+    if (!raw.startsWith('{') && !raw.startsWith('[')) continue;
+    try { visit(JSON.parse(raw)); } catch { /* Non-JSON scripts are ignored. */ }
+  }
+  return specifications;
+};
+
 const parseMeeshoProduct = (html: string, sourceUrl: string) => {
   let jsonProduct: any = null;
   for (const raw of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
@@ -98,7 +129,7 @@ const parseMeeshoProduct = (html: string, sourceUrl: string) => {
   const name = decodeHtml(jsonProduct?.name || metadata(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || 'Imported Meesho product');
   const description = decodeHtml(jsonProduct?.description || metadata(html, 'og:description') || name);
   const code = String(jsonProduct?.sku || jsonProduct?.mpn || sourceUrl.match(/p-([\w-]+)/i)?.[1] || `MEESHO-${Date.now()}`).slice(0, 80);
-  return { name: name.slice(0, 180), description: description.slice(0, 5000), sourceUrl, sourceProductCode: code, supplierPrice: Number.isFinite(price) ? price : null, images: [...new Set(images)].slice(0, 12) };
+  return { name: name.slice(0, 180), description: description.slice(0, 5000), specifications: extractMeeshoSpecifications(html), sourceUrl, sourceProductCode: code, supplierPrice: Number.isFinite(price) ? price : null, images: [...new Set(images)].slice(0, 12) };
 };
 
 export class ProductController {
@@ -474,14 +505,15 @@ export class ProductController {
       if (sourcePlatform === 'MEESHO' && sourceUrl && !isMeeshoUrl(sourceUrl)) {
         return res.status(400).json({ success: false, message: 'Use a meesho.com product URL' });
       }
-      const { imageUrl, images, variants, seasonCategoryIds: _seasonCategoryIds, ...data } = parsed;
-      if (!Object.keys(data).length && imageUrl === undefined && images === undefined && variants === undefined && seasonCategoryIds === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
+      const { imageUrl, images, variants, specifications, seasonCategoryIds: _seasonCategoryIds, ...data } = parsed;
+      if (!Object.keys(data).length && specifications === undefined && imageUrl === undefined && images === undefined && variants === undefined && seasonCategoryIds === undefined) return res.status(400).json({ success: false, message: 'No product changes provided' });
       const price = data.price ?? existing.price;
       const mrp = data.mrp ?? existing.mrp;
       if (mrp < price) return res.status(400).json({ success: false, message: 'MRP cannot be lower than selling price' });
       const updated = await prisma.$transaction(async tx => {
         const result = await tx.product.update({ where: { id }, data: {
           ...data, discountPercentage: mrp > price ? Math.round((mrp - price) / mrp * 100) : 0,
+          ...(specifications === undefined ? {} : { specifications: JSON.stringify(specifications) }),
         } });
         if (images) {
           await tx.productImage.deleteMany({ where: { productId: id } });

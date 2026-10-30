@@ -5,6 +5,7 @@ import { toast } from '../../store/useToastStore';
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
 import { useAuthStore } from '../../store/useAuthStore';
+import { parseProductDetails } from '../../lib/productDetails';
 
 type ProductVariantForm = { name: string; sku: string; size: string; color: string; price: number; mrp: number; stock: number };
 const isProductImageUrl = (value: string) => /^data:image\/(png|jpeg|webp);base64,/i.test(value) || (() => {
@@ -28,6 +29,7 @@ export const AdminProductsPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState('');
+  const [specifications, setSpecifications] = useState<Record<string, string>>({});
   const [pendingAction, setPendingAction] = useState<{ type: 'archive' | 'delete'; product: any } | null>(null);
   const canManage = ['ADMIN', 'MANAGER'].includes(useAuthStore(s => s.user?.role || ''));
   const primaryCategories = categories.filter(category => category.slug !== 'seasonal' && category.parent?.slug !== 'seasonal' && category.parent?.name?.toLowerCase() !== 'seasonal');
@@ -81,6 +83,7 @@ export const AdminProductsPage: React.FC = () => {
   }, []);
 
   const openCreate = () => {
+    setSpecifications({});
     setEditingId(null);
     setFormErrors({});
     setImageUrlInput('');
@@ -89,6 +92,8 @@ export const AdminProductsPage: React.FC = () => {
   };
 
   const openEdit = (product: any) => {
+    const savedSpecs = typeof product.specifications === 'string' ? JSON.parse(product.specifications || '{}') : product.specifications || {};
+    setSpecifications(Object.fromEntries(parseProductDetails(product.name, product.description || '', savedSpecs).details.map(({ label, value }) => [label, value])));
     setEditingId(product.id);
     setFormErrors({});
     setForm({ name: product.name, sku: product.sku, categoryId: product.categoryId, brandId: product.brandId || '',
@@ -98,6 +103,7 @@ export const AdminProductsPage: React.FC = () => {
       variants: (product.variants || []).map((variant: any) => ({ name: variant.name, sku: variant.sku, size: variant.size || '', color: variant.color || '', price: variant.price, mrp: variant.mrp, stock: variant.stock })), isTrending: Boolean(product.isTrending), isFlashDeal: Boolean(product.isFlashDeal), seasonCategoryIds: (product.seasonTags || []).map((tag: any) => tag.categoryId) });
     setIsModalOpen(true);
   };
+
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +147,7 @@ export const AdminProductsPage: React.FC = () => {
       if (editingId) await api.updateProduct(editingId, {
         name: form.name, sku: form.sku, categoryId: form.categoryId, brandId: form.brandId || null,
         price: form.price, mrp: form.mrp, stock: form.stock, description: form.description, status: form.status,
-        isTrending: form.isTrending, isFlashDeal: form.isFlashDeal,
+        isTrending: form.isTrending, isFlashDeal: form.isFlashDeal, specifications,
         seasonCategoryIds: form.seasonCategoryIds,
         images: imageUrls.map((url, index) => ({ url, isPrimary: index === 0 })), variants: form.variants, ...sourceDetails,
         sourceProductCode: form.sourcePlatform === 'MEESHO' ? form.sourceProductCode || null : null,
@@ -149,6 +155,7 @@ export const AdminProductsPage: React.FC = () => {
       });
       else await api.createProduct({
         ...form,
+        specifications,
         ...sourceDetails,
         brandId: form.brandId || undefined,
         images: imageUrls.map((url, index) => ({ url, isPrimary: index === 0 })),
@@ -582,16 +589,43 @@ export const AdminProductsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Description</label>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label htmlFor="product-description" className="font-bold text-slate-700">Description</label>
+                  <button type="button" className="font-semibold text-brand-primary" onClick={() => {
+                    const extracted = parseProductDetails(form.name, form.description).details;
+                    setSpecifications(current => ({ ...current, ...Object.fromEntries(extracted.map(({ label, value }) => [label, value])) }));
+                    if (extracted.length) toast.success(`Extracted ${extracted.length} product details. Review them below.`);
+                    else toast.info('No labelled details found. Use lines such as Material: Plastic.');
+                  }}>Extract details</button>
+                </div>
                 <textarea
+                  id="product-description"
                   required
                   rows={3}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onPaste={(event) => {
+                    const pasted = event.clipboardData.getData('text/plain');
+                    if (!pasted) return;
+                    event.preventDefault();
+                    const input = event.currentTarget;
+                    const description = form.description.slice(0, input.selectionStart) + pasted + form.description.slice(input.selectionEnd);
+                    setForm(current => ({ ...current, description }));
+                    const extracted = parseProductDetails(form.name, description).details;
+                    setSpecifications(current => ({ ...current, ...Object.fromEntries(extracted.map(({ label, value }) => [label, value])) }));
+                  }}
                   placeholder="Comprehensive description of product specifications and warranty..."
                   className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none ${formErrors.description ? 'border-rose-500' : 'border-slate-200'}`}
                 />
                 {formErrors.description && <p className="mt-1 text-rose-600">{formErrors.description}</p>}
+                <p className="mt-2 text-xs leading-5 text-slate-500">Paste the copied product description here. Labelled details are automatically extracted below; your original description is kept.</p>
+                {Object.keys(specifications).length > 0 && <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+                  <div className="grid grid-cols-2 gap-3 bg-slate-100 px-3 py-2 font-semibold text-slate-700"><span>Detail</span><span>Value</span></div>
+                  {Object.entries(specifications).map(([label, value], index) => <div key={label} className="grid grid-cols-2 items-start gap-3 border-t border-slate-100 p-3">
+                    <label htmlFor={`product-spec-${index}`} className="break-words py-2 text-slate-600">{label}</label>
+                    <textarea id={`product-spec-${index}`} rows={2} value={value} onChange={event => setSpecifications(current => ({ ...current, [label]: event.target.value }))} className="min-w-0 w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900" />
+                  </div>)}
+                </div>}
               </div>
 
               <div className="pt-2 flex justify-end gap-2">

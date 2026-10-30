@@ -23,6 +23,7 @@ import { useWishlistStore } from '../store/useWishlistStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { StickyMobileBuyBar } from '../components/storefront/StickyMobileBuyBar';
 import { ProductImageViewer } from '../components/storefront/ProductImageViewer';
+import { ProductOverview } from '../components/storefront/ProductOverview';
 import { toast } from '../store/useToastStore';
 
 export const ProductPage: React.FC = () => {
@@ -470,33 +471,8 @@ export const ProductPage: React.FC = () => {
           </div>
 
           {/* Product overview stays with the purchase details in the right column. */}
-          <div className="bg-white rounded-3xl border border-slate-100 p-5 sm:p-6 space-y-5 shadow-sm">
-            <div>
-              <h2 className="text-lg font-black text-slate-900 mb-3">Product Overview & Features</h2>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{product.description}</p>
-            </div>
-            {product.highlights && product.highlights.length > 0 && (
-              <div className="pt-4 border-t border-slate-100">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Key Highlights</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {product.highlights.map((h: string, idx: number) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-100"><Sparkles className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" /><span>{h}</span></div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {product.specifications && Object.keys(product.specifications).length > 0 && (
-              <div className="pt-4 border-t border-slate-100">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Technical Specifications</h3>
-                <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                  <table className="w-full text-xs text-left"><tbody>
-                    {Object.entries(product.specifications).map(([key, val], idx) => (
-                      <tr key={key} className={idx % 2 === 0 ? 'bg-slate-50/70' : 'bg-white'}><td className="px-4 py-2.5 font-bold text-slate-700 w-1/3 border-b border-slate-100">{key}</td><td className="px-4 py-2.5 text-slate-600 border-b border-slate-100">{String(val)}</td></tr>
-                    ))}
-                  </tbody></table>
-                </div>
-              </div>
-            )}
+          <div className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-6">
+            <ProductOverview key={product.id} name={product.name} description={product.description || ''} highlights={product.highlights} specifications={product.specifications} />
           </div>
         </div>
       </div>
