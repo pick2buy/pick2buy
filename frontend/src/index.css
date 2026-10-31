@@ -546,9 +546,13 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .value-section { padding: 16px 10px; }
   .value-section .section-heading { padding-inline: 6px; }
   .faq-section { grid-template-columns: 1fr; gap: 20px; }
-  .benefits-section { grid-template-columns: 1fr; gap: 24px; }
-  .benefits-grid { gap: 10px; }
-  .benefit-card { min-height: 104px; padding: 15px; }
+  .benefits-section { grid-template-columns: 1fr; gap: 16px; }
+  .benefits-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .benefit-card { flex-direction: column; gap: 10px; min-width: 0; min-height: 0; padding: 16px 14px; border-radius: 16px; }
+  .benefit-card > div { min-width: 0; width: 100%; }
+  .benefit-card__icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }
+  .benefit-card h3 { font-size: 13px; line-height: 1.4; }
+  .benefit-card p { margin-top: 6px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
   .discovery-banner { padding: 40px 16px; }
   .seasonal-banner { min-height: 180px; align-items: flex-start; gap: 15px; border-radius: 18px; padding: 30px 18px 16px; }
   .seasonal-banner__badge { flex-basis: 72px; width: 72px; border-width: 2px; box-shadow: 0 0 0 4px #f9a21d, 0 7px 12px #65000b45; }

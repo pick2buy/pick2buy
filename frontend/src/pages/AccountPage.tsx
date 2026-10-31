@@ -31,6 +31,14 @@ const emptyAddress = (user?: { name?: string; email?: string; phone?: string | n
   fullName: user?.name || '', mobile: user?.phone || '', email: user?.email || '', addressLine: '', apartment: '',
   landmark: '', city: '', state: '', pincode: '', type: 'HOME', isDefault: false,
 });
+const returnReasons = [
+  ['DAMAGED', 'Arrived damaged'], ['WRONG_ITEM', 'Wrong item delivered'],
+  ['DEFECTIVE', 'Defective or not working'], ['NOT_AS_DESCRIBED', 'Not as described'], ['OTHER', 'Other reason'],
+] as const;
+const returnDeadline = (order: any) => {
+  const delivered = order.timeline?.find((entry: any) => entry.status === 'DELIVERED');
+  return delivered ? new Date(delivered.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000 : null;
+};
 
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,6 +46,24 @@ export const AccountPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'support'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
+  const [returnDraft, setReturnDraft] = useState<{ orderId: string; orderItemId: string; reason: string; message: string } | null>(null);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [returnError, setReturnError] = useState('');
+  const submitReturn = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!returnDraft || returnSubmitting) return;
+    setReturnSubmitting(true); setReturnError('');
+    try {
+      const response = await api.requestReturn(returnDraft.orderId, {
+        orderItemId: returnDraft.orderItemId, reason: returnDraft.reason, message: returnDraft.message.trim(),
+      });
+      setOrders(current => current.map(order => order.id === returnDraft.orderId
+        ? { ...order, returnRequests: [...(order.returnRequests || []), response.data] } : order));
+      setReturnDraft(null);
+      toast.success('Your return request was submitted.');
+    } catch (error) { setReturnError(error instanceof Error ? error.message : 'Could not request a return.'); }
+    finally { setReturnSubmitting(false); }
+  };
   const [tickets, setTickets] = useState<any[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketsError, setTicketsError] = useState('');
@@ -283,11 +309,39 @@ export const AccountPage: React.FC = () => {
 
                     <div className="divide-y divide-slate-50">
                       {ord.items?.map((item: any) => (
-                        <div key={item.id} className="py-2 flex items-center justify-between text-xs">
-                          <span className="text-slate-800 font-medium">
-                            {item.productName} × {item.quantity}
-                          </span>
-                          <span className="font-bold text-slate-900">{formatINR(item.total)}</span>
+                        <div key={item.id} className="py-3 text-xs">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <span className="min-w-0 flex-1 text-slate-800 font-medium">{item.productName} × {item.quantity}</span>
+                            <span className="font-bold text-slate-900">{formatINR(item.total)}</span>
+                          </div>
+                          {(() => {
+                            const request = ord.returnRequests?.find((entry: any) => entry.orderItemId === item.id);
+                            const deadline = returnDeadline(ord);
+                            if (request) return <p className="mt-2 font-semibold text-brand-primary">Return {request.status.toLowerCase().replaceAll('_', ' ')}{request.adminNote ? ` — ${request.adminNote}` : ''}</p>;
+                            if (ord.status !== 'DELIVERED') return null;
+                            if (!deadline || Date.now() >= deadline) return <p className="mt-2 text-slate-500">Seven-day return window ended</p>;
+                            return <div className="mt-2">
+                              <button type="button" onClick={() => { setReturnError(''); setReturnDraft({ orderId: ord.id, orderItemId: item.id, reason: '', message: '' }); }} className="rounded-lg border border-brand-primary px-3 py-1.5 font-bold text-brand-primary hover:bg-indigo-50">Request return</button>
+                              <p className="mt-1 text-slate-500">Available until {new Date(deadline).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</p>
+                            </div>;
+                          })()}
+                          {returnDraft?.orderItemId === item.id && <form onSubmit={submitReturn} className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                            <h3 className="font-bold text-slate-900">Return {item.productName}</h3>
+                            <label className="block font-semibold text-slate-700">Reason
+                              <select required value={returnDraft?.reason || ''} onChange={event => setReturnDraft(current => current && ({ ...current, reason: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                                <option value="">Choose a reason</option>
+                                {returnReasons.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                              </select>
+                            </label>
+                            <label className="block font-semibold text-slate-700">Tell us what happened
+                              <textarea required minLength={10} maxLength={1000} rows={3} value={returnDraft?.message || ''} onChange={event => setReturnDraft(current => current && ({ ...current, message: event.target.value }))} placeholder="Describe the issue in at least 10 characters" className="mt-1 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm" />
+                            </label>
+                            {returnError && <p role="alert" className="text-rose-600">{returnError}</p>}
+                            <div className="flex flex-wrap gap-2">
+                              <button disabled={returnSubmitting} type="submit" className="rounded-lg bg-brand-primary px-4 py-2 font-bold text-white disabled:opacity-50">{returnSubmitting ? 'Submitting…' : 'Submit request'}</button>
+                              <button type="button" onClick={() => setReturnDraft(null)} className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-bold">Cancel</button>
+                            </div>
+                          </form>}
                         </div>
                       ))}
                     </div>

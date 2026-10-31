@@ -8,6 +8,18 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { calculateCoupon } from '../lib/coupon';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
+import { canRequestReturn } from '../lib/returnPolicy';
+
+const returnRequestSchema = z.object({
+  orderItemId: z.string().uuid(),
+  reason: z.enum(['DAMAGED', 'WRONG_ITEM', 'DEFECTIVE', 'NOT_AS_DESCRIBED', 'OTHER']),
+  message: z.string().trim().min(10, 'Please describe the reason in at least 10 characters').max(1000),
+});
+const returnUpdateSchema = z.object({
+  status: z.enum(['APPROVED', 'REJECTED', 'RECEIVED', 'COMPLETED']),
+  adminNote: z.string().trim().max(1000).optional(),
+});
 
 export class OrderController {
   public static async checkout(req: Request, res: Response, next: NextFunction) {
@@ -323,6 +335,7 @@ export class OrderController {
         include: {
           items: true,
           statusHistory: { orderBy: { createdAt: 'asc' } },
+          returnRequests: true,
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -348,6 +361,7 @@ export class OrderController {
         include: {
           items: true,
           statusHistory: { orderBy: { createdAt: 'asc' } },
+          returnRequests: true,
         },
       });
 
@@ -380,6 +394,58 @@ export class OrderController {
     } catch (error) {
       next(error);
     }
+  }
+
+  public static async requestReturn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: 'Sign in to request a return' });
+      const input = returnRequestSchema.parse(req.body);
+      const order = await prisma.order.findFirst({
+        where: { id: req.params.orderId, userId },
+        include: { items: true, statusHistory: { where: { status: ORDER_STATUSES.DELIVERED }, orderBy: { createdAt: 'asc' }, take: 1 } },
+      });
+      if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+      if (order.status !== ORDER_STATUSES.DELIVERED) return res.status(400).json({ success: false, message: 'Returns are available after delivery' });
+      if (!canRequestReturn(order.status, order.statusHistory)) {
+        return res.status(400).json({ success: false, message: 'The seven-day return window has ended' });
+      }
+      if (!order.items.some(item => item.id === input.orderItemId)) return res.status(400).json({ success: false, message: 'Item does not belong to this order' });
+      const request = await prisma.returnRequest.create({ data: {
+        orderId: order.id, orderItemId: input.orderItemId, userId, reason: input.reason, message: input.message,
+      } });
+      res.status(201).json({ success: true, data: request, message: 'Return request submitted' });
+    } catch (error: any) {
+      if (error?.code === 'P2002') return res.status(409).json({ success: false, message: 'A return has already been requested for this item' });
+      next(error);
+    }
+  }
+
+  public static async getReturnRequests(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const requests = await prisma.returnRequest.findMany({
+        include: { order: { select: { orderNumber: true, customerName: true, customerEmail: true } }, orderItem: { select: { productName: true, productImage: true, quantity: true, total: true } } },
+        orderBy: { createdAt: 'desc' }, take: 100,
+      });
+      res.json({ success: true, data: requests });
+    } catch (error) { next(error); }
+  }
+
+  public static async updateReturnRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const input = returnUpdateSchema.parse(req.body);
+      const current = await prisma.returnRequest.findUnique({ where: { id: req.params.requestId } });
+      if (!current) return res.status(404).json({ success: false, message: 'Return request not found' });
+      const nextStatuses: Record<string, string[]> = { REQUESTED: ['APPROVED', 'REJECTED'], APPROVED: ['RECEIVED'], RECEIVED: ['COMPLETED'] };
+      if (!nextStatuses[current.status]?.includes(input.status)) return res.status(400).json({ success: false, message: 'Invalid return status change' });
+      if (input.status === 'REJECTED' && !input.adminNote?.trim()) return res.status(400).json({ success: false, message: 'Explain why the return was rejected' });
+      const updated = await prisma.returnRequest.updateMany({
+        where: { id: current.id, status: current.status },
+        data: { status: input.status, adminNote: input.adminNote || current.adminNote },
+      });
+      if (updated.count !== 1) return res.status(409).json({ success: false, message: 'Return request changed; reload and try again' });
+      res.json({ success: true, data: await prisma.returnRequest.findUnique({ where: { id: current.id } }) });
+    } catch (error) { next(error); }
   }
 
   public static async updateOrderStatus(req: Request, res: Response, next: NextFunction) {

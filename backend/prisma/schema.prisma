@@ -36,6 +36,7 @@ model User {
   notifications   Notification[]
   leadActivities  LeadActivity[]
   ticketMessages  SupportMessage[]
+  returnRequests  ReturnRequest[]
   authChallenge    AuthChallenge?
 
   @@map("users")
@@ -344,6 +345,7 @@ model Order {
   statusHistory         OrderStatusHistory[]
   payments              Payment[]
   refunds               Refund[]
+  returnRequests        ReturnRequest[]
 
   @@map("orders")
 }
@@ -362,6 +364,7 @@ model OrderItem {
 
   order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product      Product  @relation(fields: [productId], references: [id])
+  returnRequest ReturnRequest?
 
   @@map("order_items")
 }
@@ -376,6 +379,27 @@ model OrderStatusHistory {
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("order_status_history")
+}
+
+model ReturnRequest {
+  id          String   @id @default(uuid())
+  orderId     String
+  orderItemId String   @unique
+  userId      String
+  reason      String
+  message     String
+  status      String   @default("REQUESTED")
+  adminNote   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("return_requests")
 }
 
 model Payment {

@@ -10,6 +10,9 @@ router.get('/payment-options', (_req, res) => res.json({ success: true, data: { 
 router.post('/checkout', requireAuth, OrderController.checkout);
 router.post('/verify-payment', OrderController.verifyPayment);
 router.get('/', requireAuth, OrderController.getOrders);
+router.get('/returns', requireStaff, OrderController.getReturnRequests);
+router.patch('/returns/:requestId', requireStaff, OrderController.updateReturnRequest);
+router.post('/:orderId/returns', requireAuth, OrderController.requestReturn);
 router.get('/:orderNumber', OrderController.getOrderByNumber);
 router.put('/:orderId/status', requireStaff, OrderController.updateOrderStatus);
 

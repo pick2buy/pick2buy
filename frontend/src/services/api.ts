@@ -263,6 +263,16 @@ class ApiClient {
     return this.request('/orders');
   }
 
+  public requestReturn(orderId: string, payload: { orderItemId: string; reason: string; message: string }) {
+    return this.request(`/orders/${orderId}/returns`, { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  public getReturnRequests() { return this.request('/orders/returns'); }
+
+  public updateReturnRequest(requestId: string, payload: { status: string; adminNote?: string }) {
+    return this.request(`/orders/returns/${requestId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  }
+
   public getOrderByNumber(orderNumber: string) {
     const guestToken = localStorage.getItem(`pick2buy_order_${orderNumber}`);
     return this.request(`/orders/${encodeURIComponent(orderNumber)}`, {
