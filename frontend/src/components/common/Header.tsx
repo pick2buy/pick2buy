@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { BrandMark } from './BrandMark';
 import { 
   Search, 
   ArrowLeft,
@@ -345,18 +344,8 @@ export const Header: React.FC = () => {
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
 
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="header-brand-icon w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-primary to-indigo-600 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
-                <BrandMark className="h-7 w-7" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-extrabold tracking-tight text-slate-900 leading-none">
-                  Pick<span className="text-brand-primary">2</span>Buy
-                </span>
-                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                  India's Store
-                </span>
-              </div>
+            <Link to="/" className="header-brand group" aria-label="Pick2Buy home">
+              <img src="/pick2buy-logo.png" alt="Pick2Buy" width="900" height="186" />
             </Link>
           </div>
 
@@ -375,7 +364,7 @@ export const Header: React.FC = () => {
               <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
               <button
                 type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-brand-primary hover:bg-brand-hover text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-colors shadow-sm"
+                className="brand-search-button absolute right-1.5 top-1/2 -translate-y-1/2 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-colors shadow-sm"
               >
                 Search
               </button>
@@ -525,7 +514,7 @@ export const Header: React.FC = () => {
             <button
               type="submit"
               aria-label="Search"
-              className="mobile-search-submit absolute right-1 top-1/2 -translate-y-1/2 bg-brand-primary text-white text-xs font-semibold px-3 py-1 rounded-full"
+              className="mobile-search-submit brand-search-button absolute right-1 top-1/2 -translate-y-1/2 text-white text-xs font-semibold px-3 py-1 rounded-full"
             >
               <span className="mobile-search-submit-label">Search</span>
               <Search className="mobile-search-submit-icon h-4 w-4" />
@@ -606,12 +595,9 @@ export const Header: React.FC = () => {
           />
           <div ref={menuRef} role="dialog" aria-modal="true" aria-label="Navigation" className="mobile-menu-panel relative z-10 flex h-full w-4/5 max-w-sm flex-col overflow-y-auto bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center">
-                  <BrandMark className="h-6 w-6" />
-                </div>
-                <span className="font-black text-slate-900 text-lg">Pick2Buy</span>
-              </div>
+              <Link to="/" onClick={closeMobileMenu} className="header-brand header-brand--drawer" aria-label="Pick2Buy home">
+                <img src="/pick2buy-logo.png" alt="Pick2Buy" width="900" height="186" />
+              </Link>
               <button
                 onClick={closeMobileMenu}
                 aria-label="Close navigation" className="p-1 rounded-lg hover:bg-slate-100"

@@ -152,6 +152,14 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   transition: max-height .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease, transform .28s cubic-bezier(.2,.8,.2,1), padding .28s cubic-bezier(.2,.8,.2,1), margin .28s cubic-bezier(.2,.8,.2,1);
 }
 .store-header .announcement { background: #082477; }
+.header-brand { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.header-brand img { display: block; width: clamp(145px, 12vw, 180px); height: auto; transition: transform .2s ease; }
+.header-brand:hover img { transform: translateY(-1px); }
+.header-brand--drawer img { width: 150px; }
+.brand-search-button { background: #dc580c; }
+.brand-search-button:hover { background: #b94709; }
+.text-link:hover { color: #c64e0b; }
+.text-link svg { color: #df5b12; }
 .store-header nav { background: transparent; }
 .category-navigation { overflow: visible; transition: box-shadow .3s ease; }
 .category-navigation-rail { position: relative; display: flex; width: min(1280px, calc(100% - 64px)); align-items: stretch; gap: 2px; min-height: 92px; margin-inline: auto; padding: 7px 0; transition: min-height .32s cubic-bezier(.2,.8,.2,1), padding .32s cubic-bezier(.2,.8,.2,1); }
@@ -667,3 +675,15 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 @keyframes toast-enter { from { opacity: 0; transform: translateY(-10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .toast-enter { animation: toast-enter 180ms ease-out both; }
 @media (prefers-reduced-motion: reduce) { .toast-enter { animation: none; } }
+
+/* The supplied transparent wordmark keeps its own proportions at every size. */
+.footer-grid a.footer-brand { display: inline-flex; width: fit-content; }
+.footer-brand img { display: block; width: 166px; height: auto; }
+.header-search-input:focus, .header-search-input:focus-visible { border-color: #f4a36b; }
+.category-navigation-label:hover, .category-navigation-label[aria-current='page'] { border-color: #e96918; }
+@media (max-width: 639px) {
+  .header-brand img { width: clamp(105px, 29vw, 120px); }
+  .header-brand--drawer img { width: 150px; }
+  .category-navigation-item[aria-current='page'] { border-bottom-color: #e96918; }
+  .store-header--scrolled .mobile-search-submit, .store-header--scrolled .mobile-search-submit:hover { background: #dc580c; }
+}
