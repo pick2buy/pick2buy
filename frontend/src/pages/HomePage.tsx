@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Flame, Sparkles } from 'lucide-react';
+import { ArrowRight, Flame, Headphones, RotateCcw, ShieldCheck, Sparkles, Truck } from 'lucide-react';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
@@ -12,6 +12,13 @@ const questions = [
   ['How much does delivery cost?', 'Shipping is calculated for your cart and shown before you place your order. Orders above ₹499 qualify for free shipping.'],
   ['Need a hand choosing or ordering?', 'Email pick2buy.in@gmail.com with your question or order number. Our team will help you with the next step.'],
 ];
+
+const shoppingBenefits = [
+  [Truck, 'Fast delivery', 'Reliable doorstep delivery across India.'],
+  [ShieldCheck, 'Secure payments', 'Your payment details stay protected.'],
+  [RotateCcw, 'Easy returns', 'Simple support when something is not right.'],
+  [Headphones, 'Helpful support', 'We are here when you need a hand.'],
+] as const;
 
 export const HomePage = () => {
   const homePageRef = useRef<HTMLDivElement>(null);
@@ -112,6 +119,10 @@ export const HomePage = () => {
     {contextualSection && renderSection({ ...contextualSection, key: 'contextual' }, 'personalized-section')}
     {renderSection(sections[1])}
     {renderSection(sections[2])}
+    <section className="page-width home-section benefits-section home-scroll-reveal">
+      <div className="benefits-section__heading"><span className="eyebrow">SHOP WITH CONFIDENCE</span><h2>Small details.<br /><em>Better shopping.</em></h2></div>
+      <div className="benefits-grid">{shoppingBenefits.map(([Icon, title, description]) => <div className="benefit-card" key={title}><span className="benefit-card__icon"><Icon size={20} /></span><div><h3>{title}</h3><p>{description}</p></div></div>)}</div>
+    </section>
     <section className="page-width home-section faq-section home-scroll-reveal"><div><span className="eyebrow">A LITTLE HELP GOES A LONG WAY</span><h2>Good questions.<br /><em>Simple answers.</em></h2><a className="text-link" href="mailto:pick2buy.in@gmail.com">Talk to our team <ArrowRight size={16} /></a></div><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
   </div>;
 };

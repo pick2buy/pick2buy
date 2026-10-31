@@ -412,6 +412,13 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .faq-section summary span { font-size: 22px; color: var(--navy); }
 .faq-section details[open] summary span { transform: rotate(45deg); }
 .faq-section details p { font-size: 13px; line-height: 1.9; color: #626878; padding-bottom: 22px; }
+.benefits-section { display: grid; grid-template-columns: minmax(220px, .8fr) 1.4fr; gap: 34px; align-items: center; }
+.benefits-section__heading h2 { font-size: clamp(24px, 2.7vw, 36px); line-height: 1.2; letter-spacing: -.05em; margin-top: 12px; }
+.benefits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.benefit-card { display: flex; align-items: flex-start; gap: 13px; min-height: 112px; padding: 18px; border: 1px solid #e5e7eb; border-radius: 18px; background: #fff; box-shadow: 0 5px 18px #17213a0a; }
+.benefit-card__icon { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: 12px; background: #eef2ff; color: var(--navy); }
+.benefit-card h3 { font-size: 13px; font-weight: 750; color: #151824; }
+.benefit-card p { margin-top: 5px; color: #626878; font-size: 11px; line-height: 1.55; }
 .catalog-message { padding: 30px; background: white; border-radius: 18px; text-align: center; font-size: 14px; }
 .catalog-message p { margin: 12px 0; }
 .store-footer { background: #fff; border-top: 1px solid #e4e5e9; padding-top: 55px; }
@@ -539,6 +546,9 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .value-section { padding: 16px 10px; }
   .value-section .section-heading { padding-inline: 6px; }
   .faq-section { grid-template-columns: 1fr; gap: 20px; }
+  .benefits-section { grid-template-columns: 1fr; gap: 24px; }
+  .benefits-grid { gap: 10px; }
+  .benefit-card { min-height: 104px; padding: 15px; }
   .discovery-banner { padding: 40px 16px; }
   .seasonal-banner { min-height: 180px; align-items: flex-start; gap: 15px; border-radius: 18px; padding: 30px 18px 16px; }
   .seasonal-banner__badge { flex-basis: 72px; width: 72px; border-width: 2px; box-shadow: 0 0 0 4px #f9a21d, 0 7px 12px #65000b45; }
