@@ -521,18 +521,26 @@ export class OrderController {
       if (!nextStatuses[current.status]?.includes(input.status)) return res.status(400).json({ success: false, message: 'Invalid return status change' });
       if (input.status === 'REJECTED' && !input.adminNote?.trim()) return res.status(400).json({ success: false, message: 'Explain why the return was rejected' });
       let refund: { id?: string; status?: string } | null = null;
+      let refundNeedsManualProcessing = false;
       const walletRefund = input.status === 'COMPLETED' && current.order.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET && current.order.paymentStatus === PAYMENT_STATUSES.COMPLETED;
       if (input.status === 'COMPLETED' && current.order.paymentMethod !== PAYMENT_METHODS.COD && current.order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
         if (walletRefund) refund = { status: 'processed' };
         else {
           const paymentId = current.order.paymentId || current.order.payments[0]?.transactionId;
           if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; refund cannot be created automatically' });
-          refund = await PaymentService.createRefund(paymentId, current.orderItem.total, { orderNumber: current.order.orderNumber, reason: 'Return approved' });
+          try {
+            refund = await PaymentService.createRefund(paymentId, current.orderItem.total, { orderNumber: current.order.orderNumber, reason: 'Return approved' });
+          } catch {
+            // The returned item is accepted even if a legacy/test gateway payment cannot be refunded automatically.
+            // Keep a pending refund record so staff can finish it manually in Razorpay.
+            refund = { status: 'pending' };
+            refundNeedsManualProcessing = true;
+          }
         }
       }
       const updated = await prisma.returnRequest.updateMany({
         where: { id: current.id, status: current.status },
-        data: { status: input.status, adminNote: input.adminNote || current.adminNote },
+        data: { status: input.status, adminNote: refundNeedsManualProcessing ? 'Refund pending — process manually in Razorpay dashboard.' : (input.adminNote || current.adminNote) },
       });
       if (updated.count !== 1) return res.status(409).json({ success: false, message: 'Return request changed; reload and try again' });
       if (refund) {
@@ -542,11 +550,13 @@ export class OrderController {
             await tx.walletTransaction.create({ data: { walletId: wallet.id, amount: current.orderItem.total, type: 'CREDIT', reason: `Return refund for ${current.order.orderNumber}`, reference: current.id } });
           }
           await tx.refund.create({ data: { orderId: current.orderId, amount: current.orderItem.total, reason: 'Return approved', status: refund?.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund?.id || null } });
-          await tx.payment.updateMany({ where: { orderId: current.orderId, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
-          await tx.order.update({ where: { id: current.orderId }, data: { paymentStatus: PAYMENT_STATUSES.REFUNDED, status: ORDER_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.REFUNDED, comment: `Refund created for returned item: ${current.orderItem.productName}` } } } });
+          if (!refundNeedsManualProcessing) {
+            await tx.payment.updateMany({ where: { orderId: current.orderId, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
+            await tx.order.update({ where: { id: current.orderId }, data: { paymentStatus: PAYMENT_STATUSES.REFUNDED, status: ORDER_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.REFUNDED, comment: `Refund created for returned item: ${current.orderItem.productName}` } } } });
+          }
         });
       }
-      res.json({ success: true, data: await prisma.returnRequest.findUnique({ where: { id: current.id } }) });
+      res.json({ success: true, message: refundNeedsManualProcessing ? 'Return completed. Refund is pending manual processing in Razorpay.' : 'Return request updated.', data: await prisma.returnRequest.findUnique({ where: { id: current.id } }) });
     } catch (error) { next(error); }
   }
 

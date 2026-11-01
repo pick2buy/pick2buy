@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Truck, Check, Search, Filter } from 'lucide-react';
+import { ShoppingBag, Truck, Check, Search, Filter, Eye, X, Mail, MapPin, Phone } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatINR } from '../../lib/utils';
 import { ORDER_STATUSES } from '@pick2buy/shared';
@@ -23,17 +23,15 @@ export const AdminOrdersPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [shipmentDraft, setShipmentDraft] = useState<{ orderId: string; trackingNumber: string; courierName: string } | null>(null);
-  const [returns, setReturns] = useState<any[]>([]);
   const [returnNote, setReturnNote] = useState<Record<string, string>>({});
   const [updatingReturnId, setUpdatingReturnId] = useState<string | null>(null);
-  const loadReturns = () => api.getReturnRequests().then(res => setReturns(res.data || [])).catch(() => toast.error('Could not load return requests.'));
-  useEffect(() => { loadReturns(); }, []);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const updateReturn = async (requestId: string, status: string) => {
     setUpdatingReturnId(requestId);
     try {
-      await api.updateReturnRequest(requestId, { status, adminNote: returnNote[requestId]?.trim() });
-      toast.success('Return request updated.');
-      loadReturns();
+      const response = await api.updateReturnRequest(requestId, { status, adminNote: returnNote[requestId]?.trim() });
+      toast.success(response.message || 'Return request updated.');
+      loadOrders();
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not update return request.'); }
     finally { setUpdatingReturnId(null); }
   };
@@ -136,13 +134,14 @@ export const AdminOrdersPage: React.FC = () => {
                 <th className="py-3.5 px-4">Amount</th>
                 <th className="py-3.5 px-4">Payment</th>
                 <th className="py-3.5 px-4">Shipping Status</th>
+                <th className="py-3.5 px-4 text-center">Details</th>
                 <th className="py-3.5 px-4 text-right">Update Fulfillment</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-400">
+                  <td colSpan={7} className="text-center py-8 text-slate-400">
                     {isLoading ? 'Loading orders…' : loadError || 'No orders found matching filters.'}
                   </td>
                 </tr>
@@ -184,6 +183,12 @@ export const AdminOrdersPage: React.FC = () => {
                       >
                         {ord.status}
                       </span>
+                      {ord.returnRequests?.length > 0 && <p className="mt-1 text-[10px] font-bold text-brand-primary">Return requested</p>}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <button type="button" onClick={() => setSelectedOrder(ord)} className="inline-flex items-center gap-1.5 rounded-lg border border-brand-primary px-2.5 py-1.5 text-[11px] font-bold text-brand-primary hover:bg-orange-50" aria-label={`View details for ${ord.orderNumber}`}>
+                        <Eye size={14} /> View
+                      </button>
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <select
@@ -206,6 +211,7 @@ export const AdminOrdersPage: React.FC = () => {
           </table>
         </div>
       </div>
+      {selectedOrder && <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} returnNote={returnNote} setReturnNote={setReturnNote} updatingReturnId={updatingReturnId} onUpdateReturn={updateReturn} />}
       <div className="flex items-center justify-between text-xs text-slate-600">
         <span>{total} orders · Page {page} of {Math.max(1, Math.ceil(total / 20))}</span>
         <div className="flex gap-2">
@@ -213,17 +219,29 @@ export const AdminOrdersPage: React.FC = () => {
           <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-40" disabled={page * 20 >= total || isLoading} onClick={() => setPage(p => p + 1)}>Next</button>
         </div>
       </div>
-      <section className="space-y-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
-        <div><h2 className="text-lg font-bold text-slate-900">Return requests</h2><p className="text-xs text-slate-500">Review customer requests, then record receipt and completion. Refunds must be handled separately.</p></div>
-        {returns.length === 0 ? <p className="text-sm text-slate-500">No return requests yet.</p> : <div className="grid gap-3 lg:grid-cols-2">
-          {returns.map(request => <article key={request.id} className="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm">
-            <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-bold text-slate-900">{request.orderItem?.productName}</p><p className="text-xs text-slate-500">#{request.order?.orderNumber} · {request.order?.customerName} · Qty {request.orderItem?.quantity}</p></div><span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">{request.status}</span></div>
-            <p className="mt-3 text-xs font-bold text-slate-700">{request.reason.replaceAll('_', ' ')}</p><p className="mt-1 whitespace-pre-wrap text-slate-600">{request.message}</p>
-            {request.adminNote && <p className="mt-2 text-xs text-slate-500">Staff note: {request.adminNote}</p>}
-            {['REQUESTED', 'APPROVED', 'RECEIVED'].includes(request.status) && <div className="mt-3 space-y-2"><input aria-label={`Staff note for ${request.orderItem?.productName}`} value={returnNote[request.id] || ''} onChange={event => setReturnNote(current => ({ ...current, [request.id]: event.target.value }))} placeholder="Staff note (required to reject)" maxLength={1000} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs" /><div className="flex flex-wrap gap-2">{(request.status === 'REQUESTED' ? ['APPROVED', 'REJECTED'] : request.status === 'APPROVED' ? ['RECEIVED'] : ['COMPLETED']).map(status => <button key={status} type="button" disabled={updatingReturnId === request.id || (status === 'REJECTED' && !returnNote[request.id]?.trim())} onClick={() => updateReturn(request.id, status)} className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{status === 'RECEIVED' ? 'Mark received' : status === 'COMPLETED' ? 'Complete return' : status === 'APPROVED' ? 'Approve' : 'Reject'}</button>)}</div></div>}
-          </article>)}
-        </div>}
-      </section>
     </div>
   );
+};
+
+const OrderDetailsModal: React.FC<{
+  order: any; onClose: () => void; returnNote: Record<string, string>;
+  setReturnNote: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  updatingReturnId: string | null; onUpdateReturn: (requestId: string, status: string) => void;
+}> = ({ order, onClose, returnNote, setReturnNote, updatingReturnId, onUpdateReturn }) => {
+  let address: Record<string, string> = {};
+  try { address = typeof order.shippingAddressJson === 'string' ? JSON.parse(order.shippingAddressJson) : (order.shippingAddressJson || {}); } catch { address = {}; }
+  const addressLines = [address.addressLine, address.apartment, address.landmark, address.city, address.state, address.pincode].filter(Boolean);
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button type="button" aria-label="Close order details" className="absolute inset-0 bg-slate-950/45" onClick={onClose} />
+    <section role="dialog" aria-modal="true" aria-label={`Order ${order.orderNumber} details`} className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-7">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4"><div><p className="text-xs font-bold text-brand-primary">ORDER DETAILS</p><h2 className="mt-1 font-mono text-base font-black text-slate-900">{order.orderNumber}</h2><p className="mt-1 text-xs text-slate-500">Placed {new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p></div><button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100" aria-label="Close"><X size={20} /></button></div>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl bg-slate-50 p-4"><h3 className="mb-3 flex items-center gap-2 text-xs font-black text-slate-800"><Phone size={15} className="text-brand-primary" /> Customer</h3><p className="font-bold text-slate-900">{order.customerName}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-600"><Phone size={12} /> {order.customerPhone || 'Not provided'}</p><p className="mt-1 flex items-center gap-1 break-all text-xs text-slate-600"><Mail size={12} /> {order.customerEmail || 'Not provided'}</p></div>
+        <div className="rounded-2xl bg-slate-50 p-4"><h3 className="mb-3 flex items-center gap-2 text-xs font-black text-slate-800"><MapPin size={15} className="text-brand-primary" /> Delivery address</h3><p className="font-semibold text-slate-900">{address.fullName || order.customerName}</p><p className="mt-1 text-xs leading-5 text-slate-600">{addressLines.length ? addressLines.join(', ') : 'Address not available'}</p></div>
+      </div>
+      <div className="mt-4 grid gap-3 rounded-2xl border border-slate-100 p-4 text-xs sm:grid-cols-3"><div><p className="text-slate-500">Total</p><p className="mt-1 font-black text-slate-900">{formatINR(order.grandTotal)}</p></div><div><p className="text-slate-500">Payment</p><p className="mt-1 font-bold text-slate-900">{order.paymentMethod} · {order.paymentStatus}</p></div><div><p className="text-slate-500">Shipping</p><p className="mt-1 font-bold text-slate-900">{order.status}</p>{order.courierName && <p className="mt-1 text-slate-600">{order.courierName}: {order.trackingNumber}</p>}</div></div>
+      <div className="mt-5"><h3 className="text-sm font-black text-slate-900">Order items</h3><div className="mt-2 divide-y divide-slate-100 rounded-2xl border border-slate-100 px-4">{order.items?.length ? order.items.map((item: any) => <div key={item.id} className="flex items-start justify-between gap-4 py-3 text-xs"><div><p className="font-bold text-slate-800">{item.productName}</p><p className="mt-0.5 text-slate-500">{item.variantName ? `${item.variantName} · ` : ''}SKU: {item.sku} · Qty {item.quantity}</p></div><p className="shrink-0 font-black text-slate-900">{formatINR(item.total)}</p></div>) : <p className="py-3 text-xs text-slate-500">Item details not available.</p>}</div></div>
+      {order.returnRequests?.length > 0 && <div className="mt-5 border-t border-slate-100 pt-5"><h3 className="text-sm font-black text-slate-900">Return requests</h3><div className="mt-2 space-y-3">{order.returnRequests.map((request: any) => <div key={request.id} className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 text-xs"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-bold text-slate-900">{request.orderItem?.productName}</p><p className="mt-1 text-slate-600">{request.reason.replaceAll('_', ' ')} · Qty {request.orderItem?.quantity}</p></div><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">{request.status}</span></div><p className="mt-3 whitespace-pre-wrap text-slate-700">{request.message}</p>{request.adminNote && <p className="mt-2 text-slate-600">Staff note: {request.adminNote}</p>}{['REQUESTED', 'APPROVED', 'RECEIVED'].includes(request.status) && <div className="mt-3 space-y-2"><input aria-label={`Staff note for ${request.orderItem?.productName}`} value={returnNote[request.id] || ''} onChange={event => setReturnNote(current => ({ ...current, [request.id]: event.target.value }))} placeholder="Staff note (needed to reject)" maxLength={1000} className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2" /><div className="flex flex-wrap gap-2">{(request.status === 'REQUESTED' ? ['APPROVED', 'REJECTED'] : request.status === 'APPROVED' ? ['RECEIVED'] : ['COMPLETED']).map(status => <button key={status} type="button" disabled={updatingReturnId === request.id || (status === 'REJECTED' && !returnNote[request.id]?.trim())} onClick={() => onUpdateReturn(request.id, status)} className="rounded-lg bg-brand-primary px-3 py-2 font-bold text-white disabled:opacity-50">{status === 'RECEIVED' ? 'Mark received' : status === 'COMPLETED' ? 'Complete return' : status === 'APPROVED' ? 'Approve' : 'Reject'}</button>)}</div></div>}</div>)}</div></div>}
+    </section>
+  </div>;
 };

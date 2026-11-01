@@ -48,7 +48,16 @@ export class AdminController {
       };
       const [total, orders] = await Promise.all([
         prisma.order.count({ where }),
-        prisma.order.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 20, take: 20 }),
+        prisma.order.findMany({
+          where,
+          include: {
+            items: true,
+            returnRequests: { include: { orderItem: { select: { productName: true, quantity: true } } } },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * 20,
+          take: 20,
+        }),
       ]);
       res.json({ success: true, data: orders, meta: { page, pageSize: 20, total } });
     } catch (error) { next(error); }
