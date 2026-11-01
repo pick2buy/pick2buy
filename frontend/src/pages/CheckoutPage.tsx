@@ -240,7 +240,7 @@ export const CheckoutPage: React.FC = () => {
 
               {user?.addresses && user.addresses.length > 0 && <div className="space-y-2">
                 <p className="text-xs font-bold text-slate-700">Choose a saved address</p>
-                <div className="grid gap-2 sm:grid-cols-2">{user.addresses.map((saved: any) => <button key={saved.id} type="button" onClick={() => selectSavedAddress(saved)} aria-pressed={selectedAddressId === saved.id} className={`rounded-xl border p-3 text-left text-xs transition-colors ${selectedAddressId === saved.id ? 'border-brand-primary bg-indigo-50' : 'border-slate-200 hover:border-indigo-300'}`}>
+                <div className="grid gap-2 sm:grid-cols-2">{user.addresses.map((saved: any) => <button key={saved.id} type="button" onClick={() => selectSavedAddress(saved)} aria-pressed={selectedAddressId === saved.id} className={`rounded-xl border p-3 text-left text-xs transition-colors ${selectedAddressId === saved.id ? 'border-brand-primary bg-orange-50' : 'border-slate-200 hover:border-orange-300'}`}>
                   <span className="flex items-center justify-between gap-2 font-bold text-slate-900">{saved.fullName}{saved.isDefault && <span className="text-[10px] text-brand-primary">Default</span>}</span>
                   <span className="mt-1 block text-slate-600">{saved.addressLine}, {saved.city}, {saved.state} - {saved.pincode}</span>
                 </button>)}</div>
@@ -384,7 +384,7 @@ export const CheckoutPage: React.FC = () => {
                   onClick={() => setPaymentMethod('COD')}
                   className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                     paymentMethod === 'COD'
-                      ? 'border-brand-primary bg-indigo-50/40'
+                      ? 'border-brand-primary bg-orange-50/60'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
@@ -418,7 +418,7 @@ export const CheckoutPage: React.FC = () => {
                   onClick={() => setPaymentMethod('RAZORPAY_UPI')}
                   className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                     paymentMethod === 'RAZORPAY_UPI'
-                      ? 'border-brand-primary bg-indigo-50/40'
+                      ? 'border-brand-primary bg-orange-50/60'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
@@ -432,7 +432,7 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <QrCode className="w-4 h-4 text-indigo-600" />
+                        <QrCode className="w-4 h-4 text-brand-primary" />
                         Instant UPI Payment (GPay, PhonePe, Paytm, BHIM)
                       </span>
                     </div>
@@ -447,7 +447,7 @@ export const CheckoutPage: React.FC = () => {
                   onClick={() => setPaymentMethod('RAZORPAY_CARD')}
                   className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                     paymentMethod === 'RAZORPAY_CARD'
-                      ? 'border-brand-primary bg-indigo-50/40'
+                      ? 'border-brand-primary bg-orange-50/60'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >

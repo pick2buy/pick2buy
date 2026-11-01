@@ -83,7 +83,7 @@ export const StickyMobileBuyBar: React.FC<StickyMobileBuyBarProps> = ({
           <button
             onClick={onBuyNow}
             disabled={isAdding}
-            className="bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+            className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
           >
             <Zap className="w-3.5 h-3.5 fill-white" />
             <span>Buy Now</span>

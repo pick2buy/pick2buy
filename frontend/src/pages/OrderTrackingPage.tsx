@@ -77,7 +77,7 @@ export const OrderTrackingPage: React.FC = () => {
             <h1 className="text-xl sm:text-2xl font-black text-slate-900">
               Order #{order.orderNumber}
             </h1>
-            <span className="bg-indigo-100 text-brand-primary text-xs font-bold px-2.5 py-0.5 rounded-full">
+            <span className="bg-orange-100 text-brand-primary text-xs font-bold px-2.5 py-0.5 rounded-full">
               {order.status}
             </span>
           </div>
@@ -122,7 +122,7 @@ export const OrderTrackingPage: React.FC = () => {
                       isPast
                         ? 'bg-emerald-600 text-white'
                         : isCurrent
-                        ? 'bg-brand-primary text-white ring-4 ring-indigo-100 animate-pulse'
+                        ? 'bg-brand-primary text-white ring-4 ring-orange-100 animate-pulse'
                         : 'bg-slate-100 text-slate-400'
                     }`}
                   >

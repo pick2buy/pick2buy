@@ -31,7 +31,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({ products }) => {
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 my-12">
-      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-soft">
+      <div className="bg-gradient-to-br from-orange-950 via-stone-900 to-orange-900 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-soft">
         {/* Glow accent */}
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-brand-primary/20 blur-3xl pointer-events-none" />
 

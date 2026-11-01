@@ -315,16 +315,18 @@ export const Header: React.FC = () => {
       <div className="announcement bg-slate-900 text-slate-100 text-xs py-2 px-4 font-medium">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="bg-brand-primary text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              Special Offer
+            <span className="bg-white/15 text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              Pick2Buy
             </span>
-            <span className="hidden sm:inline">Free Shipping across India on orders above ₹499!</span>
-            <span className="sm:hidden">Free India shipping over ₹499</span>
+            <span className="hidden sm:inline">Shop smart. Save more. Everyday essentials, delivered across India.</span>
+            <span className="sm:hidden">Everyday essentials, delivered across India</span>
           </div>
           <div className="announcement-contact flex items-center gap-4 text-[11px] text-slate-300">
-            <span className="hidden md:inline">First order? Use <strong className="text-white">WELCOME10</strong> when signed in</span>
-            <span className="text-slate-400">|</span>
-            <a href="mailto:pick2buy.in@gmail.com" className="hover:text-white transition-colors">
+            <span className="hidden md:inline">Secure checkout</span>
+            <span className="hidden md:inline text-white/50">•</span>
+            <span>7-day easy returns</span>
+            <span className="hidden lg:inline text-white/50">•</span>
+            <a href="mailto:pick2buy.in@gmail.com" className="hidden lg:inline hover:text-white transition-colors">
               pick2buy.in@gmail.com
             </a>
           </div>

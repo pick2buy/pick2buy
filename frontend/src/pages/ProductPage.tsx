@@ -405,7 +405,7 @@ export const ProductPage: React.FC = () => {
                     onClick={() => setSelectedVariant(v)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
                       selectedVariant?.id === v.id
-                        ? 'border-brand-primary bg-indigo-50/50 text-brand-primary ring-2 ring-brand-primary/20'
+                        ? 'border-brand-primary bg-orange-50/70 text-brand-primary ring-2 ring-brand-primary/20'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                     }`}
                   >
@@ -465,7 +465,7 @@ export const ProductPage: React.FC = () => {
               <button
                 onClick={handleBuyNow}
                 disabled={availableStock <= 0 || isAdding}
-                className="bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50"
+                className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50"
               >
                 <Zap className="w-4 h-4 fill-white" />
                 <span>Buy Now</span>
@@ -563,7 +563,7 @@ export const ProductPage: React.FC = () => {
                 {r.title && <h4 className="text-xs font-bold text-slate-800">{r.title}</h4>}
                 <p className="text-xs text-slate-600 leading-relaxed">{r.comment}</p>
                 {r.adminReply && (
-                  <div className="mt-2 pl-3 border-l-2 border-brand-primary text-[11px] text-indigo-900 bg-indigo-50/60 p-2 rounded-r-lg">
+                  <div className="mt-2 pl-3 border-l-2 border-brand-primary text-[11px] text-orange-900 bg-orange-50/70 p-2 rounded-r-lg">
                     <strong>Pick2Buy Response:</strong> {r.adminReply}
                   </div>
                 )}

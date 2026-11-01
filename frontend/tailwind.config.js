@@ -8,20 +8,21 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#082477',
-          700: '#5b21b6',
-          800: '#4c1d95',
-          900: '#3b0764',
-          primary: '#082477', // Signature EcomBold-inspired modern vibrant indigo
-          hover: '#153c9b',
-          dark: '#1e1b4b',
-          accent: '#9a5c2b', // High-converting orange accent for deals & flash sales
+          50: '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#f97316',
+          600: '#c94e0a',
+          700: '#a73e06',
+          800: '#873308',
+          900: '#6f2a08',
+          // Matches the Pick2Buy orange logo while preserving readable white CTA text.
+          primary: '#c94e0a',
+          hover: '#a73e06',
+          dark: '#6f2a08',
+          accent: '#d95b0b',
         },
         slate: {
           850: '#151f32',

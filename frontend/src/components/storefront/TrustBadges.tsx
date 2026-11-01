@@ -7,7 +7,7 @@ export const TrustBadges: React.FC = () => {
       icon: Truck,
       title: 'Free India Shipping',
       desc: 'On all prepaid & COD orders over ₹499',
-      color: 'text-indigo-600 bg-indigo-50',
+      color: 'text-brand-primary bg-orange-50',
     },
     {
       icon: ShieldCheck,
