@@ -18,6 +18,7 @@ import { AccountPage } from './pages/AccountPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { InfoPage } from './pages/InfoPage';
 import { AdminLayout } from './layouts/AdminLayout';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
@@ -83,6 +84,11 @@ export const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/about" element={<InfoPage />} />
+          <Route path="/privacy-policy" element={<InfoPage />} />
+          <Route path="/terms" element={<InfoPage />} />
+          <Route path="/shipping-returns" element={<InfoPage />} />
+          <Route path="/contact" element={<InfoPage />} />
         </Route>
 
         {/* Admin Management Routes */}
