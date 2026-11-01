@@ -405,6 +405,32 @@ export class OrderController {
     }
   }
 
+  public static async retryPayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      const order = await prisma.order.findFirst({ where: { orderNumber: req.params.orderNumber, ...(userId ? { userId } : {}) }, include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } } });
+      if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+      if (order.paymentMethod === PAYMENT_METHODS.COD || order.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET) return res.status(400).json({ success: false, message: 'This order does not require online payment' });
+      if (order.status === ORDER_STATUSES.CANCELLED || order.paymentStatus === PAYMENT_STATUSES.COMPLETED) return res.status(409).json({ success: false, message: 'This order cannot be paid again' });
+      const paymentOrder = await PaymentService.createPaymentOrder({ orderNumber: order.orderNumber, amount: order.grandTotal, customerName: order.customerName, customerEmail: order.customerEmail, customerPhone: order.customerPhone });
+      const payment = order.payments[0];
+      if (payment) await prisma.payment.update({ where: { id: payment.id }, data: { gatewayOrder: paymentOrder.gatewayOrderId, status: PAYMENT_STATUSES.PENDING, transactionId: null } });
+      else await prisma.payment.create({ data: { orderId: order.id, amount: order.grandTotal, method: order.paymentMethod, status: PAYMENT_STATUSES.PENDING, gatewayOrder: paymentOrder.gatewayOrderId } });
+      res.json({ success: true, data: { order: { orderNumber: order.orderNumber, grandTotal: order.grandTotal }, paymentOrder } });
+    } catch (error) { next(error); }
+  }
+
+  public static async markPaymentFailed(req: Request, res: Response, next: NextFunction) {
+    try {
+      const order = await prisma.order.findFirst({ where: { orderNumber: req.params.orderNumber, userId: req.user?.id }, include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } } });
+      if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+      if (order.paymentStatus !== PAYMENT_STATUSES.COMPLETED) {
+        await prisma.$transaction([prisma.order.update({ where: { id: order.id }, data: { paymentStatus: PAYMENT_STATUSES.FAILED } }), ...(order.payments[0] ? [prisma.payment.update({ where: { id: order.payments[0].id }, data: { status: PAYMENT_STATUSES.FAILED } })] : [])]);
+      }
+      res.json({ success: true });
+    } catch (error) { next(error); }
+  }
+
   public static async getOrders(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {

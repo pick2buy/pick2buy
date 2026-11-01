@@ -314,9 +314,10 @@ export const AccountPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                        <span className={`${ord.paymentStatus === 'PENDING' && ord.paymentMethod !== 'COD' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-800'} text-[11px] font-bold px-2.5 py-1 rounded-full`}>
                           {ord.status}
                         </span>
+                        {ord.paymentStatus === 'PENDING' && ord.paymentMethod !== 'COD' && <Link to={`/payment-failed/${encodeURIComponent(ord.orderNumber)}`} className="text-xs font-bold text-brand-primary hover:underline">Retry payment</Link>}
                         <Link
                           to={`/account/orders/${ord.orderNumber}`}
                           className="flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-brand-primary"

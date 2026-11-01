@@ -267,6 +267,13 @@ class ApiClient {
     });
   }
 
+  public retryPayment(orderNumber: string) {
+    return this.request(`/orders/${encodeURIComponent(orderNumber)}/retry-payment`, { method: 'POST' });
+  }
+  public markPaymentFailed(orderNumber: string) {
+    return this.request(`/orders/${encodeURIComponent(orderNumber)}/payment-failed`, { method: 'POST' });
+  }
+
   public getOrders() {
     return this.request('/orders');
   }
