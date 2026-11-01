@@ -42,7 +42,9 @@ export const EmailCodeForm: React.FC<Props> = ({ challenge, onVerified, onBack }
     try {
       await verifyCode(challenge.challengeId, code);
       setVerified(true);
-      navigationTimer.current = window.setTimeout(onVerified, 2500);
+      // Give the success state a tiny acknowledgement, then continue without
+      // making a signed-in customer wait on a decorative loading screen.
+      navigationTimer.current = window.setTimeout(onVerified, 250);
     } catch (err: any) {
       setError(err.message || 'Could not verify the code.');
     }

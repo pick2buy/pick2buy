@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useCartStore } from '../store/useCartStore';
 import { formatINR } from '../lib/utils';
+import { optimizedImageUrl } from '../lib/image';
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -90,9 +91,10 @@ export const CartPage: React.FC = () => {
             {items.map((item: any) => (
               <div key={item.id} className="py-4 first:pt-0 last:pb-0 flex gap-4">
                 <img
-                  src={item.product.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200'}
+                  src={optimizedImageUrl(item.product.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200', 240)}
                   alt={item.product.name}
-                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border border-slate-100 bg-slate-50 flex-shrink-0"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-contain border border-slate-100 bg-slate-50 flex-shrink-0"
+                  decoding="async"
                 />
 
                 <div className="flex-1 min-w-0 flex flex-col justify-between">

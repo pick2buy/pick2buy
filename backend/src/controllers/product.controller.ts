@@ -133,6 +133,15 @@ const parseMeeshoProduct = (html: string, sourceUrl: string) => {
 };
 
 export class ProductController {
+  // The storefront asks for the same catalogue repeatedly while users browse
+  // home, search, categories and back/forward navigation. Keep the compact
+  // response in memory briefly so those requests do not wait for Postgres.
+  private static catalogCache = new Map<string, { expiresAt: number; payload: unknown }>();
+
+  private static clearCatalogCache() {
+    ProductController.catalogCache.clear();
+  }
+
   public static async uploadImage(req: Request, res: Response, next: NextFunction) {
     try {
       const image = z.object({ image: z.string().min(1) }).parse(req.body).image;
@@ -201,6 +210,15 @@ export class ProductController {
         limit = '20',
       } = req.query;
 
+      const cacheKey = JSON.stringify(req.query);
+      const cached = ProductController.catalogCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        // Keep the fast cache inside this server, but never let a customer's
+        // browser keep an old catalogue after an admin changes a product.
+        res.set('Cache-Control', 'private, no-store');
+        return res.json(cached.payload);
+      }
+
       const pageNum = Math.max(1, parseInt(page as string, 10));
       const take = Math.min(50, Math.max(1, parseInt(limit as string, 10)));
       const skip = (pageNum - 1) * take;
@@ -261,13 +279,30 @@ export class ProductController {
       const [products, total] = await Promise.all([
         prisma.product.findMany({
           where,
-          include: {
+          // Storefront cards need only a compact catalogue shape. Fetching
+          // every variant, specification and gallery image delayed the point
+          // at which the browser received image URLs.
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            price: true,
+            mrp: true,
+            discountPercentage: true,
+            stock: true,
+            isFeatured: true,
+            isBestSeller: true,
+            isTrending: true,
+            isFlashDeal: true,
+            flashDealEnd: true,
+            categoryId: true,
+            brandId: true,
+            createdAt: true,
             // Cards only render a primary image. Returning all gallery photos here
             // made the catalog response unnecessarily large.
-            images: { orderBy: { displayOrder: 'asc' }, take: 1 },
-            variants: true,
-            category: true,
-            brand: true,
+            images: { select: { url: true, altText: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
+            category: { select: { name: true, slug: true } },
+            brand: { select: { name: true, slug: true } },
             seasonTags: { include: { category: { select: { id: true, name: true, slug: true } } } },
             reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
           },
@@ -285,12 +320,13 @@ export class ProductController {
           ...p,
           averageRating: Number(avg.toFixed(1)),
           reviewCount: p.reviews.length,
-          highlights: p.highlights ? JSON.parse(p.highlights) : [],
-          specifications: p.specifications ? JSON.parse(p.specifications) : {},
         };
       });
 
-      res.json({
+      // Product cards can be cached briefly. Uploaded images are versioned and
+      // immutable, so this lets repeat storefront visits start instantly.
+      res.set('Cache-Control', 'private, no-store');
+      const payload = {
         success: true,
         data: formatted,
         meta: {
@@ -299,7 +335,9 @@ export class ProductController {
           total,
           totalPages: Math.ceil(total / take),
         },
-      });
+      };
+      ProductController.catalogCache.set(cacheKey, { expiresAt: Date.now() + 60_000, payload });
+      res.json(payload);
     } catch (error) {
       next(error);
     }
@@ -473,6 +511,7 @@ export class ProductController {
         resourceId: product.id,
         newValue: product,
       });
+      ProductController.clearCatalogCache();
 
       res.status(201).json({
         success: true,
@@ -562,6 +601,7 @@ export class ProductController {
         oldValue: existing,
         newValue: updated,
       });
+      ProductController.clearCatalogCache();
 
       res.json({
         success: true,
@@ -591,6 +631,7 @@ export class ProductController {
         resourceId: id,
         oldValue: existing,
       });
+      ProductController.clearCatalogCache();
 
       res.json({
         success: true,
@@ -630,6 +671,7 @@ export class ProductController {
         resourceId: id,
         oldValue: existing,
       });
+      ProductController.clearCatalogCache();
       res.json({ success: true, message: 'Product deleted permanently' });
     } catch (error) {
       next(error);

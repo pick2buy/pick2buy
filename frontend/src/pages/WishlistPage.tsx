@@ -5,6 +5,7 @@ import { useWishlistStore } from '../store/useWishlistStore';
 import { useCartStore } from '../store/useCartStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { formatINR } from '../lib/utils';
+import { optimizedImageUrl } from '../lib/image';
 import { toast } from '../store/useToastStore';
 
 export const WishlistPage: React.FC = () => {
@@ -82,9 +83,11 @@ export const WishlistPage: React.FC = () => {
             <div>
               <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-50 mb-3">
                 <img
-                  src={item.product?.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400'}
+                  src={optimizedImageUrl(item.product?.images?.[0]?.url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400', 320)}
                   alt={item.product?.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <button
                   onClick={() => toggleWishlist(item.productId)}

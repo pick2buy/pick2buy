@@ -92,11 +92,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, priority = fa
           srcSet={primaryImageSrcSet}
           sizes="(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 320px"
           alt={product.name}
-          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-contain object-center"
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'low'}
           decoding="async"
-          onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/product-placeholder.svg'; }}
+          onError={(event) => {
+            const image = event.currentTarget;
+            // A project without Supabase Image Transformations can still load
+            // its original public object instead of showing a broken card.
+            if (primaryImage !== rawPrimaryImage && image.dataset.originalFallback !== 'true') {
+              image.dataset.originalFallback = 'true';
+              image.removeAttribute('srcset');
+              image.src = rawPrimaryImage;
+              return;
+            }
+            image.onerror = null;
+            image.src = '/product-placeholder.svg';
+          }}
         />
 
       </Link>
