@@ -46,6 +46,7 @@ export const AccountPage: React.FC = () => {
   const { user, logout, fetchMe, hasCheckedAuth } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'wallet' | 'profile' | 'addresses' | 'support'>('orders');
+  const [mobileSectionOpen, setMobileSectionOpen] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
   const [wallet, setWallet] = useState<any>(null);
   const [walletError, setWalletError] = useState('');
@@ -131,6 +132,15 @@ export const AccountPage: React.FC = () => {
     logout();
     navigate('/');
   };
+  const selectTab = (tab: typeof activeTab) => {
+    if (tab === activeTab) {
+      setMobileSectionOpen(open => !open);
+      return;
+    }
+    setActiveTab(tab);
+    setMobileSectionOpen(true);
+  };
+  const tabOrder = { orders: 0, wallet: 2, profile: 4, addresses: 6, support: 8 } as const;
 
   const beginAddress = (existing?: any) => {
     setEditingAddressId(existing?.id || null);
@@ -222,11 +232,13 @@ export const AccountPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-4 lg:gap-8">
         {/* Navigation Tabs */}
-        <aside className="space-y-1">
+        <aside className="contents lg:block lg:space-y-1">
           <button
-            onClick={() => setActiveTab('orders')}
+            onClick={() => selectTab('orders')}
+            style={{ order: tabOrder.orders }}
+            aria-expanded={activeTab === 'orders' && mobileSectionOpen}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
               activeTab === 'orders'
                 ? 'bg-brand-primary text-white shadow-sm'
@@ -235,20 +247,30 @@ export const AccountPage: React.FC = () => {
           >
             <Package className="w-4 h-4" />
             <span>My Orders ({orders.length})</span>
+            <span className="ml-auto lg:hidden" aria-hidden="true">
+              {activeTab === 'orders' && mobileSectionOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </span>
           </button>
 
           <button
-            onClick={() => setActiveTab('wallet')}
+            onClick={() => selectTab('wallet')}
+            style={{ order: tabOrder.wallet }}
+            aria-expanded={activeTab === 'wallet' && mobileSectionOpen}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
               activeTab === 'wallet' ? 'bg-brand-primary text-white shadow-sm' : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-100'
             }`}
           >
             <WalletCards className="w-4 h-4" />
             <span>Pick2Buy Wallet</span>
+            <span className="ml-auto lg:hidden" aria-hidden="true">
+              {activeTab === 'wallet' && mobileSectionOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </span>
           </button>
 
           <button
-            onClick={() => setActiveTab('profile')}
+            onClick={() => selectTab('profile')}
+            style={{ order: tabOrder.profile }}
+            aria-expanded={activeTab === 'profile' && mobileSectionOpen}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
               activeTab === 'profile'
                 ? 'bg-brand-primary text-white shadow-sm'
@@ -257,10 +279,15 @@ export const AccountPage: React.FC = () => {
           >
             <User className="w-4 h-4" />
             <span>Profile & Account</span>
+            <span className="ml-auto lg:hidden" aria-hidden="true">
+              {activeTab === 'profile' && mobileSectionOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </span>
           </button>
 
           <button
-            onClick={() => setActiveTab('addresses')}
+            onClick={() => selectTab('addresses')}
+            style={{ order: tabOrder.addresses }}
+            aria-expanded={activeTab === 'addresses' && mobileSectionOpen}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
               activeTab === 'addresses'
                 ? 'bg-brand-primary text-white shadow-sm'
@@ -269,10 +296,15 @@ export const AccountPage: React.FC = () => {
           >
             <MapPin className="w-4 h-4" />
             <span>Saved Addresses</span>
+            <span className="ml-auto lg:hidden" aria-hidden="true">
+              {activeTab === 'addresses' && mobileSectionOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </span>
           </button>
 
           <button
-            onClick={() => setActiveTab('support')}
+            onClick={() => selectTab('support')}
+            style={{ order: tabOrder.support }}
+            aria-expanded={activeTab === 'support' && mobileSectionOpen}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
               activeTab === 'support'
                 ? 'bg-brand-primary text-white shadow-sm'
@@ -281,11 +313,19 @@ export const AccountPage: React.FC = () => {
           >
             <LifeBuoy className="w-4 h-4" />
             <span>Support & Help Tickets</span>
+            <span className="ml-auto lg:hidden" aria-hidden="true">
+              {activeTab === 'support' && mobileSectionOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </span>
           </button>
         </aside>
 
         {/* Tab Content Panels */}
-        <main className="lg:col-span-3">
+        <main
+          style={{ order: tabOrder[activeTab] + 1 }}
+          className={`overflow-hidden transition-[max-height,opacity] ease-in-out ${
+            mobileSectionOpen ? 'max-h-[20000px] opacity-100 duration-500' : 'pointer-events-none max-h-0 opacity-0 duration-300'
+          } lg:col-span-3 lg:max-h-none lg:overflow-visible lg:opacity-100`}
+        >
           {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <div className="space-y-4">
