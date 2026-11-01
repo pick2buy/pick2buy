@@ -11,6 +11,8 @@ router.post('/wallet/:userId/adjust', requireStaff, OrderController.adjustWallet
 
 router.post('/checkout', requireAuth, OrderController.checkout);
 router.post('/verify-payment', OrderController.verifyPayment);
+router.post('/:orderNumber/payment-failed', requireAuth, OrderController.markPaymentFailed);
+router.post('/:orderNumber/retry-payment', requireAuth, OrderController.retryPayment);
 router.get('/', requireAuth, OrderController.getOrders);
 router.get('/returns', requireStaff, OrderController.getReturnRequests);
 router.patch('/returns/:requestId', requireStaff, OrderController.updateReturnRequest);

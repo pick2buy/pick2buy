@@ -51,6 +51,9 @@ export const CheckoutPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [onlineAvailable, setOnlineAvailable] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [pendingPaymentOrder, setPendingPaymentOrder] = useState<any>(() => {
+    try { return JSON.parse(sessionStorage.getItem('pick2buy_pending_payment') || 'null'); } catch { return null; }
+  });
   useEffect(() => { api.getPaymentOptions().then(res => setOnlineAvailable(Boolean(res.data?.onlineAvailable))).catch(() => setOnlineAvailable(false)); }, []);
   useEffect(() => { if (user?.id) api.getWallet().then(res => setWalletBalance(res.data?.balance ?? 0)).catch(() => setWalletBalance(null)); }, [user?.id]);
 
@@ -98,7 +101,7 @@ export const CheckoutPage: React.FC = () => {
   const payableTotal = (cart?.grandTotal || 0) + (paymentMethod === 'COD' ? 49 : 0);
   if (!hasCheckedAuth) return <p role="status" className="p-6 text-center">Checking sign-in…</p>;
   if (!user) return <Navigate to="/login?redirect=%2Fcheckout" replace />;
-  if (items.length === 0) {
+  if (items.length === 0 && !pendingPaymentOrder) {
     return (
       <div className="max-w-md mx-auto text-center py-20 px-4">
         <h2 className="text-xl font-bold text-slate-800">Your cart is empty</h2>
@@ -136,7 +139,7 @@ export const CheckoutPage: React.FC = () => {
         couponCode: cart?.couponCode || undefined,
       };
 
-      const res = await api.checkout(payload);
+      const res = pendingPaymentOrder ? await api.retryPayment(pendingPaymentOrder.orderNumber) : await api.checkout(payload);
       const order = res.data?.order;
       createdOrderNumber = order.orderNumber;
       if (res.data?.orderAccessToken) localStorage.setItem(`pick2buy_order_${order.orderNumber}`, res.data.orderAccessToken);
@@ -155,7 +158,7 @@ export const CheckoutPage: React.FC = () => {
             prefill: { name: address.fullName, email: address.email, contact: address.mobile },
             theme: { color: '#082c82' },
             handler: (response: RazorpayResult) => resolve(response),
-            modal: { ondismiss: () => reject(new Error(`Payment was cancelled. Your order ${order.orderNumber} is pending; contact support to retry.`)) },
+            modal: { ondismiss: () => reject(new Error('Payment was cancelled. You can retry it below without creating another order.')) },
           });
           checkout.on('payment.failed', (response: any) => reject(new Error(response.error?.description || 'Payment failed. Please try again.')));
           checkout.open();
@@ -169,8 +172,11 @@ export const CheckoutPage: React.FC = () => {
       }
 
       await fetchCart(); // Refresh cart (will now be empty)
+      setPendingPaymentOrder(null);
+      sessionStorage.removeItem('pick2buy_pending_payment');
       navigate(`/order-success/${order.orderNumber}`);
     } catch (err: any) {
+      if (createdOrderNumber && paymentMethod !== 'COD' && paymentMethod !== 'PICK2BUY_WALLET') { const pending = { orderNumber: createdOrderNumber }; setPendingPaymentOrder(pending); sessionStorage.setItem('pick2buy_pending_payment', JSON.stringify(pending)); void api.markPaymentFailed(createdOrderNumber); navigate(`/payment-failed/${encodeURIComponent(createdOrderNumber)}`); }
       setErrorMessage(`${err.message || 'Checkout failed. Please review your details and try again.'}${createdOrderNumber ? ` Order reference: ${createdOrderNumber}.` : ''}`);
     } finally {
       setIsSubmitting(false);
@@ -353,6 +359,7 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               <div className="pt-4 flex justify-end">
+                {pendingPaymentOrder && <button type="button" onClick={() => { setErrorMessage(''); void handlePlaceOrder({ preventDefault() {} } as React.FormEvent); }} disabled={isSubmitting} className="text-xs font-bold text-brand-primary hover:underline">Retry payment</button>}
                 <button
                   type="button"
                   onClick={() => {

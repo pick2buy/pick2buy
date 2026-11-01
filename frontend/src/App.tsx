@@ -14,6 +14,9 @@ import { CheckoutPage } from './pages/CheckoutPage';
 import { BuyNowPage } from './pages/BuyNowPage';
 import { OrderSuccessPage } from './pages/OrderSuccessPage';
 import { OrderTrackingPage } from './pages/OrderTrackingPage';
+import { ReceiptPage } from './pages/ReceiptPage';
+import { PaymentFailedPage } from './pages/PaymentFailedPage';
+import { OrderCancelledPage } from './pages/OrderCancelledPage';
 import { AccountPage } from './pages/AccountPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -79,7 +82,10 @@ export const App: React.FC = () => {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/buy-now" element={<BuyNowPage />} />
           <Route path="/order-success/:orderNumber" element={<OrderSuccessPage />} />
+          <Route path="/payment-failed/:orderNumber" element={<PaymentFailedPage />} />
+          <Route path="/order-cancelled/:orderNumber" element={<OrderCancelledPage />} />
           <Route path="/account/orders/:orderNumber" element={<OrderTrackingPage />} />
+          <Route path="/account/orders/:orderNumber/receipt" element={<ReceiptPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
