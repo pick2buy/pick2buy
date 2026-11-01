@@ -65,6 +65,7 @@ export const checkoutSchema = z.object({
     PAYMENT_METHODS.RAZORPAY_CARD,
     PAYMENT_METHODS.RAZORPAY_NETBANKING,
     PAYMENT_METHODS.RAZORPAY_WALLET,
+    PAYMENT_METHODS.PICK2BUY_WALLET,
   ]),
   couponCode: z.string().optional(),
   notes: z.string().max(500).optional(),

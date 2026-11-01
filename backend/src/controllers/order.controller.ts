@@ -21,6 +21,11 @@ const returnUpdateSchema = z.object({
   adminNote: z.string().trim().max(1000).optional(),
 });
 const cancellationSchema = z.object({ reason: z.string().trim().min(5, 'Please provide a cancellation reason').max(500) });
+const walletAdjustmentSchema = z.object({
+  amount: z.number().positive().max(100000),
+  type: z.enum(['CREDIT', 'DEBIT']),
+  reason: z.string().trim().min(3).max(250),
+});
 
 export class OrderController {
   public static async cancelOrder(req: Request, res: Response, next: NextFunction) {
@@ -31,10 +36,18 @@ export class OrderController {
       if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
       if (!['PENDING', 'CONFIRMED', 'PROCESSING'].includes(order.status)) return res.status(400).json({ success: false, message: 'This order can no longer be cancelled' });
       if (order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
-        const paymentId = order.paymentId || order.payments[0]?.transactionId;
-        if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; contact support for cancellation' });
-        const refund = await PaymentService.createRefund(paymentId, order.grandTotal, { orderNumber: order.orderNumber, reason });
+        const walletPayment = order.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET;
+        let refund: { id?: string; status?: string } = { status: 'processed' };
+        if (!walletPayment) {
+          const paymentId = order.paymentId || order.payments[0]?.transactionId;
+          if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; contact support for cancellation' });
+          refund = await PaymentService.createRefund(paymentId, order.grandTotal, { orderNumber: order.orderNumber, reason });
+        }
         await prisma.$transaction(async tx => {
+          if (walletPayment) {
+            const wallet = await tx.wallet.upsert({ where: { userId: order.userId! }, create: { userId: order.userId!, balance: order.grandTotal }, update: { balance: { increment: order.grandTotal } } });
+            await tx.walletTransaction.create({ data: { walletId: wallet.id, amount: order.grandTotal, type: 'CREDIT', reason: `Cancellation refund for ${order.orderNumber}`, reference: order.id } });
+          }
           await tx.refund.create({ data: { orderId: order.id, amount: order.grandTotal, reason, status: refund.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund.id || null } });
           await tx.payment.updateMany({ where: { orderId: order.id, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
           await tx.order.update({ where: { id: order.id }, data: { status: ORDER_STATUSES.CANCELLED, paymentStatus: PAYMENT_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.CANCELLED, comment: `Cancelled by customer: ${reason}` } } } });
@@ -104,6 +117,7 @@ export class OrderController {
       const effectiveShippingFee = shippingFee - coupon.shippingDiscount;
 
       const isCod = data.paymentMethod === PAYMENT_METHODS.COD;
+      const isWallet = data.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET;
       let codFee = 0;
 
       if (isCod) {
@@ -119,7 +133,7 @@ export class OrderController {
 
       const grandTotal = Math.max(0, subtotal - discountAmount + effectiveShippingFee + codFee);
       const orderNumber = `P2B-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}-${randomUUID().slice(0, 8).toUpperCase()}`;
-      const paymentOrder = isCod ? null : await PaymentService.createPaymentOrder({
+      const paymentOrder = (isCod || isWallet) ? null : await PaymentService.createPaymentOrder({
         orderNumber, amount: grandTotal,
         customerName: data.shippingAddress.fullName,
         customerEmail: data.shippingAddress.email || req.user?.email || '',
@@ -137,9 +151,9 @@ export class OrderController {
             customerEmail: data.shippingAddress.email || req.user?.email || '',
             customerPhone: data.shippingAddress.mobile,
             shippingAddressJson: JSON.stringify(data.shippingAddress),
-            status: isCod ? ORDER_STATUSES.CONFIRMED : ORDER_STATUSES.PENDING,
+            status: (isCod || isWallet) ? ORDER_STATUSES.CONFIRMED : ORDER_STATUSES.PENDING,
             paymentMethod: data.paymentMethod,
-            paymentStatus: isCod ? PAYMENT_STATUSES.PENDING : PAYMENT_STATUSES.PENDING,
+            paymentStatus: isWallet ? PAYMENT_STATUSES.COMPLETED : PAYMENT_STATUSES.PENDING,
             subtotal,
             taxAmount,
             shippingFee: effectiveShippingFee,
@@ -154,11 +168,11 @@ export class OrderController {
                   status: ORDER_STATUSES.PENDING,
                   comment: 'Order placed by customer',
                 },
-                ...(isCod
+                ...((isCod || isWallet)
                   ? [
                       {
                         status: ORDER_STATUSES.CONFIRMED,
-                        comment: 'Order confirmed with Cash on Delivery payment option',
+                        comment: isWallet ? 'Order paid using Pick2Buy Wallet' : 'Order confirmed with Cash on Delivery payment option',
                       },
                     ]
                   : []),
@@ -176,14 +190,21 @@ export class OrderController {
                 total: (item.variant ? item.variant.price : item.product.price) * item.quantity,
               })),
             },
-            payments: paymentOrder ? {
-              create: { amount: grandTotal, method: data.paymentMethod, status: PAYMENT_STATUSES.PENDING, gatewayOrder: paymentOrder.gatewayOrderId },
+            payments: (paymentOrder || isWallet) ? {
+              create: { amount: grandTotal, method: data.paymentMethod, status: isWallet ? PAYMENT_STATUSES.COMPLETED : PAYMENT_STATUSES.PENDING, gatewayOrder: paymentOrder?.gatewayOrderId },
             } : undefined,
           },
           include: {
             items: true,
           },
         });
+
+        if (isWallet) {
+          const wallet = await tx.wallet.upsert({ where: { userId: userId! }, create: { userId: userId! }, update: {} });
+          const deducted = await tx.wallet.updateMany({ where: { id: wallet.id, balance: { gte: grandTotal } }, data: { balance: { decrement: grandTotal } } });
+          if (deducted.count !== 1) throw Object.assign(new Error('Insufficient Pick2Buy Wallet balance'), { statusCode: 400 });
+          await tx.walletTransaction.create({ data: { walletId: wallet.id, amount: -grandTotal, type: 'DEBIT', reason: `Order ${createdOrder.orderNumber}`, reference: createdOrder.id } });
+        }
 
         // Deduct inventory
         for (const item of cart.items) {
@@ -279,6 +300,31 @@ export class OrderController {
     } catch (error) {
       next(error);
     }
+  }
+  public static async getWallet(req: Request, res: Response, next: NextFunction) {
+    try {
+      const wallet = await prisma.wallet.upsert({ where: { userId: req.user!.id }, create: { userId: req.user!.id }, update: {}, include: { transactions: { orderBy: { createdAt: 'desc' }, take: 50 } } });
+      res.json({ success: true, data: wallet });
+    } catch (error) { next(error); }
+  }
+
+  public static async adjustWallet(req: Request, res: Response, next: NextFunction) {
+    try {
+      const input = walletAdjustmentSchema.parse(req.body);
+      const user = await prisma.user.findUnique({ where: { id: req.params.userId }, select: { id: true } });
+      if (!user) return res.status(404).json({ success: false, message: 'Customer not found' });
+      const wallet = await prisma.$transaction(async tx => {
+        const existing = await tx.wallet.upsert({ where: { userId: user.id }, create: { userId: user.id }, update: {} });
+        if (input.type === 'DEBIT') {
+          const result = await tx.wallet.updateMany({ where: { id: existing.id, balance: { gte: input.amount } }, data: { balance: { decrement: input.amount } } });
+          if (result.count !== 1) throw Object.assign(new Error('Wallet balance is insufficient'), { statusCode: 400 });
+        } else await tx.wallet.update({ where: { id: existing.id }, data: { balance: { increment: input.amount } } });
+        await tx.walletTransaction.create({ data: { walletId: existing.id, amount: input.type === 'CREDIT' ? input.amount : -input.amount, type: input.type, reason: input.reason, reference: `admin:${req.user!.id}` } });
+        return tx.wallet.findUniqueOrThrow({ where: { id: existing.id }, include: { transactions: { orderBy: { createdAt: 'desc' }, take: 50 } } });
+      });
+      await createAuditLog({ userId: req.user?.id, userEmail: req.user?.email, action: 'ADJUST_WALLET', resource: 'Wallet', resourceId: wallet.id, newValue: { userId: user.id, amount: input.amount, type: input.type, reason: input.reason } });
+      res.json({ success: true, data: wallet });
+    } catch (error) { next(error); }
   }
 
   public static async verifyPayment(req: Request, res: Response, next: NextFunction) {
@@ -475,10 +521,14 @@ export class OrderController {
       if (!nextStatuses[current.status]?.includes(input.status)) return res.status(400).json({ success: false, message: 'Invalid return status change' });
       if (input.status === 'REJECTED' && !input.adminNote?.trim()) return res.status(400).json({ success: false, message: 'Explain why the return was rejected' });
       let refund: { id?: string; status?: string } | null = null;
+      const walletRefund = input.status === 'COMPLETED' && current.order.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET && current.order.paymentStatus === PAYMENT_STATUSES.COMPLETED;
       if (input.status === 'COMPLETED' && current.order.paymentMethod !== PAYMENT_METHODS.COD && current.order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
-        const paymentId = current.order.paymentId || current.order.payments[0]?.transactionId;
-        if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; refund cannot be created automatically' });
-        refund = await PaymentService.createRefund(paymentId, current.orderItem.total, { orderNumber: current.order.orderNumber, reason: 'Return approved' });
+        if (walletRefund) refund = { status: 'processed' };
+        else {
+          const paymentId = current.order.paymentId || current.order.payments[0]?.transactionId;
+          if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; refund cannot be created automatically' });
+          refund = await PaymentService.createRefund(paymentId, current.orderItem.total, { orderNumber: current.order.orderNumber, reason: 'Return approved' });
+        }
       }
       const updated = await prisma.returnRequest.updateMany({
         where: { id: current.id, status: current.status },
@@ -487,6 +537,10 @@ export class OrderController {
       if (updated.count !== 1) return res.status(409).json({ success: false, message: 'Return request changed; reload and try again' });
       if (refund) {
         await prisma.$transaction(async tx => {
+          if (walletRefund) {
+            const wallet = await tx.wallet.upsert({ where: { userId: current.userId }, create: { userId: current.userId, balance: current.orderItem.total }, update: { balance: { increment: current.orderItem.total } } });
+            await tx.walletTransaction.create({ data: { walletId: wallet.id, amount: current.orderItem.total, type: 'CREDIT', reason: `Return refund for ${current.order.orderNumber}`, reference: current.id } });
+          }
           await tx.refund.create({ data: { orderId: current.orderId, amount: current.orderItem.total, reason: 'Return approved', status: refund?.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund?.id || null } });
           await tx.payment.updateMany({ where: { orderId: current.orderId, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
           await tx.order.update({ where: { id: current.orderId }, data: { paymentStatus: PAYMENT_STATUSES.REFUNDED, status: ORDER_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.REFUNDED, comment: `Refund created for returned item: ${current.orderItem.productName}` } } } });

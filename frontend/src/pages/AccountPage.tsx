@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, 
   Package, 
+  WalletCards,
   MapPin, 
   LifeBuoy, 
   LogOut, 
@@ -44,8 +45,10 @@ export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout, fetchMe, hasCheckedAuth } = useAuthStore();
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'support'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'wallet' | 'profile' | 'addresses' | 'support'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
+  const [wallet, setWallet] = useState<any>(null);
+  const [walletError, setWalletError] = useState('');
   const [returnDraft, setReturnDraft] = useState<{ orderId: string; orderItemId: string; reason: string; message: string } | null>(null);
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [returnError, setReturnError] = useState('');
@@ -116,6 +119,12 @@ export const AccountPage: React.FC = () => {
       .then((response: any) => setTickets(response.data || []))
       .catch((error: any) => setTicketsError(error instanceof Error ? error.message : 'Could not load your tickets.'))
       .finally(() => setTicketsLoading(false));
+  }, [activeTab, user?.id]);
+
+  useEffect(() => {
+    if (activeTab !== 'wallet' || !user) return;
+    setWalletError('');
+    api.getWallet().then((response: any) => setWallet(response.data)).catch((error: any) => setWalletError(error instanceof Error ? error.message : 'Could not load wallet details.'));
   }, [activeTab, user?.id]);
 
   const handleLogout = () => {
@@ -209,6 +218,7 @@ export const AccountPage: React.FC = () => {
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
           </button>
+
         </div>
       </div>
 
@@ -225,6 +235,16 @@ export const AccountPage: React.FC = () => {
           >
             <Package className="w-4 h-4" />
             <span>My Orders ({orders.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
+              activeTab === 'wallet' ? 'bg-brand-primary text-white shadow-sm' : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-100'
+            }`}
+          >
+            <WalletCards className="w-4 h-4" />
+            <span>Pick2Buy Wallet</span>
           </button>
 
           <button
@@ -353,6 +373,28 @@ export const AccountPage: React.FC = () => {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {activeTab === 'wallet' && (
+            <div className="space-y-5">
+              <div className="rounded-3xl bg-gradient-to-br from-brand-primary to-orange-500 p-6 text-white shadow-sm">
+                <p className="text-xs font-semibold text-white/80">Available Pick2Buy Wallet balance</p>
+                <p className="mt-2 text-3xl font-black">{wallet ? formatINR(wallet.balance) : '—'}</p>
+                <p className="mt-3 text-xs text-white/85">Wallet money can be used at checkout. Eligible return and cancellation refunds are credited here.</p>
+              </div>
+              <div className="rounded-3xl border border-slate-100 bg-white p-5 sm:p-6 shadow-sm">
+                <h2 className="text-base font-bold text-slate-900">Wallet transactions</h2>
+                {walletError && <p role="alert" className="mt-3 text-xs text-rose-600">{walletError}</p>}
+                {!wallet && !walletError && <p className="mt-3 text-xs text-slate-500">Loading wallet…</p>}
+                {wallet?.transactions?.length === 0 && <p className="mt-3 text-xs text-slate-500">No wallet transactions yet.</p>}
+                <div className="mt-3 divide-y divide-slate-100">
+                  {wallet?.transactions?.map((transaction: any) => <div key={transaction.id} className="flex items-center justify-between gap-4 py-3 text-xs">
+                    <div><p className="font-bold text-slate-800">{transaction.reason}</p><p className="mt-0.5 text-slate-500">{new Date(transaction.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</p></div>
+                    <span className={`font-black ${transaction.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{transaction.amount >= 0 ? '+' : '−'}{formatINR(Math.abs(transaction.amount))}</span>
+                  </div>)}
+                </div>
+              </div>
             </div>
           )}
 

@@ -6,6 +6,7 @@ import {
   CreditCard, 
   Banknote, 
   QrCode, 
+  WalletCards,
   Lock, 
   ArrowRight, 
   Check, 
@@ -49,7 +50,9 @@ export const CheckoutPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [onlineAvailable, setOnlineAvailable] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   useEffect(() => { api.getPaymentOptions().then(res => setOnlineAvailable(Boolean(res.data?.onlineAvailable))).catch(() => setOnlineAvailable(false)); }, []);
+  useEffect(() => { if (user?.id) api.getWallet().then(res => setWalletBalance(res.data?.balance ?? 0)).catch(() => setWalletBalance(null)); }, [user?.id]);
 
   // Shipping Address Form
   const [address, setAddress] = useState({
@@ -89,8 +92,7 @@ export const CheckoutPage: React.FC = () => {
     setAddress(current => ({ ...current, [field]: value, isDefault: false }));
   };
 
-  // Payment Method: COD or RAZORPAY_UPI
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY_UPI' | 'RAZORPAY_CARD'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY_UPI' | 'RAZORPAY_CARD' | 'PICK2BUY_WALLET'>('COD');
 
   const items = cart?.items || [];
   const payableTotal = (cart?.grandTotal || 0) + (paymentMethod === 'COD' ? 49 : 0);
@@ -127,7 +129,7 @@ export const CheckoutPage: React.FC = () => {
     setIsSubmitting(true);
     let createdOrderNumber = '';
     try {
-      if (paymentMethod !== 'COD') await loadRazorpay();
+      if (paymentMethod !== 'COD' && paymentMethod !== 'PICK2BUY_WALLET') await loadRazorpay();
       const payload = {
         shippingAddress: address,
         paymentMethod,
@@ -139,7 +141,7 @@ export const CheckoutPage: React.FC = () => {
       createdOrderNumber = order.orderNumber;
       if (res.data?.orderAccessToken) localStorage.setItem(`pick2buy_order_${order.orderNumber}`, res.data.orderAccessToken);
 
-      if (paymentMethod !== 'COD' && res.data?.paymentOrder) {
+      if (paymentMethod !== 'COD' && paymentMethod !== 'PICK2BUY_WALLET' && res.data?.paymentOrder) {
         const paymentOrder = res.data.paymentOrder;
         if (!window.Razorpay) throw new Error('Razorpay checkout is unavailable');
         const result = await new Promise<RazorpayResult>((resolve, reject) => {
@@ -408,6 +410,25 @@ export const CheckoutPage: React.FC = () => {
                     <p className="text-[11px] text-slate-500 mt-1">
                       Pay via Cash or UPI QR to the courier delivery agent when package arrives at your door.
                     </p>
+                  </div>
+                </label>
+
+                <label
+                  onClick={() => setPaymentMethod('PICK2BUY_WALLET')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                    paymentMethod === 'PICK2BUY_WALLET'
+                      ? 'border-brand-primary bg-orange-50/60'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <input type="radio" name="payMethod" checked={paymentMethod === 'PICK2BUY_WALLET'} onChange={() => setPaymentMethod('PICK2BUY_WALLET')} className="mt-1 accent-brand-primary" />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2"><WalletCards className="w-4 h-4 text-brand-primary" />Pick2Buy Wallet</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${walletBalance !== null && walletBalance >= payableTotal ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{walletBalance === null ? 'Loading balance…' : `Balance ${formatINR(walletBalance)}`}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">Pay instantly from wallet balance. Return and cancellation refunds are credited here.</p>
+                    {walletBalance !== null && walletBalance < payableTotal && <p className="mt-1 text-[11px] font-semibold text-rose-600">Insufficient balance for this order.</p>}
                   </div>
                 </label>
 

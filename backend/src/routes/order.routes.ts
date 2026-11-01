@@ -6,6 +6,8 @@ import { PaymentService } from '../lib/payment';
 const router = Router();
 
 router.get('/payment-options', (_req, res) => res.json({ success: true, data: { onlineAvailable: PaymentService.isConfigured() } }));
+router.get('/wallet', requireAuth, OrderController.getWallet);
+router.post('/wallet/:userId/adjust', requireStaff, OrderController.adjustWallet);
 
 router.post('/checkout', requireAuth, OrderController.checkout);
 router.post('/verify-payment', OrderController.verifyPayment);

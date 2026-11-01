@@ -250,6 +250,14 @@ class ApiClient {
     return this.request('/orders/payment-options');
   }
 
+  public getWallet() {
+    return this.request('/orders/wallet');
+  }
+
+  public adjustWallet(userId: string, payload: { amount: number; type: 'CREDIT' | 'DEBIT'; reason: string }) {
+    return this.request(`/orders/wallet/${userId}/adjust`, { method: 'POST', body: JSON.stringify(payload) });
+  }
+
   public checkout(payload: any) {
     return this.request('/orders/checkout', {
       method: 'POST',
