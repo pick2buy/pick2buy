@@ -190,10 +190,6 @@ export const RegisterPage: React.FC = () => {
           <div className="flex items-center gap-3 text-xs text-slate-400"><span className="h-px bg-slate-200 flex-1" />or<span className="h-px bg-slate-200 flex-1" /></div>
           <div className="login-social-buttons">
             {import.meta.env.VITE_GOOGLE_CLIENT_ID && <GoogleSignIn text="signup_with" onCredential={async (credential) => { await googleLogin(credential); navigate(redirectTo, { replace: true }); }} />}
-            <a href={api.facebookLoginUrl(redirectTo)} className="login-facebook">
-              <svg aria-hidden="true" className="login-facebook__icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877f2" /><path fill="#fff" d="M13.6 24v-9.3h3.1l.5-3.6h-3.6V8.8c0-1 .3-1.7 1.8-1.7h1.9V3.9c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8v2.5H6.7v3.6h3.1V24z" /></svg>
-              <span>Sign up with Facebook</span>
-            </a>
           </div>
         </>}
 

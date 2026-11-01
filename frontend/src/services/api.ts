@@ -90,11 +90,6 @@ class ApiClient {
     return this.request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
   }
 
-  public facebookLoginUrl(redirect = '/') {
-    return `${API_BASE}/auth/facebook?redirect=${encodeURIComponent(redirect)}`;
-  }
-
-
   public logout() {
     return this.request('/auth/logout', { method: 'POST' });
   }
