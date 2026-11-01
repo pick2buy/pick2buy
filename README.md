@@ -72,28 +72,28 @@ npm install
 ```
 
 ### 3. Setup Environment Variables
-Copy `.env.example` to `backend/.env`:
+Copy `.env.example` to `backend/.env.local`:
 ```bash
-cp .env.example backend/.env
+cp .env.example backend/.env.local
 ```
 
-Set `DATABASE_URL` to your PostgreSQL connection string in the backend's private environment. For local development, you can instead set `POSTGRES_DATABASE_URL` in ignored `backend/.env.local`; it takes precedence over the old SQLite URL in `backend/.env`:
+Set `DATABASE_URL` to your PostgreSQL connection string in the ignored `backend/.env.local` file:
 ```env
-POSTGRES_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/postgres"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/postgres"
 JWT_SECRET=your_super_secret_jwt_key
 JWT_REFRESH_SECRET=your_super_secret_jwt_refresh_key
 RAZORPAY_KEY_ID=rzp_test_pick2buy_placeholder_key
 RAZORPAY_KEY_SECRET=rzp_test_pick2buy_placeholder_secret
-EMAIL_FROM="Pick2Buy India <pick2buy.in@gmail.com>"
+EMAIL_FROM="Your Store <no-reply@example.com>"
 ```
 
-Email/password sign-in and sign-up require a six-digit email code before a session is issued. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM` in `backend/.env.local` (or your deployment secrets). The sample SMTP password in `backend/.env` cannot send email. For Gmail SMTP, use a Google App Password from an account with 2-Step Verification.
+Email/password sign-in and sign-up require a six-digit email code before a session is issued. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM` in `backend/.env.local` (or your deployment secrets). The sample SMTP password cannot send email. For Gmail SMTP, use a Google App Password from an account with 2-Step Verification.
 
 ### 4. Initialize PostgreSQL
 Generate the Prisma client and apply tracked migrations to an empty PostgreSQL database:
 ```bash
 npm run db:generate
-npm run db:migrate
+npm run db:deploy
 npm run db:categories
 ```
 
