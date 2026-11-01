@@ -1,9 +1,8 @@
 import dotenv from 'dotenv';
-// Local OAuth settings stay out of the tracked backend/.env file.
+// Keep every local setting, including credentials, in the ignored .env.local file.
 dotenv.config({ path: '.env.local' });
-dotenv.config();
 
-// Local development can keep the hosted database URL outside the legacy SQLite .env file.
+// Local development can keep the hosted database URL outside the legacy SQLite configuration.
 // Deployment platforms should provide DATABASE_URL directly.
 if (process.env.NODE_ENV !== 'test' && process.env.POSTGRES_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.POSTGRES_DATABASE_URL;

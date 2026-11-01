@@ -22,7 +22,7 @@ import { api } from '../services/api';
 type RazorpayResult = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 declare global {
   interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, callback: (response: any) => void) => void };
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void; close?: () => void; on: (event: string, callback: (response: any) => void) => void };
   }
 }
 
@@ -148,6 +148,9 @@ export const CheckoutPage: React.FC = () => {
         const paymentOrder = res.data.paymentOrder;
         if (!window.Razorpay) throw new Error('Razorpay checkout is unavailable');
         const result = await new Promise<RazorpayResult>((resolve, reject) => {
+          const goToPaymentFailed = () => {
+            window.location.replace(`/payment-failed/${encodeURIComponent(order.orderNumber)}`);
+          };
           const checkout = new window.Razorpay!({
             key: paymentOrder.keyId,
             amount: paymentOrder.amount,
@@ -158,9 +161,16 @@ export const CheckoutPage: React.FC = () => {
             prefill: { name: address.fullName, email: address.email, contact: address.mobile },
             theme: { color: '#082c82' },
             handler: (response: RazorpayResult) => resolve(response),
-            modal: { ondismiss: () => reject(new Error('Payment was cancelled. You can retry it below without creating another order.')) },
+            modal: { ondismiss: () => {
+              goToPaymentFailed();
+              reject(new Error('Payment was cancelled. You can retry it below without creating another order.'));
+            } },
           });
-          checkout.on('payment.failed', (response: any) => reject(new Error(response.error?.description || 'Payment failed. Please try again.')));
+          checkout.on('payment.failed', (response: any) => {
+            checkout.close?.();
+            goToPaymentFailed();
+            reject(new Error(response.error?.description || 'Payment failed. Please try again.'));
+          });
           checkout.open();
         });
         await api.verifyPayment({
