@@ -28,6 +28,7 @@ export const OrderTrackingPage: React.FC = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const [order, setOrder] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (!orderNumber) return;
@@ -63,6 +64,20 @@ export const OrderTrackingPage: React.FC = () => {
     0,
     STATUS_STEPS.findIndex((s) => s.key === order.status)
   );
+  const canCancel = ['PENDING', 'CONFIRMED', 'PROCESSING'].includes(order.status) && Boolean(localStorage.getItem('pick2buy_token'));
+  const cancelOrder = async () => {
+    const reason = window.prompt('Why do you want to cancel this order?');
+    if (!reason?.trim()) return;
+    setIsCancelling(true);
+    try {
+      await api.cancelOrder(order.id, reason.trim());
+      setOrder((current: any) => ({ ...current, status: 'CANCELLED' }));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not cancel the order');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-20 space-y-8">
@@ -93,6 +108,9 @@ export const OrderTrackingPage: React.FC = () => {
           <Printer className="w-4 h-4" />
           <span>Print Receipt</span>
         </button>
+        {canCancel && <button type="button" onClick={() => void cancelOrder()} disabled={isCancelling} className="self-start sm:self-auto flex items-center gap-1.5 bg-white border border-rose-200 text-rose-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-rose-50 shadow-sm disabled:opacity-50">
+          {isCancelling ? 'Cancelling…' : 'Cancel order'}
+        </button>}
       </div>
 
       {/* Progress Timeline Tracker */}

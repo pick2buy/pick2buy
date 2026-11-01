@@ -15,6 +15,7 @@ model User {
   phone           String?
   passwordHash    String
   googleSub       String?     @unique
+  facebookSub     String?     @unique
   role            String      @default("CUSTOMER")
   avatarUrl       String?
   isEmailVerified Boolean     @default(false)
@@ -337,6 +338,7 @@ model Order {
   codFee                Float               @default(0)
   grandTotal            Float
   notes                 String?
+  cancellationReason    String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 

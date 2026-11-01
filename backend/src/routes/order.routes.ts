@@ -14,6 +14,7 @@ router.get('/returns', requireStaff, OrderController.getReturnRequests);
 router.patch('/returns/:requestId', requireStaff, OrderController.updateReturnRequest);
 router.post('/:orderId/returns', requireAuth, OrderController.requestReturn);
 router.get('/:orderNumber', OrderController.getOrderByNumber);
+router.post('/:orderId/cancel', requireAuth, OrderController.cancelOrder);
 router.put('/:orderId/status', requireStaff, OrderController.updateOrderStatus);
 
 export default router;

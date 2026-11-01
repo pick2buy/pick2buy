@@ -20,8 +20,43 @@ const returnUpdateSchema = z.object({
   status: z.enum(['APPROVED', 'REJECTED', 'RECEIVED', 'COMPLETED']),
   adminNote: z.string().trim().max(1000).optional(),
 });
+const cancellationSchema = z.object({ reason: z.string().trim().min(5, 'Please provide a cancellation reason').max(500) });
 
 export class OrderController {
+  public static async cancelOrder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      const { reason } = cancellationSchema.parse(req.body);
+      const order = await prisma.order.findFirst({ where: { id: req.params.orderId, userId }, include: { items: true, payments: { orderBy: { createdAt: 'desc' }, take: 1 } } });
+      if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+      if (!['PENDING', 'CONFIRMED', 'PROCESSING'].includes(order.status)) return res.status(400).json({ success: false, message: 'This order can no longer be cancelled' });
+      if (order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
+        const paymentId = order.paymentId || order.payments[0]?.transactionId;
+        if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; contact support for cancellation' });
+        const refund = await PaymentService.createRefund(paymentId, order.grandTotal, { orderNumber: order.orderNumber, reason });
+        await prisma.$transaction(async tx => {
+          await tx.refund.create({ data: { orderId: order.id, amount: order.grandTotal, reason, status: refund.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund.id || null } });
+          await tx.payment.updateMany({ where: { orderId: order.id, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
+          await tx.order.update({ where: { id: order.id }, data: { status: ORDER_STATUSES.CANCELLED, paymentStatus: PAYMENT_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.CANCELLED, comment: `Cancelled by customer: ${reason}` } } } });
+          await tx.$executeRawUnsafe('UPDATE "orders" SET "cancellationReason" = $1 WHERE "id" = $2', reason, order.id);
+          for (const item of order.items) {
+            await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+            await tx.inventoryTransaction.create({ data: { productId: item.productId, variantSku: item.variantName ? item.sku : null, quantity: item.quantity, reason: 'ORDER_CANCELLED', referenceId: order.id } });
+          }
+        });
+      } else {
+        await prisma.$transaction(async tx => {
+          await tx.order.update({ where: { id: order.id }, data: { status: ORDER_STATUSES.CANCELLED, statusHistory: { create: { status: ORDER_STATUSES.CANCELLED, comment: `Cancelled by customer: ${reason}` } } } });
+          await tx.$executeRawUnsafe('UPDATE "orders" SET "cancellationReason" = $1 WHERE "id" = $2', reason, order.id);
+          for (const item of order.items) {
+            await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+            await tx.inventoryTransaction.create({ data: { productId: item.productId, variantSku: item.variantName ? item.sku : null, quantity: item.quantity, reason: 'ORDER_CANCELLED', referenceId: order.id } });
+          }
+        });
+      }
+      return res.json({ success: true, message: 'Order cancelled successfully' });
+    } catch (error) { next(error); }
+  }
   public static async checkout(req: Request, res: Response, next: NextFunction) {
     try {
       const data = checkoutSchema.parse(req.body);
@@ -434,16 +469,29 @@ export class OrderController {
   public static async updateReturnRequest(req: Request, res: Response, next: NextFunction) {
     try {
       const input = returnUpdateSchema.parse(req.body);
-      const current = await prisma.returnRequest.findUnique({ where: { id: req.params.requestId } });
+      const current = await prisma.returnRequest.findUnique({ where: { id: req.params.requestId }, include: { order: { include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } } }, orderItem: true } });
       if (!current) return res.status(404).json({ success: false, message: 'Return request not found' });
       const nextStatuses: Record<string, string[]> = { REQUESTED: ['APPROVED', 'REJECTED'], APPROVED: ['RECEIVED'], RECEIVED: ['COMPLETED'] };
       if (!nextStatuses[current.status]?.includes(input.status)) return res.status(400).json({ success: false, message: 'Invalid return status change' });
       if (input.status === 'REJECTED' && !input.adminNote?.trim()) return res.status(400).json({ success: false, message: 'Explain why the return was rejected' });
+      let refund: { id?: string; status?: string } | null = null;
+      if (input.status === 'COMPLETED' && current.order.paymentMethod !== PAYMENT_METHODS.COD && current.order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
+        const paymentId = current.order.paymentId || current.order.payments[0]?.transactionId;
+        if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; refund cannot be created automatically' });
+        refund = await PaymentService.createRefund(paymentId, current.orderItem.total, { orderNumber: current.order.orderNumber, reason: 'Return approved' });
+      }
       const updated = await prisma.returnRequest.updateMany({
         where: { id: current.id, status: current.status },
         data: { status: input.status, adminNote: input.adminNote || current.adminNote },
       });
       if (updated.count !== 1) return res.status(409).json({ success: false, message: 'Return request changed; reload and try again' });
+      if (refund) {
+        await prisma.$transaction(async tx => {
+          await tx.refund.create({ data: { orderId: current.orderId, amount: current.orderItem.total, reason: 'Return approved', status: refund?.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund?.id || null } });
+          await tx.payment.updateMany({ where: { orderId: current.orderId, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
+          await tx.order.update({ where: { id: current.orderId }, data: { paymentStatus: PAYMENT_STATUSES.REFUNDED, status: ORDER_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.REFUNDED, comment: `Refund created for returned item: ${current.orderItem.productName}` } } } });
+        });
+      }
       res.json({ success: true, data: await prisma.returnRequest.findUnique({ where: { id: current.id } }) });
     } catch (error) { next(error); }
   }

@@ -1,5 +1,9 @@
 # GitHub / Git Instructions
 
+## Repository Instructions
+
+Before taking any task action, read [`CODEX_INSTRUCTIONS.md`](CODEX_INSTRUCTIONS.md). It contains the repository's mandatory privacy and secrets-handling rules for all developers and agents.
+
 This repository is worked on by multiple developers. Always synchronize with the remote repository before branching, merging, committing, or pushing.
 
 ## Before Starting Work

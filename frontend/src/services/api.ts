@@ -90,6 +90,11 @@ class ApiClient {
     return this.request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
   }
 
+  public facebookLoginUrl(redirect = '/') {
+    return `${API_BASE}/auth/facebook?redirect=${encodeURIComponent(redirect)}`;
+  }
+
+
   public logout() {
     return this.request('/auth/logout', { method: 'POST' });
   }
@@ -261,6 +266,10 @@ class ApiClient {
 
   public getOrders() {
     return this.request('/orders');
+  }
+
+  public cancelOrder(orderId: string, reason: string) {
+    return this.request(`/orders/${orderId}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) });
   }
 
   public requestReturn(orderId: string, payload: { orderItemId: string; reason: string; message: string }) {

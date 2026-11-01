@@ -30,6 +30,11 @@ export const config = {
     .trim(),
   backendUrl: process.env.BACKEND_URL || 'http://localhost:5000',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  facebook: {
+    appId: process.env.FACEBOOK_APP_ID || '',
+    appSecret: process.env.FACEBOOK_APP_SECRET || '',
+    redirectUri: process.env.FACEBOOK_REDIRECT_URI || 'http://localhost:5000/api/auth/facebook/callback',
+  },
   supabase: {
     url: process.env.SUPABASE_URL || '',
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
@@ -59,7 +64,7 @@ export const config = {
 
   cod: {
     enabled: true,
-    maxAmount: 15000,
+    maxAmount: 3000,
     fee: 49,
     restrictedPincodes: ['111111', '999999'],
   },

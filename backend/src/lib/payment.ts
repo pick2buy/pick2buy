@@ -72,6 +72,20 @@ export class PaymentService {
     return crypto.timingSafeEqual(Buffer.from(generatedSignature, 'hex'), Buffer.from(args.razorpaySignature, 'hex'));
   }
 
+  public static async createRefund(paymentId: string, amount: number, notes: Record<string, string> = {}) {
+    if (!PaymentService.isConfigured()) throw Object.assign(new Error('Online payments are not configured'), { statusCode: 503 });
+    const amountInPaise = Math.round(amount * 100);
+    if (!paymentId || !Number.isSafeInteger(amountInPaise) || amountInPaise < 100) throw new Error('Invalid refund amount');
+    const response = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refund`, {
+      method: 'POST',
+      headers: { Authorization: PaymentService.authorizationHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: amountInPaise, notes }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error('Razorpay could not create the refund');
+    return await response.json() as { id?: string; amount?: number; status?: string };
+  }
+
   /** Validate Cash on Delivery eligibility for a pincode and order amount. */
   public static validateCodEligibility(pincode: string, orderTotal: number): { eligible: boolean; reason?: string } {
     if (!config.cod.enabled) {

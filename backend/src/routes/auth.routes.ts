@@ -20,6 +20,8 @@ router.post('/verify-code', otpLimiter, AuthController.verifyCode);
 router.post('/resend-code', otpLimiter, AuthController.resendCode);
 router.post('/google', googleAuthLimiter, AuthController.google);
 router.post('/google/link', googleAuthLimiter, requireAuth, AuthController.linkGoogle);
+router.get('/facebook', AuthController.facebookStart);
+router.get('/facebook/callback', AuthController.facebookCallback);
 router.post('/logout', requireAuth, AuthController.logout);
 router.get('/me', requireAuth, AuthController.me);
 router.patch('/me', requireAuth, AuthController.updateProfile);

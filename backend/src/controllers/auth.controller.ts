@@ -28,6 +28,7 @@ const generateTokens = (user: { id: string; email: string; role: string; tokenVe
 
 const googleClient = new OAuth2Client();
 const isUploadedAvatar = (avatarUrl: string | null) => Boolean(avatarUrl?.startsWith('data:image/'));
+const facebookConfigured = () => Boolean(config.facebook.appId && config.facebook.appSecret && config.facebook.redirectUri);
 
 async function verifyGoogleCredential(credential: unknown) {
   if (!config.googleClientId) {
@@ -54,6 +55,43 @@ async function verifyGoogleCredential(credential: unknown) {
 }
 
 export class AuthController {
+  public static facebookStart(req: Request, res: Response) {
+    if (!facebookConfigured()) return res.status(503).send('Facebook sign-in is not configured');
+    const returnTo = typeof req.query.redirect === 'string' && /^\/(?!\/)/.test(req.query.redirect) ? req.query.redirect : '/';
+    const state = jwt.sign({ returnTo }, config.jwt.secret, { expiresIn: '10m' });
+    const params = new URLSearchParams({ client_id: config.facebook.appId, redirect_uri: config.facebook.redirectUri, state, scope: 'email,public_profile', response_type: 'code' });
+    res.redirect(`https://www.facebook.com/v20.0/dialog/oauth?${params.toString()}`);
+  }
+
+  public static async facebookCallback(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!facebookConfigured()) return res.status(503).send('Facebook sign-in is not configured');
+      const { code, state } = req.query;
+      if (typeof code !== 'string' || typeof state !== 'string') return res.status(400).send('Facebook sign-in was cancelled');
+      const decoded = jwt.verify(state, config.jwt.secret) as { returnTo?: string };
+      const tokenResponse = await fetch('https://graph.facebook.com/v20.0/oauth/access_token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: config.facebook.appId, client_secret: config.facebook.appSecret, redirect_uri: config.facebook.redirectUri, code }), signal: AbortSignal.timeout(10000) });
+      if (!tokenResponse.ok) throw new Error('Facebook authorization failed');
+      const tokenData = await tokenResponse.json() as { access_token?: string };
+      if (!tokenData.access_token) throw new Error('Facebook did not return an access token');
+      const profileResponse = await fetch(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${encodeURIComponent(tokenData.access_token)}`, { signal: AbortSignal.timeout(10000) });
+      if (!profileResponse.ok) throw new Error('Could not read Facebook profile');
+      const profile = await profileResponse.json() as { id?: string; name?: string; email?: string; picture?: { data?: { url?: string } } };
+      if (!profile.id || !profile.email) return res.status(400).send('Facebook did not provide an email address. Please use email sign-in.');
+      const linked = await prisma.$queryRawUnsafe<any[]>('SELECT * FROM "users" WHERE "facebookSub" = $1 LIMIT 1', profile.id);
+      let user = linked[0] as any;
+      if (!user) {
+        const email = profile.email.toLowerCase().trim();
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) return res.status(409).send('An account with this email already exists. Sign in with email and connect Facebook from your profile.');
+        user = await prisma.user.create({ data: { email, name: profile.name || email.split('@')[0], avatarUrl: profile.picture?.data?.url || null, isEmailVerified: true, passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 10), role: ROLES.CUSTOMER, cart: { create: {} }, wishlist: { create: {} } } });
+        await prisma.$executeRawUnsafe('UPDATE "users" SET "facebookSub" = $1 WHERE "id" = $2', profile.id, user.id);
+      }
+      const { accessToken, refreshToken } = generateTokens(user);
+      await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
+      const destination = new URL('/login', config.frontendUrl); destination.searchParams.set('facebookToken', accessToken); destination.searchParams.set('redirect', decoded.returnTo || '/');
+      res.redirect(destination.toString());
+    } catch (error) { next(error); }
+  }
   public static async logout(req: Request, res: Response, next: NextFunction) {
     try {
       // Incrementing the version invalidates every access token issued before
