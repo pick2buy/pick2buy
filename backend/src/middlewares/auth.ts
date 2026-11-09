@@ -30,9 +30,10 @@ export const authenticateJwt = async (req: Request, res: Response, next: NextFun
     const payload = jwt.verify(token, config.jwt.secret) as { id: string; role: string; tokenVersion?: number };
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, role: true, tokenVersion: true },
+      select: { id: true, email: true, name: true, role: true, tokenVersion: true, isBlocked: true },
     });
 
+    if (user?.isBlocked) return res.status(403).json({ success: false, message: 'Your account is blocked. Contact support.' });
     if (user && (payload.tokenVersion ?? 0) === user.tokenVersion) {
       req.user = {
         id: user.id,

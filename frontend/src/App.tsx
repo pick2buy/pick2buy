@@ -23,6 +23,9 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { InfoPage } from './pages/InfoPage';
 import { AdminLayout } from './layouts/AdminLayout';
+import { AdminUsersPage } from './pages/admin/AdminUsersPage';
+import { AdminOffersPage } from './pages/admin/AdminOffersPage';
+import { AdminSalesPage } from './pages/admin/AdminSalesPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 import { AdminProductsPage } from './pages/admin/AdminProductsPage';
@@ -100,6 +103,7 @@ export const App: React.FC = () => {
         {/* Admin Management Routes */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminUsersPage />} /><Route path="offers" element={<AdminOffersPage />} /><Route path="reports" element={<AdminSalesPage />} />
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="products" element={<AdminProductsPage />} />
           <Route path="catalog" element={<AdminCatalogPage />} />

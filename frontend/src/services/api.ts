@@ -5,6 +5,18 @@ import { getSessionId } from '../lib/utils';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 class ApiClient {
+  public commerce(endpoint: string, method = 'GET', body?: unknown) {
+    return this.request(endpoint, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  }
+
+  public async download(endpoint: string, filename: string) {
+    const response = await fetch(`${API_BASE}${endpoint}`, { headers: { Authorization: `Bearer ${this.getToken() || ''}` } });
+    if (!response.ok) throw new Error('Download failed. Please try again.');
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url; link.download = filename; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   private getToken(): string | null {
     return localStorage.getItem('pick2buy_token');
   }
@@ -233,10 +245,10 @@ class ApiClient {
     });
   }
 
-  public moveToCart(productId: string) {
+  public moveToCart(productId: string, variantId?: string) {
     return this.request('/wishlist/move-to-cart', {
       method: 'POST',
-      body: JSON.stringify({ productId }),
+      body: JSON.stringify({ productId, variantId }),
     });
   }
 

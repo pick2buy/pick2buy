@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
+import { activeOffers, priceProduct } from '../lib/offers';
 import { categoryCreateSchema } from '@pick2buy/shared';
 import { z } from 'zod';
 
@@ -12,7 +13,7 @@ const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]
 async function validateParent(parentId: string | null | undefined, ownId?: string) {
   if (!parentId) return null;
   if (parentId === ownId) throw Object.assign(new Error('A category cannot be its own parent'), { statusCode: 400 });
-  const parent = await prisma.category.findUnique({ where: { id: parentId }, select: { parentId: true } });
+  const parent = await prisma.category.findFirst({ where: { id: parentId, deletedAt: null }, select: { parentId: true } });
   if (!parent) throw Object.assign(new Error('Parent category not found'), { statusCode: 400 });
   if (parent.parentId) throw Object.assign(new Error('Subcategories cannot contain other subcategories'), { statusCode: 400 });
   if (ownId && await prisma.category.count({ where: { parentId: ownId } })) {
@@ -31,10 +32,10 @@ export class CategoryController {
   public static async getCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const categories = await prisma.category.findMany({
-        where: { parentId: null, isVisible: true },
+        where: { parentId: null, isVisible: true, deletedAt: null },
         include: {
           children: {
-            where: { isVisible: true },
+            where: { isVisible: true, deletedAt: null },
             include: {
               _count: { select: { products: true } },
             },
@@ -56,6 +57,7 @@ export class CategoryController {
   public static async getAdminCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const categories = await prisma.category.findMany({
+        where: { deletedAt: null },
         include: { parent: { select: { id: true, name: true, slug: true } }, _count: { select: { products: true, children: true, seasonalProductTags: true } } },
         orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
       });
@@ -67,11 +69,11 @@ export class CategoryController {
     try {
       const { slug } = req.params;
       const category = await prisma.category.findFirst({
-        where: { slug, isVisible: true },
+        where: { slug, isVisible: true, deletedAt: null },
         include: {
           parent: { select: { id: true, name: true, slug: true } },
           children: {
-            where: { isVisible: true },
+            where: { isVisible: true, deletedAt: null },
             include: { products: { where: { status: 'ACTIVE' }, include: { images: { orderBy: { displayOrder: 'asc' } }, brand: true, reviews: { select: { rating: true } } } } },
             orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
           },
@@ -110,9 +112,10 @@ export class CategoryController {
       const categoryProducts = [...category.products, ...category.children.flatMap(child => child.products)];
       const products = Array.from(new Map([...categoryProducts, ...seasonalProducts].map((product) => [product.id, product])).values());
 
+      const offers = await activeOffers();
       res.json({
         success: true,
-        data: { ...category, products },
+        data: { ...category, products: products.map(p => priceProduct(p, offers)) },
       });
     } catch (error) {
       next(error);
@@ -173,13 +176,13 @@ export class CategoryController {
   public static async deleteCategory(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const category = await prisma.category.findUnique({ where: { id }, include: { _count: { select: { products: true, children: true } } } });
+      const category = await prisma.category.findUnique({ where: { id }, include: { _count: { select: { products: true, children: { where: { deletedAt: null } } } } } });
       if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
       if (category._count.products || category._count.children) return res.status(409).json({ success: false, message: 'Move or remove linked products and subcategories before deleting this category' });
-      await prisma.category.delete({ where: { id } });
+      await prisma.category.update({ where: { id }, data: { deletedAt: new Date(), isVisible: false } });
       res.json({
         success: true,
-        message: 'Category deleted',
+        message: 'Category archived',
       });
     } catch (error) {
       handleCategoryError(error, next);

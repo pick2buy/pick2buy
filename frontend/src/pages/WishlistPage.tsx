@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingBag, Trash2, ArrowRight } from 'lucide-react';
 import { useWishlistStore } from '../store/useWishlistStore';
@@ -10,6 +10,8 @@ import { toast } from '../store/useToastStore';
 
 export const WishlistPage: React.FC = () => {
   const navigate = useNavigate();
+  const [variants, setVariants] = useState<Record<string, string>>({});
+  const [moving, setMoving] = useState<string | null>(null);
   const { user } = useAuthStore();
   const { items, fetchWishlist, toggleWishlist, moveToCart } = useWishlistStore();
   const { fetchCart } = useCartStore();
@@ -19,12 +21,13 @@ export const WishlistPage: React.FC = () => {
   }, []);
 
   const handleMoveToCart = async (productId: string) => {
+    setMoving(productId);
     try {
-      await moveToCart(productId);
+      await moveToCart(productId, variants[productId]);
       await fetchCart();
     } catch (err: any) {
       toast.error(err.message || 'Failed to move item to bag');
-    }
+    } finally { setMoving(null); }
   };
 
   if (!user) {
@@ -117,7 +120,9 @@ export const WishlistPage: React.FC = () => {
               </div>
             </div>
 
+            {item.product?.variants?.length > 0 && <select aria-label="Choose product option" className="mt-3 rounded border p-2 text-xs" value={variants[item.productId] || ''} onChange={e => setVariants({ ...variants, [item.productId]: e.target.value })}><option value="">Choose an option</option>{item.product.variants.map((v: any) => <option key={v.id} value={v.id} disabled={v.stock < 1}>{v.name} ({v.stock} in stock)</option>)}</select>}
             <button
+              disabled={moving === item.productId || item.product?.stock < 1 || item.product?.status !== 'ACTIVE' || (item.product?.variants?.length > 0 && !variants[item.productId])}
               onClick={() => handleMoveToCart(item.productId)}
               className="mt-4 w-full bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm"
             >

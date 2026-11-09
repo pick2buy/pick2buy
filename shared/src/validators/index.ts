@@ -22,6 +22,7 @@ export const registerSchema = z.object({
     'Enter a valid full name using at least two letters',
   ),
   email: registrationEmailSchema,
+  referralCode: z.string().trim().max(32).optional(),
   phone: z.string().regex(/^[6-9]\d{9}$/, 'Please enter a valid 10-digit Indian mobile number').optional().or(z.literal('')),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
@@ -105,6 +106,7 @@ export const productCreateSchema = z.object({
   costPrice: z.number().min(0).optional(),
   stock: z.number().int().min(0),
   lowStockThreshold: z.number().int().default(5),
+  maxPerCustomer: z.number().int().min(1).max(99).default(99),
   status: z.enum([PRODUCT_STATUSES.DRAFT, PRODUCT_STATUSES.ACTIVE, PRODUCT_STATUSES.OUT_OF_STOCK, PRODUCT_STATUSES.ARCHIVED]).default(PRODUCT_STATUSES.ACTIVE),
   isFeatured: z.boolean().default(false),
   isBestSeller: z.boolean().default(false),
@@ -119,7 +121,7 @@ export const productCreateSchema = z.object({
       altText: z.string().optional(),
       isPrimary: z.boolean().default(false),
     })
-  ).min(1, 'Add a primary product image'),
+  ).min(3, 'Add at least 3 product images'),
   variants: z.array(
     z.object({
       sku: z.string().min(2),
@@ -180,12 +182,12 @@ export const couponCreateSchema = z.object({
   maxDiscount: z.number().min(0).optional(),
   usageLimit: z.number().int().min(1).optional(),
   perUserLimit: z.number().int().min(1).default(1),
-  startDate: z.string(),
-  endDate: z.string(),
+  startDate: z.string().refine(v => Number.isFinite(Date.parse(v)), 'Invalid start date'),
+  endDate: z.string().refine(v => Number.isFinite(Date.parse(v)), 'Invalid end date'),
   isActive: z.boolean().default(true),
   isFirstOrderOnly: z.boolean().default(false),
   categoryId: z.string().optional().nullable(),
-});
+}).refine(v => new Date(v.endDate) > new Date(v.startDate), { message: 'End date must follow start date', path: ['endDate'] }).refine(v => v.type !== 'PERCENTAGE' || v.value <= 100, { message: 'Percentage cannot exceed 100', path: ['value'] });
 
 // Lead Schema
 export const leadCreateSchema = z.object({

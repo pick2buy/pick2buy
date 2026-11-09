@@ -65,107 +65,13 @@ export class AdminController {
 
   public static async getDashboardMetrics(req: Request, res: Response, next: NextFunction) {
     try {
-      const [
-        totalOrders,
-        pendingOrders,
-        totalCustomers,
-        totalProducts,
-        lowStockProducts,
-        orders,
-      ] = await Promise.all([
-        prisma.order.count(),
-        prisma.order.count({ where: { status: 'PENDING' } }),
-        prisma.user.count({ where: { role: 'CUSTOMER' } }),
-        prisma.product.count(),
-        prisma.product.count({ where: { stock: { lte: 5 } } }),
-        prisma.order.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-          include: { items: true },
-        }),
+      const [totalOrders, pendingOrders, totalCustomers, totalProducts, lowStockCount] = await Promise.all([
+        prisma.order.count(), prisma.order.count({ where: { status: 'PENDING' } }),
+        prisma.user.count({ where: { role: 'CUSTOMER' } }), prisma.product.count({ where: { status: 'ACTIVE' } }),
+        prisma.product.count({ where: { status: 'ACTIVE', stock: { lte: 5 } } }),
       ]);
-
-      const paidOrders = orders.filter(o => o.paymentMethod === 'COD' || o.paymentStatus === 'COMPLETED');
-      const totalRevenue = paidOrders.reduce((sum, o) => sum + o.grandTotal, 0);
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayOrders = orders.filter((o) => new Date(o.createdAt) >= today);
-      const todayRevenue = todayOrders.filter(o => o.paymentMethod === 'COD' || o.paymentStatus === 'COMPLETED').reduce((sum, o) => sum + o.grandTotal, 0);
-
-      // Revenue grouped by last 7 days
-      const daysMap: Record<string, { revenue: number; orders: number }> = {};
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        daysMap[key] = { revenue: 0, orders: 0 };
-      }
-
-      paidOrders.forEach((o) => {
-        const key = new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if (daysMap[key]) {
-          daysMap[key].revenue += o.grandTotal;
-          daysMap[key].orders += 1;
-        }
-      });
-
-      const revenueChart = Object.entries(daysMap).map(([date, val]) => ({
-        date,
-        revenue: val.revenue,
-        orders: val.orders,
-      }));
-
-      // Status distribution
-      const statusCounts: Record<string, number> = {};
-      orders.forEach((o) => {
-        statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
-      });
-      const statusDistribution = Object.entries(statusCounts).map(([status, count]) => ({
-        status,
-        count,
-      }));
-
-      // Top products sold
-      const productSalesMap: Record<string, { name: string; sales: number; revenue: number }> = {};
-      paidOrders.forEach((o) => {
-        o.items.forEach((item) => {
-          if (!productSalesMap[item.productId]) {
-            productSalesMap[item.productId] = { name: item.productName, sales: 0, revenue: 0 };
-          }
-          productSalesMap[item.productId].sales += item.quantity;
-          productSalesMap[item.productId].revenue += item.total;
-        });
-      });
-
-      const topProducts = Object.entries(productSalesMap)
-        .map(([id, val]) => ({ id, ...val }))
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-      res.json({
-        success: true,
-        data: {
-          totalRevenue,
-          todayRevenue,
-          totalOrders,
-          pendingOrders,
-          totalCustomers,
-          totalProducts,
-          lowStockCount: lowStockProducts,
-          conversionRate: null,
-          revenueChart,
-          statusDistribution,
-          topProducts,
-          recentOrders: orders.slice(0, 8).map((o) => ({
-            ...o,
-            shippingAddress: JSON.parse(o.shippingAddressJson),
-          })),
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
+      res.json({ success: true, data: { totalOrders, pendingOrders, totalCustomers, totalProducts, lowStockCount } });
+    } catch (error) { next(error); }
   }
 
   public static async getInventory(req: Request, res: Response, next: NextFunction) {
@@ -434,8 +340,9 @@ export class AdminController {
           description: data.description || null,
           type: data.type,
           value: data.value,
-          minOrderValue: data.minOrderValue || null,
-          maxDiscount: data.maxDiscount || null,
+          minOrderValue: data.minOrderValue ?? null,
+          categoryId: data.categoryId || null,
+          maxDiscount: data.maxDiscount ?? null,
           usageLimit: data.usageLimit || null,
           perUserLimit: data.perUserLimit,
           startDate: new Date(data.startDate),

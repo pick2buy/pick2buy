@@ -8,9 +8,11 @@ import { config } from '../config';
 import { EmailService } from '../lib/email';
 import { startAuthChallenge, resendAuthChallenge, consumeAuthChallenge } from '../lib/authChallenge';
 import { z } from 'zod';
+import { rewardReferral } from '../lib/referral';
 import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, ROLES } from '@pick2buy/shared';
 
-const generateTokens = (user: { id: string; email: string; role: string; tokenVersion: number }) => {
+const generateTokens = (user: { id: string; email: string; role: string; tokenVersion: number; isBlocked?: boolean }) => {
+  if (user.isBlocked) throw Object.assign(new Error('Your account is blocked. Contact support.'), { statusCode: 403 });
   const accessToken = jwt.sign(
     { id: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion },
     config.jwt.secret,
@@ -172,6 +174,8 @@ export class AuthController {
           : 'Email registration needs SMTP setup. Add a valid SMTP_PASSWORD to backend/.env.local, restart the backend, and use an email inbox you can access.'), { statusCode: 503 });
       }
 
+      const referrer = data.referralCode ? await prisma.user.findFirst({ where: { referralCode: data.referralCode.toUpperCase(), isBlocked: false, isEmailVerified: true } }) : null;
+      if (data.referralCode && !referrer) return res.status(400).json({ success: false, message: 'Referral code is invalid' });
       const passwordHash = await bcrypt.hash(data.password, 10);
 
       const user = await prisma.user.create({
@@ -179,6 +183,8 @@ export class AuthController {
           name: data.name,
           email: data.email.toLowerCase().trim(),
           phone: data.phone || null,
+          referredById: referrer?.id,
+          referralCode: randomBytes(6).toString('hex').toUpperCase(),
           passwordHash,
           role: ROLES.CUSTOMER,
           cart: { create: {} },
@@ -213,6 +219,7 @@ export class AuthController {
         });
       }
 
+      if (user.isBlocked) return res.status(403).json({ success: false, message: 'Your account is blocked. Contact support.' });
       const isMatch = await bcrypt.compare(data.password, user.passwordHash);
       if (!isMatch) {
         return res.status(401).json({
@@ -242,6 +249,7 @@ export class AuthController {
         data: { isEmailVerified: true, refreshToken },
       });
       if (purpose === 'SIGNUP') {
+        await rewardReferral(user.id);
         EmailService.sendWelcome(user.name, user.email).catch(() => console.error('[Auth] Welcome email failed'));
       }
       res.json({ success: true, data: {

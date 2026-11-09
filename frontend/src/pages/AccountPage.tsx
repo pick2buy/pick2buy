@@ -20,6 +20,7 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
 import { formatINR, INDIAN_STATES_AND_UTS } from '../lib/utils';
+import { ReferralSection } from '../components/account/ReferralSection';
 import { ProfileSection } from '../components/account/ProfileSection';
 import { Avatar } from '../components/common/Avatar';
 import { toast } from '../store/useToastStore';
@@ -354,10 +355,10 @@ export const AccountPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className={`${ord.paymentStatus === 'PENDING' && ord.paymentMethod !== 'COD' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-800'} text-[11px] font-bold px-2.5 py-1 rounded-full`}>
+                        <span className={`${['PENDING', 'FAILED'].includes(ord.paymentStatus) && !['COD', 'PICK2BUY_WALLET'].includes(ord.paymentMethod) && ['PENDING', 'CONFIRMED'].includes(ord.status) ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-800'} text-[11px] font-bold px-2.5 py-1 rounded-full`}>
                           {ord.status}
                         </span>
-                        {ord.paymentStatus === 'PENDING' && ord.paymentMethod !== 'COD' && <Link to={`/payment-failed/${encodeURIComponent(ord.orderNumber)}`} className="text-xs font-bold text-brand-primary hover:underline">Retry payment</Link>}
+                        {['PENDING', 'FAILED'].includes(ord.paymentStatus) && !['COD', 'PICK2BUY_WALLET'].includes(ord.paymentMethod) && ['PENDING', 'CONFIRMED'].includes(ord.status) && <Link to={`/payment-failed/${encodeURIComponent(ord.orderNumber)}`} className="text-xs font-bold text-brand-primary hover:underline">Retry payment</Link>}
                         <Link
                           to={`/account/orders/${ord.orderNumber}`}
                           className="flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-brand-primary"
@@ -441,7 +442,7 @@ export const AccountPage: React.FC = () => {
 
           {/* PROFILE TAB */}
           {activeTab === 'profile' && (
-            <ProfileSection user={user} refreshUser={fetchMe} />
+            <><ReferralSection /><ProfileSection user={user} refreshUser={fetchMe} /></>
           )}
 
           {/* ADDRESSES TAB */}

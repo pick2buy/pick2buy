@@ -35,6 +35,10 @@ export const AdminCouponsPage: React.FC = () => {
 
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (new Date(form.endDate) <= new Date(form.startDate)) {
+      toast.error('End date must be after start date');
+      return;
+    }
     try {
       await api.createCoupon({
         ...form,
@@ -118,7 +122,7 @@ export const AdminCouponsPage: React.FC = () => {
                   <td className="py-3.5 px-4 font-semibold text-slate-700">{c.usedCount || 0}</td>
                   <td className="py-3.5 px-4">
                     <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      Active
+                      {!c.isActive ? 'Inactive' : new Date(c.endDate) < new Date() ? 'Expired' : new Date(c.startDate) > new Date() ? 'Scheduled' : 'Active'}
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-right">
@@ -176,6 +180,8 @@ export const AdminCouponsPage: React.FC = () => {
                     type="number"
                     required
                     value={form.value}
+                    min={0}
+                    max={form.type === 'PERCENTAGE' ? 100 : undefined}
                     onChange={(e) => setForm({ ...form, value: Number(e.target.value) })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none"
                   />
@@ -191,6 +197,11 @@ export const AdminCouponsPage: React.FC = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <label>Start date<input type="date" required value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full border rounded-xl p-2" /></label>
+                <label>End date<input type="date" required min={form.startDate} value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full border rounded-xl p-2" /></label>
+              </div>
+              {form.type === 'PERCENTAGE' && <label className="block">Maximum discount (₹)<input type="number" min={0} value={form.maxDiscount} onChange={e => setForm({ ...form, maxDiscount: Number(e.target.value) })} className="w-full border rounded-xl p-2" /></label>}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Description</label>
                 <input

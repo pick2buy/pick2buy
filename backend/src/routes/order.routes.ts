@@ -3,7 +3,9 @@ import { OrderController } from '../controllers/order.controller';
 import { requireAuth, requireStaff } from '../middlewares/auth';
 import { PaymentService } from '../lib/payment';
 
+import { ReportController } from '../controllers/report.controller';
 const router = Router();
+router.get('/:orderNumber/invoice', requireAuth, ReportController.invoice);
 
 router.get('/payment-options', (_req, res) => res.json({ success: true, data: { onlineAvailable: PaymentService.isConfigured() } }));
 router.get('/wallet', requireAuth, OrderController.getWallet);

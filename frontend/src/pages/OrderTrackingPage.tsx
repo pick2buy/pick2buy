@@ -41,6 +41,7 @@ export const OrderTrackingPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelItemId, setCancelItemId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelError, setCancelError] = useState('');
   const [returnItemId, setReturnItemId] = useState<string | null>(null);
@@ -99,7 +100,8 @@ export const OrderTrackingPage: React.FC = () => {
     if (cancelReason.trim().length < 5) { setCancelError('Please provide at least 5 characters.'); return; }
     setIsCancelling(true);
     try {
-      await api.cancelOrder(order.id, cancelReason.trim());
+      await api.commerce('/orders/' + order.id + '/cancel', 'POST', { reason: cancelReason.trim(), ...(cancelItemId ? { orderItemId: cancelItemId } : {}) });
+      if (cancelItemId) { const refreshed = await api.getOrderByNumber(order.orderNumber); setOrder(refreshed.data); setCancelOpen(false); setCancelItemId(null); setCancelReason(''); return; }
       setOrder((current: any) => ({ ...current, status: 'CANCELLED', cancellationReason: cancelReason.trim() }));
       setCancelOpen(false); setCancelReason(''); setCancelError('');
       navigate(`/order-cancelled/${encodeURIComponent(order.orderNumber)}`);
@@ -139,14 +141,14 @@ export const OrderTrackingPage: React.FC = () => {
           <Printer className="w-4 h-4" />
           <span>Print Receipt</span>
         </button>
-        {canCancel && <button type="button" onClick={() => setCancelOpen(true)} disabled={isCancelling} className="self-start sm:self-auto flex items-center gap-1.5 bg-white border border-rose-200 text-rose-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-rose-50 shadow-sm disabled:opacity-50">
+        {canCancel && <button type="button" onClick={() => { setCancelItemId(null); setCancelOpen(true); }} disabled={isCancelling} className="self-start sm:self-auto flex items-center gap-1.5 bg-white border border-rose-200 text-rose-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-rose-50 shadow-sm disabled:opacity-50">
           {isCancelling ? 'Cancelling…' : 'Cancel order'}
         </button>}
       </div>
 
       {cancelOpen && <div className="fixed inset-0 z-50 bg-slate-950/40 flex items-center justify-center p-4" role="dialog" aria-modal="true">
         <form onSubmit={(e) => { e.preventDefault(); void cancelOrder(); }} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
-          <h2 className="text-lg font-bold text-slate-900">Cancel this order?</h2>
+          <h2 className="text-lg font-bold text-slate-900">{cancelItemId ? 'Cancel this item?' : 'Cancel this order?'}</h2>
           <p className="text-sm text-slate-500">Tell us why you want to cancel. This helps us improve.</p>
           <textarea required minLength={5} maxLength={500} value={cancelReason} onChange={e => { setCancelReason(e.target.value); setCancelError(''); }} className="w-full min-h-28 rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-brand-primary" placeholder="Cancellation reason" />
           {cancelError && <p className="text-xs text-rose-600">{cancelError}</p>}
@@ -283,13 +285,15 @@ export const OrderTrackingPage: React.FC = () => {
                 <p className="text-[11px] text-slate-400">SKU: {item.sku} • Qty: {item.quantity}</p>
               </div>
               <strong className="font-extrabold text-slate-900">{formatINR(item.total)}</strong>
-              {returnOpen && !order.returnRequests?.some((request: any) => request.orderItemId === item.id) && <button type="button" onClick={() => setReturnItemId(item.id)} className="ml-3 rounded-lg border border-brand-primary px-2 py-1 font-bold text-brand-primary">Request return</button>}
+              {item.cancelled && <span className="text-red-600">Cancelled</span>}
+              {canCancel && !item.cancelled && <button type="button" onClick={() => { setCancelItemId(item.id); setCancelOpen(true); }} className="rounded border px-2 py-1 text-red-700">Cancel item</button>}
+              {returnOpen && !item.cancelled && !order.returnRequests?.some((request: any) => request.orderItemId === item.id) && <button type="button" onClick={() => setReturnItemId(item.id)} className="ml-3 rounded-lg border border-brand-primary px-2 py-1 font-bold text-brand-primary">Request return</button>}
             </div>
           ))}
         </div>
         {returnOpen && <p className="text-xs text-emerald-700">Items are eligible for return until {new Date(new Date(deliveredAt).getTime() + 7 * 86400000).toLocaleDateString('en-IN')}.</p>}
       </CollapseSection>
-      {returnItemId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-3"><h2 className="text-lg font-bold">Request a return</h2><select value={returnReason} onChange={e => setReturnReason(e.target.value)} className="w-full rounded-xl border p-3 text-sm"><option value="">Choose a reason</option><option>Damaged or defective</option><option>Wrong item received</option><option>Not as described</option><option>Changed my mind</option></select><textarea value={returnMessage} onChange={e => setReturnMessage(e.target.value)} minLength={10} className="w-full min-h-24 rounded-xl border p-3 text-sm" placeholder="Tell us what happened" />{returnError && <p className="text-xs text-rose-600">{returnError}</p>}<div className="flex justify-end gap-2"><button onClick={() => setReturnItemId(null)} className="rounded-xl border px-4 py-2 text-sm">Cancel</button><button onClick={() => void submitReturn()} disabled={isReturning} className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-bold text-white">{isReturning ? 'Submitting…' : 'Submit request'}</button></div></div></div>}
+      {returnItemId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-3"><h2 className="text-lg font-bold">Request a return</h2><select value={returnReason} onChange={e => setReturnReason(e.target.value)} className="w-full rounded-xl border p-3 text-sm"><option value="">Choose a reason</option><option value="DAMAGED">Damaged item</option><option value="DEFECTIVE">Defective item</option><option value="WRONG_ITEM">Wrong item received</option><option value="NOT_AS_DESCRIBED">Not as described</option><option value="OTHER">Other</option></select><textarea value={returnMessage} onChange={e => setReturnMessage(e.target.value)} minLength={10} className="w-full min-h-24 rounded-xl border p-3 text-sm" placeholder="Tell us what happened" />{returnError && <p className="text-xs text-rose-600">{returnError}</p>}<div className="flex justify-end gap-2"><button onClick={() => setReturnItemId(null)} className="rounded-xl border px-4 py-2 text-sm">Cancel</button><button onClick={() => void submitReturn()} disabled={isReturning} className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-bold text-white">{isReturning ? 'Submitting…' : 'Submit request'}</button></div></div></div>}
     </div>
   );
 };

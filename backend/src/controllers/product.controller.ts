@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { productCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
 import { z } from 'zod';
+import { activeOffers, priceProduct } from '../lib/offers';
 import { config } from '../config';
 import { StorageError, uploadProductImage } from '../lib/supabaseStorage';
 
@@ -33,6 +34,7 @@ const productUpdateSchema = z.object({
   price: z.number().min(0).optional(),
   mrp: z.number().min(0).optional(),
   stock: z.number().int().min(0).optional(),
+  maxPerCustomer: z.number().int().min(1).max(99).optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED']).optional(),
   isTrending: z.boolean().optional(),
   isFlashDeal: z.boolean().optional(),
@@ -41,7 +43,7 @@ const productUpdateSchema = z.object({
     url: productImageUrlSchema,
     altText: z.string().optional(),
     isPrimary: z.boolean().optional(),
-  })).min(1).optional(),
+  })).min(3, 'Add at least 3 product images').optional(),
   variants: z.array(productVariantSchema).optional(),
   sourcePlatform: z.enum(['OWN', 'MEESHO']).optional(),
   sourceProductCode: z.string().trim().min(1).max(120).nullable().optional(),
@@ -138,7 +140,7 @@ export class ProductController {
   // response in memory briefly so those requests do not wait for Postgres.
   private static catalogCache = new Map<string, { expiresAt: number; payload: unknown }>();
 
-  private static clearCatalogCache() {
+  public static clearCatalogCache() {
     ProductController.catalogCache.clear();
   }
 
@@ -215,16 +217,17 @@ export class ProductController {
       if (cached && cached.expiresAt > Date.now()) {
         // Keep the fast cache inside this server, but never let a customer's
         // browser keep an old catalogue after an admin changes a product.
-        res.set('Cache-Control', 'private, no-store');
+        res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
         return res.json(cached.payload);
       }
 
-      const pageNum = Math.max(1, parseInt(page as string, 10));
-      const take = Math.min(50, Math.max(1, parseInt(limit as string, 10)));
+      const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+      const take = Math.min(50, Math.max(1, parseInt(limit as string, 10) || 20));
       const skip = (pageNum - 1) * take;
 
       const where: any = {
-        status: 'ACTIVE',
+        status: { in: ['ACTIVE', 'OUT_OF_STOCK'] },
+        category: { deletedAt: null },
       };
 
       if (q) {
@@ -241,6 +244,7 @@ export class ProductController {
 
       if (category) {
         where.category = {
+          deletedAt: null,
           OR: [{ slug: String(category) }, { id: String(category) }],
         };
       }
@@ -253,16 +257,16 @@ export class ProductController {
 
       if (season) where.seasonTags = { some: { category: { slug: String(season) } } };
 
-      if (minPrice || maxPrice) {
-        where.price = {};
-        if (minPrice) where.price.gte = parseFloat(minPrice as string);
-        if (maxPrice) where.price.lte = parseFloat(maxPrice as string);
-      }
+      const minimumPrice = minPrice === undefined ? undefined : Number(minPrice);
+      const maximumPrice = maxPrice === undefined ? undefined : Number(maxPrice);
+      if ((minimumPrice !== undefined && (!Number.isFinite(minimumPrice) || minimumPrice < 0)) || (maximumPrice !== undefined && (!Number.isFinite(maximumPrice) || maximumPrice < 0))) return res.status(400).json({ success: false, message: 'Invalid price filter' });
 
       if (inStock === 'true') {
         where.stock = { gt: 0 };
+        where.status = 'ACTIVE';
       }
 
+      if (req.query.availability === 'out-of-stock') where.AND = [{ OR: [{ stock: 0 }, { status: 'OUT_OF_STOCK' }] }];
       if (featured === 'true') where.isFeatured = true;
       if (trending === 'true') where.isTrending = true;
       if (bestSeller === 'true') where.isBestSeller = true;
@@ -273,9 +277,12 @@ export class ProductController {
       if (sort === 'price-low') orderBy = { price: 'asc' };
       else if (sort === 'price-high') orderBy = { price: 'desc' };
       else if (sort === 'newest') orderBy = { createdAt: 'desc' };
-      else if (sort === 'bestseller') orderBy = { isBestSeller: 'desc' };
+      else if (sort === 'name-asc') orderBy = { name: 'asc' };
+      else if (sort === 'name-desc') orderBy = { name: 'desc' };
       else if (sort === 'featured') orderBy = [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
 
+      const offers = await activeOffers();
+      const computedSort = ['rating', 'bestseller', 'price-low', 'price-high'].includes(String(sort)) || Boolean(rating) || minimumPrice !== undefined || maximumPrice !== undefined;
       const [products, total] = await Promise.all([
         prisma.product.findMany({
           where,
@@ -290,6 +297,9 @@ export class ProductController {
             mrp: true,
             discountPercentage: true,
             stock: true,
+            status: true,
+            maxPerCustomer: true,
+            orderItems: { where: { cancelled: false, order: { paymentStatus: 'COMPLETED', status: { notIn: ['CANCELLED', 'REFUNDED'] } } }, select: { quantity: true } },
             isFeatured: true,
             isBestSeller: true,
             isTrending: true,
@@ -307,33 +317,47 @@ export class ProductController {
             reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
           },
           orderBy,
-          skip,
-          take,
+          ...(computedSort ? {} : { skip, take }),
         }),
         prisma.product.count({ where }),
       ]);
 
-      const formatted = products.map((p) => {
+      let formatted = products.map((p) => {
         const ratings = p.reviews.map((r) => r.rating);
         const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
         return {
-          ...p,
+          ...priceProduct(p, offers),
+          stock: p.status === 'OUT_OF_STOCK' ? 0 : p.stock,
+          salesCount: p.orderItems.reduce((sum, item) => sum + item.quantity, 0),
+          orderItems: undefined,
           averageRating: Number(avg.toFixed(1)),
           reviewCount: p.reviews.length,
         };
       });
 
+      if (minimumPrice !== undefined) formatted = formatted.filter(p => p.price >= minimumPrice);
+      if (maximumPrice !== undefined) formatted = formatted.filter(p => p.price <= maximumPrice);
+      if (rating) formatted = formatted.filter(p => p.averageRating >= Number(rating));
+      if (sort === 'rating') formatted.sort((a, b) => b.averageRating - a.averageRating || a.id.localeCompare(b.id));
+      if (sort === 'bestseller') formatted.sort((a, b) => b.salesCount - a.salesCount || a.id.localeCompare(b.id));
+      if (sort === 'price-low') formatted.sort((a, b) => a.price - b.price || a.id.localeCompare(b.id));
+      if (sort === 'price-high') formatted.sort((a, b) => b.price - a.price || a.id.localeCompare(b.id));
+      const filteredTotal = computedSort ? formatted.length : total;
+      if (computedSort) formatted = formatted.slice(skip, skip + take);
       // Product cards can be cached briefly. Uploaded images are versioned and
       // immutable, so this lets repeat storefront visits start instantly.
-      res.set('Cache-Control', 'private, no-store');
+      // The public catalogue is identical for all visitors. A short browser/CDN
+      // cache avoids repeating the same query on every navigation while the
+      // server-side cache keeps admin edits visible within a minute.
+      res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
       const payload = {
         success: true,
         data: formatted,
         meta: {
           page: pageNum,
           limit: take,
-          total,
-          totalPages: Math.ceil(total / take),
+          total: filteredTotal,
+          totalPages: Math.ceil(filteredTotal / take),
         },
       };
       ProductController.catalogCache.set(cacheKey, { expiresAt: Date.now() + 60_000, payload });
@@ -350,7 +374,7 @@ export class ProductController {
       const product = await prisma.product.findFirst({
         where: {
           OR: [{ slug: slugOrId }, { id: slugOrId }],
-          ...(!['ADMIN', 'MANAGER', 'STAFF', 'SUPPORT_AGENT'].includes(req.user?.role || '') ? { status: 'ACTIVE' } : {}),
+          ...(!['ADMIN', 'MANAGER', 'STAFF', 'SUPPORT_AGENT'].includes(req.user?.role || '') ? { status: { in: ['ACTIVE', 'OUT_OF_STOCK'] }, category: { deletedAt: null } } : {}),
         },
         include: {
           images: { orderBy: { displayOrder: 'asc' } },
@@ -380,11 +404,13 @@ export class ProductController {
       const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
       // Similar products can share the main category or a seasonal collection.
+      const offers = await activeOffers();
       const seasonCategoryIds = product.seasonTags.map((tag) => tag.categoryId);
       const relatedProducts = await prisma.product.findMany({
         where: {
           id: { not: product.id },
           status: 'ACTIVE',
+          category: { deletedAt: null },
           OR: [
             { categoryId: product.categoryId },
             ...(seasonCategoryIds.length ? [{ seasonTags: { some: { categoryId: { in: seasonCategoryIds } } } }] : []),
@@ -401,12 +427,12 @@ export class ProductController {
       res.json({
         success: true,
         data: {
-          ...product,
+          ...priceProduct(product, offers),
           averageRating: Number(avg.toFixed(1)),
           reviewCount: product.reviews.length,
           highlights: product.highlights ? JSON.parse(product.highlights) : [],
           specifications: product.specifications ? JSON.parse(product.specifications) : {},
-          relatedProducts,
+          relatedProducts: relatedProducts.map(item => priceProduct(item, offers)),
         },
       });
     } catch (error) {
@@ -465,6 +491,7 @@ export class ProductController {
           discountPercentage,
           stock: data.stock,
           lowStockThreshold: data.lowStockThreshold,
+          maxPerCustomer: data.maxPerCustomer,
           status: data.status,
           isFeatured: data.isFeatured,
           isBestSeller: data.isBestSeller,

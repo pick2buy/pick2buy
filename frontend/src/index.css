@@ -231,6 +231,36 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .storefront-banner-card picture, .storefront-banner-card img { display: block; width: 100%; height: 100%; }
 .storefront-banner-card img { object-fit: cover; object-position: center; transition: transform .7s cubic-bezier(.22, 1, .36, 1); }
 .storefront-banner-card:hover img { transform: scale(1.025); }
+.product-campaign-section { margin-top: 28px; }
+.product-campaign-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px; }
+.product-campaign { position: relative; display: flex; width: 100%; min-height: 264px; overflow: hidden; isolation: isolate; border-radius: 24px; box-shadow: 0 12px 30px #17213a18; transition: transform .28s cubic-bezier(.22, 1, .36, 1), box-shadow .28s ease; }
+.product-campaign--1, .product-campaign--4 { grid-column: span 5; }
+.product-campaign--2, .product-campaign--3 { grid-column: span 7; }
+.product-campaign:hover { box-shadow: 0 18px 36px #17213a25; transform: translateY(-3px); }
+.product-campaign::before, .product-campaign::after { position: absolute; inset: 0; content: ''; }
+.product-campaign::before { z-index: -2; background: radial-gradient(circle at 82% 25%, #ffffff9c 0 3%, transparent 24%), radial-gradient(circle at 70% 100%, #ff9a4130 0 16%, transparent 17%), linear-gradient(118deg, #fff7e8 0%, #ffd76a 46%, #f5821e 100%); }
+.product-campaign::after { z-index: -1; background: linear-gradient(90deg, #fffaf0f2 0%, #fff9ecc9 42%, transparent 72%); }
+.product-campaign__copy { position: relative; z-index: 1; display: flex; width: 57%; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; padding: clamp(16px, 2.2vw, 34px); color: #13213e; }
+.product-campaign__eyebrow { margin-bottom: 8px; font-size: clamp(7px, .58vw, 10px); font-weight: 850; letter-spacing: .14em; }
+.product-campaign__copy h2, .product-campaign__copy h3 { display: -webkit-box; overflow: hidden; margin: 0; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: clamp(15px, 1.35vw, 24px); font-weight: 850; letter-spacing: -.045em; line-height: 1.05; }
+.product-campaign__copy p { display: -webkit-box; overflow: hidden; margin: 7px 0 0; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: clamp(9px, .72vw, 12px); line-height: 1.36; opacity: .78; }
+.product-campaign__price { display: flex; align-items: center; gap: 7px; margin-top: 10px; }
+.product-campaign__price strong { font-size: clamp(14px, 1.2vw, 21px); letter-spacing: -.04em; }
+.product-campaign__price span { border-radius: 999px; background: #ffffffb8; padding: 3px 6px; font-size: clamp(7px, .55vw, 9px); font-weight: 800; }
+.product-campaign__cta { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; border-radius: 999px; background: #17213e; box-shadow: 0 5px 12px #17213a26; color: #fff; padding: 7px 10px; font-size: clamp(8px, .65vw, 11px); font-weight: 800; }
+.product-campaign__visual { position: absolute; z-index: -1; right: -2%; bottom: -4%; width: 53%; height: 108%; object-fit: contain; object-position: center right; filter: drop-shadow(0 18px 13px #17213a32); mix-blend-mode: multiply; transition: transform .35s cubic-bezier(.22, 1, .36, 1); }
+.product-campaign--tech::before { background: radial-gradient(circle at 73% 15%, #936cff99 0 2%, transparent 22%), radial-gradient(circle at 88% 80%, #245cf97a 0 3%, transparent 28%), linear-gradient(125deg, #07143c 0%, #162d83 50%, #5b25a4 100%); }
+.product-campaign--tech::after { background: linear-gradient(90deg, #07143cf0 0%, #07143cb9 44%, transparent 73%); }
+.product-campaign--tech .product-campaign__copy { color: #fff; }
+.product-campaign--tech .product-campaign__price span { background: #ffffff20; }
+.product-campaign--tech .product-campaign__cta { background: #fff; color: #182a7a; }
+.product-campaign--mint::before { background: radial-gradient(circle at 86% 24%, #fff4bc 0 3%, transparent 26%), radial-gradient(circle at 77% 95%, #fff9d499 0 14%, transparent 24%), linear-gradient(125deg, #d9f6df 0%, #7edb9e 50%, #198b67 100%); }
+.product-campaign--mint::after { background: linear-gradient(90deg, #effff4f0 0%, #e2fbe9c0 43%, transparent 74%); }
+.product-campaign--mint .product-campaign__cta { background: #056644; }
+.product-campaign--coral::before { background: radial-gradient(circle at 85% 15%, #fff5b5 0 3%, transparent 25%), radial-gradient(circle at 75% 95%, #ffedcd 0 15%, transparent 24%), linear-gradient(125deg, #fff0db 0%, #ffbb75 48%, #ed6d35 100%); }
+.product-campaign--coral::after { background: linear-gradient(90deg, #fffaf2f4 0%, #fff0d5c9 44%, transparent 73%); }
+.product-campaign--coral .product-campaign__cta { background: #a73e06; }
+.product-campaign:hover .product-campaign__visual { transform: translateY(-5px) scale(1.025); }
 .storefront-banner-viewport { position: relative; overflow: hidden; border-radius: 24px; background: #10182e; box-shadow: 0 16px 40px #17213a1f; }
 .storefront-banner-track { display: flex; transition: transform .55s cubic-bezier(.22, 1, .36, 1); }
 .storefront-banner-slide { position: relative; display: block; width: 100%; min-width: 100%; aspect-ratio: 2.05 / 1; overflow: hidden; color: #fff; }
@@ -295,6 +325,16 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .home-promo-feature-card:hover .home-promo-mini-card:nth-child(3) { transform: translateX(-2px); }
 .home-promo-mini-card svg { width: 28px; height: 28px; color: var(--navy); stroke-width: 2.25; }
 @media (max-width: 640px) {
+  .product-campaign-section { margin-top: 18px; }
+  .product-campaign-grid { grid-template-columns: 1fr; gap: 12px; }
+  .product-campaign--1, .product-campaign--2, .product-campaign--3, .product-campaign--4 { grid-column: auto; min-height: 230px; }
+  .product-campaign__copy { width: 59%; padding: 22px; }
+  .product-campaign__copy h2 { font-size: 22px; }
+  .product-campaign__copy p { font-size: 11px; }
+  .product-campaign__price strong { font-size: 20px; }
+  .product-campaign__price span { font-size: 9px; }
+  .product-campaign__cta { padding: 8px 12px; font-size: 10px; }
+  .product-campaign__visual { right: -5%; width: 55%; }
   .home-promo-feature-card { grid-template-columns: 1fr; gap: 28px; min-height: 0; padding: 28px 24px; }
   .home-promo-copy { gap: 24px; }
   .home-promo-copy h2 { font-size: 2rem; }

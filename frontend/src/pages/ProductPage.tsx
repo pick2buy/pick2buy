@@ -86,7 +86,7 @@ export const ProductPage: React.FC = () => {
   const selectedQuantity = cartItemForSelection?.quantity ?? quantity;
 
   const changeQuantity = (nextQuantity: number) => {
-    const validQuantity = Math.max(1, Math.min(availableStock, nextQuantity));
+    const validQuantity = Math.max(1, Math.min(availableStock, product?.maxPerCustomer ?? 99, nextQuantity));
     setQuantity(validQuantity);
     if (cartItemForSelection) void updateQuantity(cartItemForSelection.id, validQuantity);
   };
@@ -216,7 +216,7 @@ export const ProductPage: React.FC = () => {
 
   const currentPrice = selectedVariant ? selectedVariant.price : product.price;
   const currentMrp = selectedVariant ? selectedVariant.mrp : product.mrp;
-  const availableStock = selectedVariant ? selectedVariant.stock : product.stock;
+  const availableStock = product.status === 'OUT_OF_STOCK' ? 0 : Math.min(product.stock, selectedVariant ? selectedVariant.stock : product.stock);
   const discount = Math.round(((currentMrp - currentPrice) / currentMrp) * 100);
   const wishlisted = isWishlisted(product.id);
   const reviews = product.reviews || [];
@@ -430,7 +430,7 @@ export const ProductPage: React.FC = () => {
                 <span className="px-4 text-xs font-bold text-slate-900">{selectedQuantity}</span>
                 <button
                   onClick={() => changeQuantity(selectedQuantity + 1)}
-                  disabled={selectedQuantity >= availableStock}
+                  disabled={selectedQuantity >= Math.min(availableStock, product.maxPerCustomer ?? 99)}
                   className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold"
                 >
                   +
@@ -439,7 +439,7 @@ export const ProductPage: React.FC = () => {
 
               {availableStock > 0 ? (
                 <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> In Stock & Ready to Ship
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> {availableStock} in stock
                 </span>
               ) : (
                 <span className="text-xs font-bold text-rose-500">Currently Out of Stock</span>
@@ -484,6 +484,25 @@ export const ProductPage: React.FC = () => {
               <span>Need help? Contact support</span>
             </div>
           </div>
+
+          {/* Meesho-style product return policy summary. The final eligibility is
+              always checked against the supplier and the delivered order. */}
+          <details className="group rounded-2xl border border-slate-200 bg-white" open>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-bold text-slate-900 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-emerald-600" />
+                Return policy
+              </span>
+              <ChevronRight className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-90" />
+            </summary>
+            <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-3 text-xs leading-5 text-slate-600">
+              <p className="font-semibold text-slate-800">7-day easy returns after delivery</p>
+              <p>Request a return from My Orders within 7 days if the item is damaged, incorrect, defective or not as described.</p>
+              <p>Pickup and approval depend on the product and supplier policy. Keep the original packaging, tags and accessories ready for inspection.</p>
+              <p>After approval, online payments are refunded through the original payment method and Pick2Buy Wallet payments to your wallet. Paid COD returns are credited to Pick2Buy Wallet after admin approval.</p>
+              <p className="text-slate-500">Some hygiene, consumable and customised items may be non-returnable. The applicable eligibility is confirmed on the order.</p>
+            </div>
+          </details>
 
           {/* Product overview stays with the purchase details in the right column. */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-6">

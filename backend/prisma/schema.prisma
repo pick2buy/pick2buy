@@ -22,6 +22,10 @@ model User {
   dateOfBirth     String?
   refreshToken    String?
   tokenVersion    Int         @default(0)
+  isBlocked       Boolean     @default(false)
+  referralCode    String?     @unique
+  referredById    String?
+  referralRewarded Boolean    @default(false)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -132,6 +136,7 @@ model Category {
   parentId     String?
   featured     Boolean    @default(false)
   isVisible    Boolean    @default(true)
+  deletedAt    DateTime?
   displayOrder Int        @default(0)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -168,6 +173,7 @@ model Product {
   taxRate            Float            @default(18.0)
   stock              Int              @default(0)
   lowStockThreshold  Int              @default(5)
+  maxPerCustomer     Int              @default(99)
   status             String           @default("ACTIVE")
   isFeatured         Boolean          @default(false)
   isBestSeller       Boolean          @default(false)
@@ -340,6 +346,7 @@ model Order {
   grandTotal            Float
   notes                 String?
   cancellationReason    String?
+  operationLock         String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
@@ -364,6 +371,9 @@ model OrderItem {
   price        Float
   quantity     Int
   total        Float
+  cancelled    Boolean  @default(false)
+  cancellationReason String?
+  mrp          Float?
 
   order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product      Product  @relation(fields: [productId], references: [id])
@@ -478,6 +488,7 @@ model Coupon {
   isActive         Boolean       @default(true)
   isFirstOrderOnly Boolean       @default(false)
   categoryId       String?
+  restrictedUserId String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -642,6 +653,20 @@ model HomepageSection {
   updatedAt    DateTime @updatedAt
 
   @@map("homepage_sections")
+}
+
+model Offer {
+  id String @id @default(uuid())
+  name String
+  scope String
+  targetId String
+  percentage Float
+  startDate DateTime
+  endDate DateTime
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  @@index([scope, targetId])
+  @@map("offers")
 }
 
 model Campaign {

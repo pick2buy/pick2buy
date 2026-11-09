@@ -9,6 +9,9 @@ import { config } from '../config';
 import { calculateCoupon } from '../lib/coupon';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { activeOffers, offeredPrice } from '../lib/offers';
+import { cancelPurchase } from '../lib/cancellation';
+import { checkCartQuantity } from '../lib/cartQuantity';
 import { canRequestReturn } from '../lib/returnPolicy';
 
 const returnRequestSchema = z.object({
@@ -20,7 +23,7 @@ const returnUpdateSchema = z.object({
   status: z.enum(['APPROVED', 'REJECTED', 'RECEIVED', 'COMPLETED']),
   adminNote: z.string().trim().max(1000).optional(),
 });
-const cancellationSchema = z.object({ reason: z.string().trim().min(5, 'Please provide a cancellation reason').max(500) });
+const cancellationSchema = z.object({ reason: z.string().trim().max(500).default('Cancelled by customer'), orderItemId: z.string().uuid().optional() });
 const walletAdjustmentSchema = z.object({
   amount: z.number().positive().max(100000),
   type: z.enum(['CREDIT', 'DEBIT']),
@@ -30,44 +33,9 @@ const walletAdjustmentSchema = z.object({
 export class OrderController {
   public static async cancelOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.id;
-      const { reason } = cancellationSchema.parse(req.body);
-      const order = await prisma.order.findFirst({ where: { id: req.params.orderId, userId }, include: { items: true, payments: { orderBy: { createdAt: 'desc' }, take: 1 } } });
-      if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-      if (!['PENDING', 'CONFIRMED', 'PROCESSING'].includes(order.status)) return res.status(400).json({ success: false, message: 'This order can no longer be cancelled' });
-      if (order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
-        const walletPayment = order.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET;
-        let refund: { id?: string; status?: string } = { status: 'processed' };
-        if (!walletPayment) {
-          const paymentId = order.paymentId || order.payments[0]?.transactionId;
-          if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; contact support for cancellation' });
-          refund = await PaymentService.createRefund(paymentId, order.grandTotal, { orderNumber: order.orderNumber, reason });
-        }
-        await prisma.$transaction(async tx => {
-          if (walletPayment) {
-            const wallet = await tx.wallet.upsert({ where: { userId: order.userId! }, create: { userId: order.userId!, balance: order.grandTotal }, update: { balance: { increment: order.grandTotal } } });
-            await tx.walletTransaction.create({ data: { walletId: wallet.id, amount: order.grandTotal, type: 'CREDIT', reason: `Cancellation refund for ${order.orderNumber}`, reference: order.id } });
-          }
-          await tx.refund.create({ data: { orderId: order.id, amount: order.grandTotal, reason, status: refund.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund.id || null } });
-          await tx.payment.updateMany({ where: { orderId: order.id, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
-          await tx.order.update({ where: { id: order.id }, data: { status: ORDER_STATUSES.CANCELLED, paymentStatus: PAYMENT_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.CANCELLED, comment: `Cancelled by customer: ${reason}` } } } });
-          await tx.$executeRawUnsafe('UPDATE "orders" SET "cancellationReason" = $1 WHERE "id" = $2', reason, order.id);
-          for (const item of order.items) {
-            await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-            await tx.inventoryTransaction.create({ data: { productId: item.productId, variantSku: item.variantName ? item.sku : null, quantity: item.quantity, reason: 'ORDER_CANCELLED', referenceId: order.id } });
-          }
-        });
-      } else {
-        await prisma.$transaction(async tx => {
-          await tx.order.update({ where: { id: order.id }, data: { status: ORDER_STATUSES.CANCELLED, statusHistory: { create: { status: ORDER_STATUSES.CANCELLED, comment: `Cancelled by customer: ${reason}` } } } });
-          await tx.$executeRawUnsafe('UPDATE "orders" SET "cancellationReason" = $1 WHERE "id" = $2', reason, order.id);
-          for (const item of order.items) {
-            await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-            await tx.inventoryTransaction.create({ data: { productId: item.productId, variantSku: item.variantName ? item.sku : null, quantity: item.quantity, reason: 'ORDER_CANCELLED', referenceId: order.id } });
-          }
-        });
-      }
-      return res.json({ success: true, message: 'Order cancelled successfully' });
+      const { reason, orderItemId } = cancellationSchema.parse(req.body);
+      await cancelPurchase(req.params.orderId, req.user!.id, ['ADMIN', 'MANAGER', 'STAFF'].includes(req.user!.role), reason, orderItemId);
+      res.json({ success: true, message: 'Cancellation completed' });
     } catch (error) { next(error); }
   }
   public static async checkout(req: Request, res: Response, next: NextFunction) {
@@ -96,9 +64,12 @@ export class OrderController {
         });
       }
 
+      const offers = await activeOffers();
+      const price = (item: typeof cart.items[number]) => offeredPrice(item.variant?.price ?? item.product.price, item.productId, item.product.categoryId, offers);
       // Check stock & recalculate server-side totals
       let subtotal = 0;
       for (const item of cart.items) {
+        checkCartQuantity(item.product, item.quantity, cart.items.filter(i => i.productId === item.productId).reduce((sum, i) => sum + i.quantity, 0), item.variant?.stock);
         const availableStock = item.variant ? item.variant.stock : item.product.stock;
         if (availableStock < item.quantity) {
           return res.status(400).json({
@@ -106,7 +77,7 @@ export class OrderController {
             message: `Insufficient stock for "${item.product.name}". Only ${availableStock} remaining.`,
           });
         }
-        const unitPrice = item.variant ? item.variant.price : item.product.price;
+        const unitPrice = price(item);
         subtotal += unitPrice * item.quantity;
       }
 
@@ -142,6 +113,9 @@ export class OrderController {
 
       // Run transactional order placement and stock deduction
       const order = await prisma.$transaction(async (tx) => {
+        const cartClaim = await tx.cart.updateMany({ where: { id: cart.id, updatedAt: cart.updatedAt }, data: { updatedAt: new Date(Math.max(Date.now(), cart.updatedAt.getTime() + 1)) } });
+        if (!cartClaim.count) throw Object.assign(new Error('Your cart changed. Refresh before placing the order.'), { statusCode: 409 });
+        await calculateCoupon(data.couponCode, subtotal, shippingFee, userId, cart.items.map(item => item.product.categoryId), tx);
         // Create order
         const createdOrder = await tx.order.create({
           data: {
@@ -185,9 +159,10 @@ export class OrderController {
                 productImage: item.variant?.imageUrl || null,
                 sku: item.variant?.sku || item.product.sku,
                 variantName: item.variant?.name || null,
-                price: item.variant ? item.variant.price : item.product.price,
+                price: price(item),
+                mrp: item.variant ? item.variant.mrp : item.product.mrp,
                 quantity: item.quantity,
-                total: (item.variant ? item.variant.price : item.product.price) * item.quantity,
+                total: price(item) * item.quantity,
               })),
             },
             payments: (paymentOrder || isWallet) ? {
@@ -272,7 +247,7 @@ export class OrderController {
         }
 
         return createdOrder;
-      });
+      }, { isolationLevel: 'Serializable', timeout: 10000 });
 
       if (isCod && order.customerEmail) EmailService.sendOrderConfirmation(
         order.orderNumber,
@@ -344,7 +319,7 @@ export class OrderController {
       if (order.paymentMethod === PAYMENT_METHODS.COD) {
         return res.status(400).json({ success: false, message: 'This order does not require online payment' });
       }
-      if (order.status === ORDER_STATUSES.CANCELLED) {
+      if (order.operationLock || ['CANCELLED', 'REFUNDED'].includes(order.status)) {
         return res.status(409).json({ success: false, message: 'This order has been cancelled' });
       }
       const pendingPayment = await prisma.payment.findFirst({ where: { orderId: order.id, gatewayOrder: razorpayOrderId } });
@@ -379,7 +354,7 @@ export class OrderController {
 
       const updated = await prisma.$transaction(async tx => {
         const result = await tx.order.updateMany({
-          where: { id: order.id, status: ORDER_STATUSES.PENDING, paymentStatus: PAYMENT_STATUSES.PENDING },
+          where: { id: order.id, status: ORDER_STATUSES.PENDING, paymentStatus: { in: ['PENDING', 'FAILED'] }, operationLock: null },
           data: { status: ORDER_STATUSES.CONFIRMED, paymentStatus: PAYMENT_STATUSES.COMPLETED, paymentId: razorpayPaymentId },
         });
         if (result.count !== 1) throw new Error('Payment was already processed');
@@ -411,11 +386,13 @@ export class OrderController {
       const order = await prisma.order.findFirst({ where: { orderNumber: req.params.orderNumber, ...(userId ? { userId } : {}) }, include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } } });
       if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
       if (order.paymentMethod === PAYMENT_METHODS.COD || order.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET) return res.status(400).json({ success: false, message: 'This order does not require online payment' });
-      if (order.status === ORDER_STATUSES.CANCELLED || order.paymentStatus === PAYMENT_STATUSES.COMPLETED) return res.status(409).json({ success: false, message: 'This order cannot be paid again' });
+      if (order.operationLock || !['PENDING', 'CONFIRMED'].includes(order.status) || !['PENDING', 'FAILED'].includes(order.paymentStatus)) return res.status(409).json({ success: false, message: 'This order cannot be paid again' });
       const paymentOrder = await PaymentService.createPaymentOrder({ orderNumber: order.orderNumber, amount: order.grandTotal, customerName: order.customerName, customerEmail: order.customerEmail, customerPhone: order.customerPhone });
-      const payment = order.payments[0];
-      if (payment) await prisma.payment.update({ where: { id: payment.id }, data: { gatewayOrder: paymentOrder.gatewayOrderId, status: PAYMENT_STATUSES.PENDING, transactionId: null } });
-      else await prisma.payment.create({ data: { orderId: order.id, amount: order.grandTotal, method: order.paymentMethod, status: PAYMENT_STATUSES.PENDING, gatewayOrder: paymentOrder.gatewayOrderId } });
+      await prisma.$transaction(async tx => {
+        const claim = await tx.order.updateMany({ where: { id: order.id, updatedAt: order.updatedAt, status: 'PENDING', paymentStatus: { in: ['PENDING', 'FAILED'] }, operationLock: null }, data: { paymentStatus: 'PENDING', updatedAt: new Date() } });
+        if (!claim.count) throw Object.assign(new Error('Order changed; refresh before retrying payment'), { statusCode: 409 });
+        await tx.payment.create({ data: { orderId: order.id, amount: order.grandTotal, method: order.paymentMethod, status: 'PENDING', gatewayOrder: paymentOrder.gatewayOrderId } });
+      });
       res.json({ success: true, data: { order: { orderNumber: order.orderNumber, grandTotal: order.grandTotal }, paymentOrder } });
     } catch (error) { next(error); }
   }
@@ -424,8 +401,11 @@ export class OrderController {
     try {
       const order = await prisma.order.findFirst({ where: { orderNumber: req.params.orderNumber, userId: req.user?.id }, include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } } });
       if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-      if (order.paymentStatus !== PAYMENT_STATUSES.COMPLETED) {
-        await prisma.$transaction([prisma.order.update({ where: { id: order.id }, data: { paymentStatus: PAYMENT_STATUSES.FAILED } }), ...(order.payments[0] ? [prisma.payment.update({ where: { id: order.payments[0].id }, data: { status: PAYMENT_STATUSES.FAILED } })] : [])]);
+      if (['PENDING', 'FAILED'].includes(order.paymentStatus) && order.status === 'PENDING' && !order.operationLock) {
+        await prisma.$transaction(async tx => {
+          const claim = await tx.order.updateMany({ where: { id: order.id, status: 'PENDING', operationLock: null, paymentStatus: { in: ['PENDING', 'FAILED'] } }, data: { paymentStatus: 'PENDING' } });
+          if (claim.count && order.payments[0]) await tx.payment.updateMany({ where: { id: order.payments[0].id, status: { in: ['PENDING', 'FAILED'] } }, data: { status: 'FAILED' } });
+        });
       }
       res.json({ success: true });
     } catch (error) { next(error); }
@@ -517,7 +497,7 @@ export class OrderController {
       if (!canRequestReturn(order.status, order.statusHistory)) {
         return res.status(400).json({ success: false, message: 'The seven-day return window has ended' });
       }
-      if (!order.items.some(item => item.id === input.orderItemId)) return res.status(400).json({ success: false, message: 'Item does not belong to this order' });
+      if (!order.items.some(item => item.id === input.orderItemId && !item.cancelled)) return res.status(400).json({ success: false, message: 'Item does not belong to this order' });
       const request = await prisma.returnRequest.create({ data: {
         orderId: order.id, orderItemId: input.orderItemId, userId, reason: input.reason, message: input.message,
       } });
@@ -541,48 +521,48 @@ export class OrderController {
   public static async updateReturnRequest(req: Request, res: Response, next: NextFunction) {
     try {
       const input = returnUpdateSchema.parse(req.body);
-      const current = await prisma.returnRequest.findUnique({ where: { id: req.params.requestId }, include: { order: { include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } } }, orderItem: true } });
+      const current = await prisma.returnRequest.findUnique({ where: { id: req.params.requestId }, include: { order: { include: { payments: true, refunds: true, items: { include: { returnRequest: true } } } }, orderItem: true } });
       if (!current) return res.status(404).json({ success: false, message: 'Return request not found' });
-      const nextStatuses: Record<string, string[]> = { REQUESTED: ['APPROVED', 'REJECTED'], APPROVED: ['RECEIVED'], RECEIVED: ['COMPLETED'] };
-      if (!nextStatuses[current.status]?.includes(input.status)) return res.status(400).json({ success: false, message: 'Invalid return status change' });
-      if (input.status === 'REJECTED' && !input.adminNote?.trim()) return res.status(400).json({ success: false, message: 'Explain why the return was rejected' });
-      let refund: { id?: string; status?: string } | null = null;
-      let refundNeedsManualProcessing = false;
-      const walletRefund = input.status === 'COMPLETED' && current.order.paymentMethod === PAYMENT_METHODS.PICK2BUY_WALLET && current.order.paymentStatus === PAYMENT_STATUSES.COMPLETED;
-      if (input.status === 'COMPLETED' && current.order.paymentMethod !== PAYMENT_METHODS.COD && current.order.paymentStatus === PAYMENT_STATUSES.COMPLETED) {
-        if (walletRefund) refund = { status: 'processed' };
-        else {
-          const paymentId = current.order.paymentId || current.order.payments[0]?.transactionId;
-          if (!paymentId) return res.status(409).json({ success: false, message: 'Payment reference is missing; refund cannot be created automatically' });
-          try {
-            refund = await PaymentService.createRefund(paymentId, current.orderItem.total, { orderNumber: current.order.orderNumber, reason: 'Return approved' });
-          } catch {
-            // The returned item is accepted even if a legacy/test gateway payment cannot be refunded automatically.
-            // Keep a pending refund record so staff can finish it manually in Razorpay.
-            refund = { status: 'pending' };
-            refundNeedsManualProcessing = true;
-          }
+      const transitions: Record<string, string[]> = { REQUESTED: ['APPROVED', 'REJECTED'], APPROVED: ['RECEIVED'], RECEIVED: ['COMPLETED'] };
+      if (!transitions[current.status]?.includes(input.status)) return res.status(409).json({ success: false, message: 'Return status changed or transition is invalid' });
+      if (input.status === 'REJECTED' && !input.adminNote?.trim()) return res.status(400).json({ success: false, message: 'Explain the rejection' });
+      if (input.status !== 'COMPLETED') {
+        const changed = await prisma.returnRequest.updateMany({ where: { id: current.id, status: current.status }, data: { status: input.status, adminNote: input.adminNote || current.adminNote } });
+        if (!changed.count) return res.status(409).json({ success: false, message: 'Return changed. Refresh and try again.' });
+        return res.json({ success: true });
+      }
+      const order = current.order;
+      if (order.paymentStatus !== 'COMPLETED') return res.status(409).json({ success: false, message: 'Confirm payment collection before completing a refund' });
+      const claim = await prisma.order.updateMany({ where: { id: order.id, operationLock: null, updatedAt: order.updatedAt }, data: { operationLock: current.id } });
+      if (!claim.count) return res.status(409).json({ success: false, message: 'Another refund is processing. Contact support if it remains pending.' });
+      const amount = Math.round(Math.max(0, Math.min(order.grandTotal - order.refunds.reduce((s, r) => s + r.amount, 0), current.orderItem.total * (1 - order.discountAmount / Math.max(1, order.subtotal)))) * 100) / 100;
+      const wallet = ['COD', 'PICK2BUY_WALLET'].includes(order.paymentMethod);
+      let refund: { id?: string; status?: string } = { status: 'processed' };
+      try {
+        if (!wallet && amount > 0) {
+          const paymentId = order.paymentId || order.payments.find(p => p.transactionId)?.transactionId;
+          if (!paymentId) throw new Error('Missing payment reference. Contact support to reconcile this refund.');
+          refund = await PaymentService.createRefund(paymentId, amount, { orderNumber: order.orderNumber, returnRequestId: current.id });
         }
-      }
-      const updated = await prisma.returnRequest.updateMany({
-        where: { id: current.id, status: current.status },
-        data: { status: input.status, adminNote: refundNeedsManualProcessing ? 'Refund pending — process manually in Razorpay dashboard.' : (input.adminNote || current.adminNote) },
-      });
-      if (updated.count !== 1) return res.status(409).json({ success: false, message: 'Return request changed; reload and try again' });
-      if (refund) {
         await prisma.$transaction(async tx => {
-          if (walletRefund) {
-            const wallet = await tx.wallet.upsert({ where: { userId: current.userId }, create: { userId: current.userId, balance: current.orderItem.total }, update: { balance: { increment: current.orderItem.total } } });
-            await tx.walletTransaction.create({ data: { walletId: wallet.id, amount: current.orderItem.total, type: 'CREDIT', reason: `Return refund for ${current.order.orderNumber}`, reference: current.id } });
+          const changed = await tx.returnRequest.updateMany({ where: { id: current.id, status: 'RECEIVED' }, data: { status: 'COMPLETED', adminNote: input.adminNote || current.adminNote } });
+          if (!changed.count) throw Object.assign(new Error('Return already processed'), { statusCode: 409 });
+          if (wallet && amount > 0) {
+            const balance = await tx.wallet.upsert({ where: { userId: current.userId }, create: { userId: current.userId, balance: amount }, update: { balance: { increment: amount } } });
+            await tx.walletTransaction.create({ data: { walletId: balance.id, amount, type: 'CREDIT', reason: 'Approved return refund', reference: current.id } });
           }
-          await tx.refund.create({ data: { orderId: current.orderId, amount: current.orderItem.total, reason: 'Return approved', status: refund?.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund?.id || null } });
-          if (!refundNeedsManualProcessing) {
-            await tx.payment.updateMany({ where: { orderId: current.orderId, status: PAYMENT_STATUSES.COMPLETED }, data: { status: PAYMENT_STATUSES.REFUNDED } });
-            await tx.order.update({ where: { id: current.orderId }, data: { paymentStatus: PAYMENT_STATUSES.REFUNDED, status: ORDER_STATUSES.REFUNDED, statusHistory: { create: { status: ORDER_STATUSES.REFUNDED, comment: `Refund created for returned item: ${current.orderItem.productName}` } } } });
-          }
+          if (amount > 0) await tx.refund.create({ data: { orderId: order.id, amount, reason: 'Return approved', status: refund.status === 'processed' ? 'COMPLETED' : 'PENDING', refundId: refund.id } });
+          await tx.product.update({ where: { id: current.orderItem.productId }, data: { stock: { increment: current.orderItem.quantity } } });
+          await tx.productVariant.updateMany({ where: { productId: current.orderItem.productId, sku: current.orderItem.sku }, data: { stock: { increment: current.orderItem.quantity } } });
+          await tx.inventoryTransaction.create({ data: { productId: current.orderItem.productId, quantity: current.orderItem.quantity, reason: 'RETURN_COMPLETED', referenceId: current.id } });
+          const all = order.items.every(i => i.cancelled || i.id === current.orderItemId || i.returnRequest?.status === 'COMPLETED');
+          await tx.order.update({ where: { id: order.id }, data: { operationLock: null, ...(all ? { status: 'REFUNDED', paymentStatus: 'REFUNDED' } : {}), statusHistory: { create: { status: all ? 'REFUNDED' : order.status, comment: 'Return completed: ' + current.orderItem.productName } } } });
         });
+      } catch (error) {
+        if (wallet) await prisma.order.updateMany({ where: { id: order.id, operationLock: current.id }, data: { operationLock: null } });
+        throw error;
       }
-      res.json({ success: true, message: refundNeedsManualProcessing ? 'Return completed. Refund is pending manual processing in Razorpay.' : 'Return request updated.', data: await prisma.returnRequest.findUnique({ where: { id: current.id } }) });
+      res.json({ success: true, message: 'Return completed and refund initiated' });
     } catch (error) { next(error); }
   }
 
@@ -602,6 +582,11 @@ export class OrderController {
       if (!order) {
         return res.status(404).json({ success: false, message: 'Order not found' });
       }
+      if (status === ORDER_STATUSES.CANCELLED) {
+        await cancelPurchase(orderId, req.user!.id, true, String(comment || 'Cancelled by administrator'));
+        return res.json({ success: true, data: await prisma.order.findUnique({ where: { id: orderId } }) });
+      }
+      if (order.operationLock) return res.status(409).json({ success: false, message: 'Refund/cancellation is being processed' });
       if (order.paymentMethod !== PAYMENT_METHODS.COD && order.paymentStatus !== PAYMENT_STATUSES.COMPLETED && status !== ORDER_STATUSES.CANCELLED) {
         return res.status(400).json({ success: false, message: 'Unpaid orders cannot be fulfilled' });
       }
@@ -627,7 +612,7 @@ export class OrderController {
       }
 
       const updated = await prisma.$transaction(async tx => {
-        const claim = await tx.order.updateMany({ where: { id: orderId, status: order.status }, data: { status } });
+        const claim = await tx.order.updateMany({ where: { id: orderId, status: order.status, updatedAt: order.updatedAt, operationLock: null }, data: { status, updatedAt: new Date(Math.max(Date.now(), order.updatedAt.getTime() + 1)) } });
         if (claim.count !== 1) throw Object.assign(new Error('Order status changed; reload and try again'), { statusCode: 409 });
         if (status === ORDER_STATUSES.CANCELLED && order.status !== ORDER_STATUSES.CANCELLED) {
           const items = await tx.orderItem.findMany({ where: { orderId } });
@@ -648,10 +633,14 @@ export class OrderController {
             await tx.couponUsage.deleteMany({ where: { orderId } });
           }
         }
+        if (status === 'DELIVERED' && order.paymentMethod === 'COD' && order.paymentStatus !== 'COMPLETED') {
+          await tx.payment.create({ data: { orderId, amount: order.grandTotal, method: 'COD', status: 'COMPLETED' } });
+        }
         return tx.order.update({
         where: { id: orderId },
         data: {
           status,
+          ...(status === 'DELIVERED' && order.paymentMethod === 'COD' ? { paymentStatus: 'COMPLETED' } : {}),
           trackingNumber: trackingNumber || order.trackingNumber,
           courierName: courierName || order.courierName,
           statusHistory: {

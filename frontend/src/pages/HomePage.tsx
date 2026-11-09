@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Flame, Headphones, RotateCcw, ShieldCheck, Sparkles, Truck } from 'lucide-react';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
+import { ProductCampaignBanners } from '../components/storefront/ProductCampaignBanners';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
 import { useCartStore } from '../store/useCartStore';
@@ -112,6 +113,7 @@ export const HomePage = () => {
       </Link>
     </section>
     {renderSection(sections[0], 'home-section--first')}
+    <ProductCampaignBanners products={products} />
     <section className="home-banner-section home-scroll-reveal">
       <div className="page-width home-banner-section__heading section-heading"><div><h2>Everyday Essentials.</h2></div></div>
       <StorefrontBanners />

@@ -21,6 +21,7 @@ export const RegisterPage: React.FC = () => {
     email: searchParams.get('email') || '',
     phone: '',
     password: '',
+    referralCode: searchParams.get('ref') || '',
   });
   const [errorMessage, setErrorMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({});
@@ -150,6 +151,7 @@ export const RegisterPage: React.FC = () => {
             {fieldErrors.phone && <p id="register-phone-error" className="mt-1 text-xs text-rose-600">{fieldErrors.phone}</p>}
           </div>
 
+          <label className="block text-xs font-bold">Referral code (optional)<input value={form.referralCode} onChange={e => setForm({ ...form, referralCode: e.target.value.toUpperCase() })} maxLength={32} className="mt-1 w-full rounded-xl border p-3" /></label>
           <div>
             <label htmlFor="register-password" className="block text-xs font-bold text-slate-700 mb-1">Password (min 8 chars)</label>
             <div className="relative">

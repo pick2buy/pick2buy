@@ -5,7 +5,9 @@ import { SupportController } from '../controllers/support.controller';
 import { requireAuth } from '../middlewares/auth';
 import rateLimit from 'express-rate-limit';
 
+import { CommerceController } from '../controllers/commerce.controller';
 const router = Router();
+router.get('/me/referral', requireAuth, CommerceController.referral);
 const googleAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 const emailCheckLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 const passwordAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });

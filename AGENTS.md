@@ -4,6 +4,8 @@
 
 Before taking any task action, read [`CODEX_INSTRUCTIONS.md`](CODEX_INSTRUCTIONS.md). It contains the repository's mandatory privacy and secrets-handling rules for all developers and agents.
 
+Then read [`PROJECT_MEMORY.md`](PROJECT_MEMORY.md) for confirmed project context, deployment details, decisions, and outstanding work. Keep it updated when new durable facts are confirmed. Never record secrets, and label unknown or unverified details explicitly.
+
 This repository is worked on by multiple developers. Always synchronize with the remote repository before branching, merging, committing, or pushing.
 
 ## Before Starting Work

@@ -44,6 +44,7 @@ export const AdminProductsPage: React.FC = () => {
     price: 999,
     mrp: 1999,
     stock: 50,
+    maxPerCustomer: 99,
     status: 'ACTIVE',
     description: '',
     imageUrl: '',
@@ -87,7 +88,7 @@ export const AdminProductsPage: React.FC = () => {
     setEditingId(null);
     setFormErrors({});
     setImageUrlInput('');
-    setForm({ name: '', sku: '', categoryId: primaryCategories.find(category => !category.parentId)?.id || primaryCategories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, status: 'ACTIVE', description: '', imageUrl: '', imageUrls: [], sourcePlatform: 'OWN', sourceProductCode: '', sourceUrl: '', variants: [], isTrending: false, isFlashDeal: false, seasonCategoryIds: [] });
+    setForm({ name: '', sku: '', categoryId: primaryCategories.find(category => !category.parentId)?.id || primaryCategories[0]?.id || '', brandId: '', price: 999, mrp: 1999, stock: 0, maxPerCustomer: 99, status: 'ACTIVE', description: '', imageUrl: '', imageUrls: [], sourcePlatform: 'OWN', sourceProductCode: '', sourceUrl: '', variants: [], isTrending: false, isFlashDeal: false, seasonCategoryIds: [] });
     setIsModalOpen(true);
   };
 
@@ -97,7 +98,7 @@ export const AdminProductsPage: React.FC = () => {
     setEditingId(product.id);
     setFormErrors({});
     setForm({ name: product.name, sku: product.sku, categoryId: product.categoryId, brandId: product.brandId || '',
-      price: product.price, mrp: product.mrp, stock: product.stock, status: product.status,
+      price: product.price, mrp: product.mrp, stock: product.stock, maxPerCustomer: product.maxPerCustomer ?? 99, status: product.status,
       description: product.description, imageUrl: product.images?.[0]?.url || '', imageUrls: product.images?.map((image: any) => image.url) || [],
       sourcePlatform: product.sourcePlatform || 'OWN', sourceProductCode: product.sourceProductCode || '', sourceUrl: product.sourceUrl || '',
       variants: (product.variants || []).map((variant: any) => ({ name: variant.name, sku: variant.sku, size: variant.size || '', color: variant.color || '', price: variant.price, mrp: variant.mrp, stock: variant.stock })), isTrending: Boolean(product.isTrending), isFlashDeal: Boolean(product.isFlashDeal), seasonCategoryIds: (product.seasonTags || []).map((tag: any) => tag.categoryId) });
@@ -116,7 +117,7 @@ export const AdminProductsPage: React.FC = () => {
     else if (form.mrp < form.price) errors.mrp = 'MRP cannot be lower than the selling price.';
     if (!Number.isInteger(form.stock) || form.stock < 0) errors.stock = 'Enter a whole number of units.';
     if (form.description.trim().length < 10) errors.description = 'Enter a description with at least 10 characters.';
-    if (!form.imageUrls.length) errors.images = 'Upload a primary product image or add an image URL.';
+    if (form.imageUrls.length < 3) errors.images = 'Upload at least 3 product images.';
     if (form.imageUrl && !isProductImageUrl(form.imageUrl)) errors.imageUrl = 'Enter a valid image URL.';
     const imageUrls = Array.from(new Set([form.imageUrl, ...form.imageUrls].filter(Boolean)));
     for (const imageUrl of imageUrls) {
@@ -146,7 +147,7 @@ export const AdminProductsPage: React.FC = () => {
         : { sourcePlatform: 'OWN', sourceProductCode: undefined, sourceUrl: undefined };
       if (editingId) await api.updateProduct(editingId, {
         name: form.name, sku: form.sku, categoryId: form.categoryId, brandId: form.brandId || null,
-        price: form.price, mrp: form.mrp, stock: form.stock, description: form.description, status: form.status,
+        price: form.price, mrp: form.mrp, stock: form.stock, maxPerCustomer: form.maxPerCustomer, description: form.description, status: form.status,
         isTrending: form.isTrending, isFlashDeal: form.isFlashDeal, specifications,
         seasonCategoryIds: form.seasonCategoryIds,
         images: imageUrls.map((url, index) => ({ url, isPrimary: index === 0 })), variants: form.variants, ...sourceDetails,
@@ -524,6 +525,7 @@ export const AdminProductsPage: React.FC = () => {
                     onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
                     className={`w-full bg-slate-50 border rounded-xl p-2.5 outline-none ${formErrors.stock ? 'border-rose-500' : 'border-slate-200'}`}
                   />
+                  <label className="mt-2 block">Maximum per customer<input type="number" min="1" max="99" value={form.maxPerCustomer} onChange={e => setForm({ ...form, maxPerCustomer: Number(e.target.value) })} className="mt-1 w-full rounded border p-2" /></label>
                   {formErrors.stock && <p className="mt-1 text-rose-600">{formErrors.stock}</p>}
                 </div>
               </div>

@@ -40,7 +40,10 @@ const loadRazorpay = async () => {
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const { cart, fetchCart } = useCartStore();
+  const { cart, fetchCart, applyCoupon, removeCoupon } = useCartStore();
+  const [couponInput, setCouponInput] = useState('');
+  const [couponError, setCouponError] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
   const { user, fetchMe, hasCheckedAuth } = useAuthStore();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const appliedAddressForUser = useRef<string | null>(null);
@@ -148,8 +151,11 @@ export const CheckoutPage: React.FC = () => {
         const paymentOrder = res.data.paymentOrder;
         if (!window.Razorpay) throw new Error('Razorpay checkout is unavailable');
         const result = await new Promise<RazorpayResult>((resolve, reject) => {
+          let settled = false;
           const goToPaymentFailed = () => {
-            window.location.replace(`/payment-failed/${encodeURIComponent(order.orderNumber)}`);
+            if (settled) return;
+            settled = true;
+            void api.markPaymentFailed(order.orderNumber).finally(() => window.location.replace(`/payment-failed/${encodeURIComponent(order.orderNumber)}`));
           };
           const checkout = new window.Razorpay!({
             key: paymentOrder.keyId,
@@ -160,15 +166,17 @@ export const CheckoutPage: React.FC = () => {
             description: `Order ${order.orderNumber}`,
             prefill: { name: address.fullName, email: address.email, contact: address.mobile },
             theme: { color: '#082c82' },
-            handler: (response: RazorpayResult) => resolve(response),
+            handler: (response: RazorpayResult) => { if (!settled) { settled = true; resolve(response); } },
             modal: { ondismiss: () => {
+              if (settled) return;
               goToPaymentFailed();
               reject(new Error('Payment was cancelled. You can retry it below without creating another order.'));
             } },
           });
           checkout.on('payment.failed', (response: any) => {
-            checkout.close?.();
+            if (settled) return;
             goToPaymentFailed();
+            checkout.close?.();
             reject(new Error(response.error?.description || 'Payment failed. Please try again.'));
           });
           checkout.open();
@@ -398,9 +406,10 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               <div className="space-y-3">
+                {(cart?.subtotal || 0) > 1000 && <p className="text-xs text-amber-700">Cash on Delivery is unavailable for orders above INR 1,000. Choose online payment or wallet.</p>}
                 {/* Cash on Delivery */}
                 <label
-                  onClick={() => setPaymentMethod('COD')}
+                  onClick={() => { if ((cart?.subtotal || 0) <= 1000) setPaymentMethod('COD'); }}
                   className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                     paymentMethod === 'COD'
                       ? 'border-brand-primary bg-orange-50/60'
@@ -411,6 +420,7 @@ export const CheckoutPage: React.FC = () => {
                     type="radio"
                     name="payMethod"
                     checked={paymentMethod === 'COD'}
+                    disabled={(cart?.subtotal || 0) > 1000}
                     onChange={() => setPaymentMethod('COD')}
                     className="mt-1 accent-brand-primary"
                   />
@@ -594,6 +604,12 @@ export const CheckoutPage: React.FC = () => {
               <div className="flex justify-between text-slate-600">
                 <span>Items Subtotal</span>
                 <span className="font-semibold text-slate-900">{formatINR(cart?.subtotal || 0)}</span>
+              </div>
+              <div className="py-3 space-y-2">
+                <label htmlFor="checkout-coupon" className="text-xs font-bold">Coupon code</label>
+                <div className="flex gap-2"><input id="checkout-coupon" value={couponInput} onChange={e => setCouponInput(e.target.value)} disabled={Boolean(pendingPaymentOrder) || couponBusy} className="min-w-0 flex-1 rounded-lg border p-2 text-sm" /><button type="button" disabled={!couponInput.trim() || couponBusy || Boolean(pendingPaymentOrder)} onClick={async () => { setCouponBusy(true); setCouponError(''); try { await applyCoupon(couponInput.trim()); } catch (e: any) { setCouponError(e.message); } finally { setCouponBusy(false); } }} className="rounded-lg border px-3 text-sm">Apply</button></div>
+                {cart?.couponCode && <button type="button" disabled={couponBusy || Boolean(pendingPaymentOrder)} onClick={async () => { setCouponBusy(true); try { await removeCoupon(); setCouponInput(''); setCouponError(''); } catch (e: any) { setCouponError(e.message); } finally { setCouponBusy(false); } }} className="text-xs text-red-600">Remove {cart.couponCode}</button>}
+                {couponError && <p role="alert" className="text-xs text-red-600">{couponError}</p>}
               </div>
               {cart?.couponDiscount ? (
                 <div className="flex justify-between text-emerald-600 font-semibold">

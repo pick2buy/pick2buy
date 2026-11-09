@@ -6,7 +6,7 @@ interface WishlistState {
   isLoading: boolean;
   fetchWishlist: () => Promise<void>;
   toggleWishlist: (productId: string) => Promise<boolean>;
-  moveToCart: (productId: string) => Promise<void>;
+  moveToCart: (productId: string, variantId?: string) => Promise<void>;
   isWishlisted: (productId: string) => boolean;
 }
 
@@ -45,9 +45,9 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
     }
   },
 
-  moveToCart: async (productId: string) => {
+  moveToCart: async (productId: string, variantId?: string) => {
     try {
-      await api.moveToCart(productId);
+      await api.moveToCart(productId, variantId);
       await get().fetchWishlist();
     } catch (err) {
       throw err;

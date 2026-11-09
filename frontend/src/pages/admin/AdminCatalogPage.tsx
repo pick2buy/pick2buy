@@ -80,7 +80,7 @@ export const AdminCatalogPage = () => {
   };
 
   const remove = async (item: any) => {
-    if (!await confirmAction(`Delete ${item.name}?`, 'This item will be removed permanently.', 'Delete', true)) return;
+    if (!await confirmAction(`Delete ${item.name}?`, tab === 'brands' ? 'This brand will be removed permanently.' : 'This category will be archived and hidden from the catalog.', 'Delete', true)) return;
     setError('');
     try {
       if (tab === 'brands') await api.deleteBrand(item.id); else await api.deleteCategory(item.id);

@@ -14,6 +14,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   }
 
   // Never expose database-provider errors, query details, or filesystem paths to customers.
+  if (err?.code === 'P2034') return res.status(409).json({ success: false, message: 'Another update happened at the same time. Refresh and try again.' });
   if (err?.code === 'P2002') {
     return res.status(409).json({
       success: false,

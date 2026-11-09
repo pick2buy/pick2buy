@@ -27,6 +27,7 @@ export const ShopPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState(queryCategory);
   const [maxPrice, setMaxPrice] = useState<number>(5000);
   const [inStockOnly, setInStockOnly] = useState(false);
+  const [outOfStockOnly, setOutOfStockOnly] = useState(false);
   const [sortOption, setSortOption] = useState(querySort);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
@@ -42,7 +43,8 @@ export const ShopPage: React.FC = () => {
       q: queryQ,
       category: selectedCategory || undefined,
       maxPrice: maxPrice < 5000 ? maxPrice : undefined,
-      inStock: inStockOnly ? 'true' : undefined,
+      inStock: inStockOnly && !outOfStockOnly ? 'true' : undefined,
+      availability: outOfStockOnly ? 'out-of-stock' : undefined,
       sort: sortOption,
       flashDeal: queryFlash || undefined,
       trending: queryTrending || undefined,
@@ -58,11 +60,12 @@ export const ShopPage: React.FC = () => {
       .catch(() => { if (active) setError(true); })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
-  }, [queryQ, selectedCategory, maxPrice, inStockOnly, sortOption, queryFlash, queryTrending, retry]);
+  }, [queryQ, selectedCategory, maxPrice, inStockOnly, outOfStockOnly, sortOption, queryFlash, queryTrending, retry]);
 
   const filterRef = useModal(isMobileFilterOpen, () => setIsMobileFilterOpen(false));
   const clearAllFilters = () => {
     setSelectedCategory('');
+    setOutOfStockOnly(false);
     setMaxPrice(5000);
     setInStockOnly(false);
     setSortOption('featured');
@@ -93,6 +96,7 @@ export const ShopPage: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-2">
+            <label className="text-xs"><input type="checkbox" checked={outOfStockOnly} onChange={e => { setOutOfStockOnly(e.target.checked); setInStockOnly(false); }} /> Out of stock only</label>
             <span className="text-xs font-medium text-slate-500 hidden sm:inline">Sort By:</span>
             <select
               aria-label="Sort products" value={sortOption}
@@ -101,7 +105,7 @@ export const ShopPage: React.FC = () => {
             >
               <option value="featured">Featured & Recommended</option>
               <option value="newest">Newest Arrivals</option>
-              <option value="bestseller">Best Sellers</option>
+              <option value="bestseller">Best Sellers</option><option value="rating">Average rating</option><option value="name-asc">Name: A–Z</option><option value="name-desc">Name: Z–A</option>
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
             </select>

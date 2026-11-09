@@ -6,7 +6,18 @@ import { BrandController } from '../controllers/brand.controller';
 import { ReviewController } from '../controllers/review.controller';
 import { requireAdmin, requireStaff } from '../middlewares/auth';
 
+import { CommerceController } from '../controllers/commerce.controller';
+import { ReportController } from '../controllers/report.controller';
+import { LedgerController } from '../controllers/ledger.controller';
 const router = Router();
+router.get('/ledger', requireAdmin, LedgerController.list);
+router.get('/sales-report', requireAdmin, ReportController.sales);
+router.get('/users', requireStaff, CommerceController.customers);
+router.patch('/users/:id/block', requireAdmin, CommerceController.block);
+router.get('/offers', requireStaff, CommerceController.offers);
+router.post('/offers', requireAdmin, CommerceController.saveOffer);
+router.put('/offers/:id', requireAdmin, CommerceController.saveOffer);
+router.delete('/offers/:id', requireAdmin, CommerceController.deleteOffer);
 
 // Dashboard & Analytics
 router.get('/dashboard', requireStaff, AdminController.getDashboardMetrics);

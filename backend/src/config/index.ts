@@ -58,7 +58,7 @@ export const config = {
 
   cod: {
     enabled: true,
-    maxAmount: 3000,
+    maxAmount: 1000,
     fee: 49,
     restrictedPincodes: ['111111', '999999'],
   },

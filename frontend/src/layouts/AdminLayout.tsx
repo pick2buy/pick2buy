@@ -23,6 +23,9 @@ export const AdminLayout: React.FC = () => {
 
   const menuRef = useModal<HTMLElement>(menuOpen, () => setMenuOpen(false));
   const navItems = [
+    { label: 'Customers', icon: Users, path: '/admin/users' },
+    { label: 'Offers & Referrals', icon: Tag, path: '/admin/offers' },
+    { label: 'Sales Reports', icon: LayoutDashboard, path: '/admin/reports' },
     { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { label: 'Orders & Shipments', icon: ShoppingBag, path: '/admin/orders' },
     { label: 'Products Catalog', icon: Package, path: '/admin/products' },

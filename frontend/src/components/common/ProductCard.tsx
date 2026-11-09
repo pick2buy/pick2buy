@@ -177,9 +177,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, priority = fa
           >
             {product.name}
           </Link>
-          {product.stock > 0 && product.stock < 5 && (
+          {product.stock > 0 && (
             <p className="mt-1.5 text-[11px] font-bold text-amber-700" role="status">
-              Only {product.stock} left in stock
+              {product.stock} in stock
             </p>
           )}
         </div>
