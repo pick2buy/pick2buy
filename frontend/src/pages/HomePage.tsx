@@ -31,7 +31,10 @@ export const HomePage = () => {
   useEffect(() => {
     let active = true;
     setLoading(true); setError(false);
-    api.getProducts({ limit: 50 })
+    // The home page renders a handful of products per section. Fetching the
+    // full catalogue here delayed first paint and caused unnecessary image
+    // work; the Shop page remains the place for full pagination.
+    api.getProducts({ limit: 20 })
       .then((items) => { if (active) setProducts(items.data || []); })
       .catch(() => { if (active) setError(true); })
       .finally(() => { if (active) setLoading(false); });
