@@ -404,26 +404,32 @@ export class ProductController {
       const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
       // Similar products can share the main category or a seasonal collection.
-      const offers = await activeOffers();
       const seasonCategoryIds = product.seasonTags.map((tag) => tag.categoryId);
-      const relatedProducts = await prisma.product.findMany({
-        where: {
-          id: { not: product.id },
-          status: 'ACTIVE',
-          category: { deletedAt: null },
-          OR: [
-            { categoryId: product.categoryId },
-            ...(seasonCategoryIds.length ? [{ seasonTags: { some: { categoryId: { in: seasonCategoryIds } } } }] : []),
-          ],
-        },
-        include: {
-          images: { orderBy: { displayOrder: 'asc' } },
-          category: true,
-          seasonTags: { include: { category: { select: { id: true, name: true, slug: true } } } },
-        },
-        take: 4,
-      });
+      const [offers, relatedProducts] = await Promise.all([
+        activeOffers(),
+        prisma.product.findMany({
+          where: {
+            id: { not: product.id },
+            status: 'ACTIVE',
+            category: { deletedAt: null },
+            OR: [
+              { categoryId: product.categoryId },
+              ...(seasonCategoryIds.length ? [{ seasonTags: { some: { categoryId: { in: seasonCategoryIds } } } }] : []),
+            ],
+          },
+          select: {
+            id: true, name: true, slug: true, price: true, mrp: true,
+            discountPercentage: true, stock: true, status: true, maxPerCustomer: true,
+            categoryId: true, brandId: true, isFlashDeal: true,
+            images: { select: { url: true, altText: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
+            category: { select: { name: true, slug: true } },
+            brand: { select: { name: true, slug: true } },
+          },
+          take: 4,
+        }),
+      ]);
 
+      res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
       res.json({
         success: true,
         data: {
