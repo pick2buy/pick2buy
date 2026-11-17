@@ -37,6 +37,16 @@ export class SupportController {
         description: data.description,
         category: 'OTHER',
       } });
+      const admins = await prisma.user.findMany({ where: { role: 'ADMIN', isBlocked: false }, select: { id: true } });
+      if (admins.length) {
+        await prisma.notification.createMany({ data: admins.map((admin) => ({
+          userId: admin.id,
+          title: 'New support ticket',
+          message: `${req.user!.name || 'A customer'} submitted “${ticket.subject}”.`,
+          type: 'SUPPORT_TICKET',
+          linkUrl: '/admin/tickets',
+        })) });
+      }
       res.status(201).json({ success: true, data: {
         id: ticket.id, ticketNumber: ticket.ticketNumber, subject: ticket.subject,
         description: ticket.description, status: ticket.status, createdAt: ticket.createdAt,

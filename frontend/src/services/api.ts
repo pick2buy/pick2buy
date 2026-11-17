@@ -154,6 +154,18 @@ class ApiClient {
     return this.request('/auth/me/tickets');
   }
 
+  public getMyNotifications() {
+    return this.request('/auth/me/notifications');
+  }
+
+  public markNotificationRead(notificationId: string) {
+    return this.request(`/auth/me/notifications/${notificationId}/read`, { method: 'PATCH' });
+  }
+
+  public markAllNotificationsRead() {
+    return this.request('/auth/me/notifications/read-all', { method: 'PATCH' });
+  }
+
   public requestEmailChange(email: string) {
     return this.request('/auth/change-email', { method: 'POST', body: JSON.stringify({ email }) });
   }

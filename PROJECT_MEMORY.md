@@ -48,6 +48,8 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 
 ## Commerce implementation — local work, not deployed
 
+- On 2026-11-17, the local product API returned HTTP 500 because the generated Prisma client was stale and the migration helper ignored the local `DATABASE_URL`. Regenerated Prisma Client after confirming migrations were applied, updated `backend/scripts/prisma-postgres.cjs` to fall back to local `DATABASE_URL`, and verified `/api/products` returns product data. This local fix is not yet committed or deployed.
+
 - Added migration `20261109000000_commerce_features` for blocking/referrals, soft-deleted categories, per-product quantity limits, order operation locks, cancelled items, historical MRP snapshots, restricted coupons, and offers. Applied successfully to the locally configured cloud database on 2026-11-09 with explicit user approval. Product/order/user counts were unchanged before and after. Local products and categories APIs returned HTTP 200 afterwards; previously products returned 500 because schema fields were missing. Code has not been pushed/deployed as part of this migration.
 - Wishlist-to-cart now validates stock/variants/aggregate product limits and removes the saved item only inside the successful cart transaction. Cart limits apply per order/cart, not lifetime purchases.
 - Cancellation supports individual items and restores product/variant stock. Online refunds go to the original Razorpay source; wallet payments and paid COD refunds go to the wallet. Returns require admin confirmation before refund. Gateway sandbox/end-to-end refund verification remains outstanding.
@@ -57,3 +59,4 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 - Referral reward: one owner-restricted 10% coupon (maximum INR100, minimum order INR499, valid 30 days) after the referred email signup is verified. Google signup referral attribution is not implemented.
 - Reports use order creation dates and India calendar boundaries; historical orders without MRP snapshots cannot reconstruct old product-discount totals. Report refunds include pending refund obligations.
 - Production migration/deploy and live payment verification are separate from local build and isolated SQLite regression tests. Do not infer production readiness from those tests alone.
+- On 2026-11-17, support tickets now create persistent notifications for all active admins, and admin replies notify the ticket owner. Authenticated users can read/mark notifications through `/api/auth/me/notifications`; the storefront header displays a polling notification bell/dropdown for both customer and admin accounts.

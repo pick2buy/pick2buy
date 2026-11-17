@@ -6,6 +6,7 @@ import { requireAuth } from '../middlewares/auth';
 import rateLimit from 'express-rate-limit';
 
 import { CommerceController } from '../controllers/commerce.controller';
+import { NotificationController } from '../controllers/notification.controller';
 const router = Router();
 router.get('/me/referral', requireAuth, CommerceController.referral);
 const googleAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
@@ -24,6 +25,9 @@ router.post('/google', googleAuthLimiter, AuthController.google);
 router.post('/google/link', googleAuthLimiter, requireAuth, AuthController.linkGoogle);
 router.post('/logout', requireAuth, AuthController.logout);
 router.get('/me', requireAuth, AuthController.me);
+router.get('/me/notifications', requireAuth, NotificationController.listMine);
+router.patch('/me/notifications/read-all', requireAuth, NotificationController.markAllRead);
+router.patch('/me/notifications/:notificationId/read', requireAuth, NotificationController.markRead);
 router.patch('/me', requireAuth, AuthController.updateProfile);
 router.post('/me/addresses', requireAuth, AddressController.create);
 router.patch('/me/addresses/:id', requireAuth, AddressController.update);
