@@ -3,6 +3,8 @@ import { prisma } from '../lib/prisma';
 import { couponCreateSchema, leadCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
 import { z } from 'zod';
+import { storefrontCache } from '../lib/storefrontCache';
+import type { Banner } from '@prisma/client';
 
 const bannerImage = z.string().trim()
   .refine(
@@ -388,13 +390,13 @@ export class AdminController {
   public static async getActiveBanners(req: Request, res: Response, next: NextFunction) {
     try {
       const now = new Date();
-      const banners = await prisma.banner.findMany({
-        where: { isActive: true, AND: [
-          { OR: [{ startDate: null }, { startDate: { lte: now } }] },
-          { OR: [{ endDate: null }, { endDate: { gte: now } }] },
-        ] },
+      // Cache active records, then check dates per response so scheduled banners
+      // still start and stop on time while their database records are cached.
+      const active = await storefrontCache.getOrLoad('banners', () => prisma.banner.findMany({
+        where: { isActive: true },
         orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
-      });
+      }), 30_000) as Banner[];
+      const banners = active.filter(banner => (!banner.startDate || banner.startDate <= now) && (!banner.endDate || banner.endDate >= now));
       res.json({ success: true, data: banners });
     } catch (error) { next(error); }
   }
@@ -417,6 +419,7 @@ export class AdminController {
       const banner = await prisma.banner.create({
         data: { ...bannerData(input), title: input.title, desktopImageUrl: input.desktopImageUrl, linkUrl: input.linkUrl, displayOrder: input.displayOrder, isActive: input.isActive },
       });
+      storefrontCache.clear();
       res.status(201).json({ success: true, data: banner });
     } catch (error) {
       next(error);
@@ -436,6 +439,7 @@ export class AdminController {
         where: { id },
         data: bannerData(input),
       });
+      storefrontCache.clear();
       res.json({ success: true, data: banner });
     } catch (error) {
       next(error);
@@ -446,6 +450,7 @@ export class AdminController {
     try {
       const { id } = req.params;
       await prisma.banner.delete({ where: { id } });
+      storefrontCache.clear();
       res.json({ success: true, message: 'Banner deleted' });
     } catch (error) {
       next(error);

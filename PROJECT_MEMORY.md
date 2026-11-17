@@ -1,6 +1,6 @@
 # Pick2Buy project memory
 
-Last updated: 2026-11-09 (Asia/Kolkata).
+Last updated: 2026-11-17 (Asia/Kolkata).
 
 ## How to use this file
 
@@ -25,6 +25,7 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 - Production hosting provider: Render.
 - Frontend: Render Static Site, with Render origin `pick2buy-1.onrender.com`; it now serves `pick2buy.in` and redirects `www.pick2buy.in` to the apex domain.
 - Backend: Render Web Service at `pick2buy.onrender.com`.
+- On 2026-11-17, the user confirmed the backend uses Render Free. They chose to optimize the existing deployment rather than migrate or upgrade. Render's idle spin-down remains a separate limitation from database query performance.
 - On 2026-11-07, `pick2buy.in` and `www.pick2buy.in` both became verified and received TLS certificates in Render.
 - After custom-domain connection, backend logs showed CORS `Origin not allowed` for storefront API requests. The backend `FRONTEND_URL` must allow `https://pick2buy.in` and `https://www.pick2buy.in` (and can retain the Render static-site origin for compatibility).
 
@@ -38,6 +39,12 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 ## User preference
 
 - The user requested repository-based Markdown memory so future work can retain project context and avoid repeatedly asking for established details.
+
+## Performance optimization — local work, not deployed
+
+- On 2026-11-17, branch `codex/catalog-performance` added a bounded cache that shares concurrent catalog loads, 30-second server caches for categories and active banner records, parallel product/offer/count reads, and skipped redundant counts for computed sorting. Product/category/banner edits invalidate server caches; banner schedules are checked on every response.
+- The frontend reuses public product-list/category-list/banner responses for 15 seconds and shares concurrent requests. Mutations clear this cache; account/cart/payment responses and role-dependent product details are excluded. Secondary routes load on demand, reducing the main compressed JavaScript bundle from approximately 159 KB to 96 KB in the local build.
+- Validation: typecheck, production build, and 29 isolated SQLite regression tests passed. Local cached catalog responses measured 8–9 ms through Vite; the first product request still measured approximately 1.9 seconds. These are local observations, not production guarantees. No deployment or database migration was performed.
 
 ## Commerce implementation — local work, not deployed
 

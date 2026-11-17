@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { activeOffers, priceProduct } from '../lib/offers';
 import { categoryCreateSchema } from '@pick2buy/shared';
 import { z } from 'zod';
+import { storefrontCache } from '../lib/storefrontCache';
 
 const categoryFields = categoryCreateSchema.extend({
   imageUrl: z.string().url().nullable().optional(),
@@ -31,7 +32,7 @@ function handleCategoryError(error: any, next: NextFunction) {
 export class CategoryController {
   public static async getCategories(req: Request, res: Response, next: NextFunction) {
     try {
-      const categories = await prisma.category.findMany({
+      const categories = await storefrontCache.getOrLoad('categories', () => prisma.category.findMany({
         where: { parentId: null, isVisible: true, deletedAt: null },
         include: {
           children: {
@@ -43,7 +44,7 @@ export class CategoryController {
           _count: { select: { products: true } },
         },
         orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
-      });
+      }), 30_000);
 
       res.json({
         success: true,
@@ -143,6 +144,7 @@ export class CategoryController {
         },
       });
 
+      storefrontCache.clear();
       res.status(201).json({
         success: true,
         data: category,
@@ -164,6 +166,7 @@ export class CategoryController {
         data: { ...data, ...(slug === undefined ? {} : { slug }), ...(parentId === undefined ? {} : { parentId }) },
       });
 
+      storefrontCache.clear();
       res.json({
         success: true,
         data: category,
@@ -180,6 +183,7 @@ export class CategoryController {
       if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
       if (category._count.products || category._count.children) return res.status(409).json({ success: false, message: 'Move or remove linked products and subcategories before deleting this category' });
       await prisma.category.update({ where: { id }, data: { deletedAt: new Date(), isVisible: false } });
+      storefrontCache.clear();
       res.json({
         success: true,
         message: 'Category archived',

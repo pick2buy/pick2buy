@@ -1,10 +1,12 @@
 import { getSessionId } from '../lib/utils';
+import { AsyncCache } from '@pick2buy/shared';
 
 // Local development uses Vite's /api proxy. Hosted deployments can point the
 // storefront at a separately deployed API, for example https://api.pick2buy.in/api.
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 class ApiClient {
+  private catalogCache = new AsyncCache<unknown>(50);
   public commerce(endpoint: string, method = 'GET', body?: unknown) {
     return this.request(endpoint, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   }
@@ -22,6 +24,20 @@ class ApiClient {
   }
 
   private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const method = (options.method || 'GET').toUpperCase();
+    if (method !== 'GET') this.catalogCache.clear();
+    // Only these three endpoints return the same public data for all shoppers.
+    // Do not cache product details (admin visibility), carts or account data.
+    const publicCatalog = /^\/(products|categories|banners)(\?|$)/.test(endpoint);
+    if (method === 'GET' && publicCatalog && !options.signal && !options.headers) {
+      return this.catalogCache.getOrLoad(endpoint, () => this.fetchResponse<T>(endpoint, options), 15_000) as Promise<T>;
+    }
+    const result = await this.fetchResponse<T>(endpoint, options);
+    if (method !== 'GET') this.catalogCache.clear();
+    return result;
+  }
+
+  private async fetchResponse<T>(endpoint: string, options: RequestInit): Promise<T> {
     const token = this.getToken();
     const sessionId = getSessionId();
 

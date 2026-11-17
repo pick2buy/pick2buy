@@ -4,6 +4,7 @@ import { productCreateSchema } from '@pick2buy/shared';
 import { createAuditLog } from '../lib/audit';
 import { z } from 'zod';
 import { activeOffers, priceProduct } from '../lib/offers';
+import { storefrontCache } from '../lib/storefrontCache';
 import { config } from '../config';
 import { StorageError, uploadProductImage } from '../lib/supabaseStorage';
 
@@ -138,10 +139,8 @@ export class ProductController {
   // The storefront asks for the same catalogue repeatedly while users browse
   // home, search, categories and back/forward navigation. Keep the compact
   // response in memory briefly so those requests do not wait for Postgres.
-  private static catalogCache = new Map<string, { expiresAt: number; payload: unknown }>();
-
   public static clearCatalogCache() {
-    ProductController.catalogCache.clear();
+    storefrontCache.clear();
   }
 
   public static async uploadImage(req: Request, res: Response, next: NextFunction) {
@@ -212,14 +211,7 @@ export class ProductController {
         limit = '20',
       } = req.query;
 
-      const cacheKey = JSON.stringify(req.query);
-      const cached = ProductController.catalogCache.get(cacheKey);
-      if (cached && cached.expiresAt > Date.now()) {
-        // Keep the fast cache inside this server, but never let a customer's
-        // browser keep an old catalogue after an admin changes a product.
-        res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
-        return res.json(cached.payload);
-      }
+      const cacheKey = `products:${JSON.stringify(Object.entries(req.query).sort(([a], [b]) => a.localeCompare(b)))}`;
 
       const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
       const take = Math.min(50, Math.max(1, parseInt(limit as string, 10) || 20));
@@ -281,86 +273,87 @@ export class ProductController {
       else if (sort === 'name-desc') orderBy = { name: 'desc' };
       else if (sort === 'featured') orderBy = [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
 
-      const offers = await activeOffers();
-      const computedSort = ['rating', 'bestseller', 'price-low', 'price-high'].includes(String(sort)) || Boolean(rating) || minimumPrice !== undefined || maximumPrice !== undefined;
-      const [products, total] = await Promise.all([
-        prisma.product.findMany({
-          where,
-          // Storefront cards need only a compact catalogue shape. Fetching
-          // every variant, specification and gallery image delayed the point
-          // at which the browser received image URLs.
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            price: true,
-            mrp: true,
-            discountPercentage: true,
-            stock: true,
-            status: true,
-            maxPerCustomer: true,
-            orderItems: { where: { cancelled: false, order: { paymentStatus: 'COMPLETED', status: { notIn: ['CANCELLED', 'REFUNDED'] } } }, select: { quantity: true } },
-            isFeatured: true,
-            isBestSeller: true,
-            isTrending: true,
-            isFlashDeal: true,
-            flashDealEnd: true,
-            categoryId: true,
-            brandId: true,
-            createdAt: true,
-            // Cards only render a primary image. Returning all gallery photos here
-            // made the catalog response unnecessarily large.
-            images: { select: { url: true, altText: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
-            category: { select: { name: true, slug: true } },
-            brand: { select: { name: true, slug: true } },
-            seasonTags: { include: { category: { select: { id: true, name: true, slug: true } } } },
-            reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
-          },
-          orderBy,
-          ...(computedSort ? {} : { skip, take }),
-        }),
-        prisma.product.count({ where }),
-      ]);
+      const payload = await storefrontCache.getOrLoad(cacheKey, async () => {
+        const computedSort = ['rating', 'bestseller', 'price-low', 'price-high'].includes(String(sort)) || Boolean(rating) || minimumPrice !== undefined || maximumPrice !== undefined;
+        const [offers, products, total] = await Promise.all([
+          activeOffers(),
+          prisma.product.findMany({
+            where,
+            // Storefront cards need only a compact catalogue shape. Fetching
+            // every variant, specification and gallery image delayed the point
+            // at which the browser received image URLs.
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              price: true,
+              mrp: true,
+              discountPercentage: true,
+              stock: true,
+              status: true,
+              maxPerCustomer: true,
+              orderItems: { where: { cancelled: false, order: { paymentStatus: 'COMPLETED', status: { notIn: ['CANCELLED', 'REFUNDED'] } } }, select: { quantity: true } },
+              isFeatured: true,
+              isBestSeller: true,
+              isTrending: true,
+              isFlashDeal: true,
+              flashDealEnd: true,
+              categoryId: true,
+              brandId: true,
+              createdAt: true,
+              // Cards only render a primary image. Returning all gallery photos here
+              // made the catalog response unnecessarily large.
+              images: { select: { url: true, altText: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
+              category: { select: { name: true, slug: true } },
+              brand: { select: { name: true, slug: true } },
+              seasonTags: { include: { category: { select: { id: true, name: true, slug: true } } } },
+              reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
+            },
+            orderBy,
+            ...(computedSort ? {} : { skip, take }),
+          }),
+          computedSort ? Promise.resolve(0) : prisma.product.count({ where }),
+        ]);
 
-      let formatted = products.map((p) => {
-        const ratings = p.reviews.map((r) => r.rating);
-        const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+        let formatted = products.map((p) => {
+          const ratings = p.reviews.map((r) => r.rating);
+          const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+          return {
+            ...priceProduct(p, offers),
+            stock: p.status === 'OUT_OF_STOCK' ? 0 : p.stock,
+            salesCount: p.orderItems.reduce((sum, item) => sum + item.quantity, 0),
+            orderItems: undefined,
+            averageRating: Number(avg.toFixed(1)),
+            reviewCount: p.reviews.length,
+          };
+        });
+
+        if (minimumPrice !== undefined) formatted = formatted.filter(p => p.price >= minimumPrice);
+        if (maximumPrice !== undefined) formatted = formatted.filter(p => p.price <= maximumPrice);
+        if (rating) formatted = formatted.filter(p => p.averageRating >= Number(rating));
+        if (sort === 'rating') formatted.sort((a, b) => b.averageRating - a.averageRating || a.id.localeCompare(b.id));
+        if (sort === 'bestseller') formatted.sort((a, b) => b.salesCount - a.salesCount || a.id.localeCompare(b.id));
+        if (sort === 'price-low') formatted.sort((a, b) => a.price - b.price || a.id.localeCompare(b.id));
+        if (sort === 'price-high') formatted.sort((a, b) => b.price - a.price || a.id.localeCompare(b.id));
+        const filteredTotal = computedSort ? formatted.length : total;
+        if (computedSort) formatted = formatted.slice(skip, skip + take);
+        // Product cards can be cached briefly. Uploaded images are versioned and
+        // immutable, so this lets repeat storefront visits start instantly.
+        // The public catalogue is identical for all visitors. A short browser/CDN
+        // cache avoids repeating the same query on every navigation while the
+        // server-side cache keeps admin edits visible within a minute.
         return {
-          ...priceProduct(p, offers),
-          stock: p.status === 'OUT_OF_STOCK' ? 0 : p.stock,
-          salesCount: p.orderItems.reduce((sum, item) => sum + item.quantity, 0),
-          orderItems: undefined,
-          averageRating: Number(avg.toFixed(1)),
-          reviewCount: p.reviews.length,
+          success: true,
+          data: formatted,
+          meta: {
+            page: pageNum,
+            limit: take,
+            total: filteredTotal,
+            totalPages: Math.ceil(filteredTotal / take),
+          },
         };
-      });
-
-      if (minimumPrice !== undefined) formatted = formatted.filter(p => p.price >= minimumPrice);
-      if (maximumPrice !== undefined) formatted = formatted.filter(p => p.price <= maximumPrice);
-      if (rating) formatted = formatted.filter(p => p.averageRating >= Number(rating));
-      if (sort === 'rating') formatted.sort((a, b) => b.averageRating - a.averageRating || a.id.localeCompare(b.id));
-      if (sort === 'bestseller') formatted.sort((a, b) => b.salesCount - a.salesCount || a.id.localeCompare(b.id));
-      if (sort === 'price-low') formatted.sort((a, b) => a.price - b.price || a.id.localeCompare(b.id));
-      if (sort === 'price-high') formatted.sort((a, b) => b.price - a.price || a.id.localeCompare(b.id));
-      const filteredTotal = computedSort ? formatted.length : total;
-      if (computedSort) formatted = formatted.slice(skip, skip + take);
-      // Product cards can be cached briefly. Uploaded images are versioned and
-      // immutable, so this lets repeat storefront visits start instantly.
-      // The public catalogue is identical for all visitors. A short browser/CDN
-      // cache avoids repeating the same query on every navigation while the
-      // server-side cache keeps admin edits visible within a minute.
+      }, 60_000);
       res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
-      const payload = {
-        success: true,
-        data: formatted,
-        meta: {
-          page: pageNum,
-          limit: take,
-          total: filteredTotal,
-          totalPages: Math.ceil(filteredTotal / take),
-        },
-      };
-      ProductController.catalogCache.set(cacheKey, { expiresAt: Date.now() + 60_000, payload });
       res.json(payload);
     } catch (error) {
       next(error);

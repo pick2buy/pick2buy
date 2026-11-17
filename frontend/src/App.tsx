@@ -1,44 +1,45 @@
-import React, { useEffect } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { CartDrawer } from './components/common/CartDrawer';
 import { HomePage } from './pages/HomePage';
-import { ShopPage } from './pages/ShopPage';
-import { CategoryPage } from './pages/CategoryPage';
-import { ProductPage } from './pages/ProductPage';
-import { CartPage } from './pages/CartPage';
-import { WishlistPage } from './pages/WishlistPage';
-import { CheckoutPage } from './pages/CheckoutPage';
-import { BuyNowPage } from './pages/BuyNowPage';
-import { OrderSuccessPage } from './pages/OrderSuccessPage';
-import { OrderTrackingPage } from './pages/OrderTrackingPage';
-import { ReceiptPage } from './pages/ReceiptPage';
-import { PaymentFailedPage } from './pages/PaymentFailedPage';
-import { OrderCancelledPage } from './pages/OrderCancelledPage';
-import { AccountPage } from './pages/AccountPage';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { InfoPage } from './pages/InfoPage';
-import { AdminLayout } from './layouts/AdminLayout';
-import { AdminUsersPage } from './pages/admin/AdminUsersPage';
-import { AdminOffersPage } from './pages/admin/AdminOffersPage';
-import { AdminSalesPage } from './pages/admin/AdminSalesPage';
-import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
-import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
-import { AdminProductsPage } from './pages/admin/AdminProductsPage';
-import { AdminInventoryPage } from './pages/admin/AdminInventoryPage';
-import { AdminCrmPage } from './pages/admin/AdminCrmPage';
-import { AdminTicketsPage } from './pages/admin/AdminTicketsPage';
-import { AdminCouponsPage } from './pages/admin/AdminCouponsPage';
-import { AdminAuditPage } from './pages/admin/AdminAuditPage';
-import { AdminCatalogPage } from './pages/admin/AdminCatalogPage';
-import { AdminBannersPage } from './pages/admin/AdminBannersPage';
-import { AdminReviewsPage } from './pages/admin/AdminReviewsPage';
 import { useAuthStore } from './store/useAuthStore';
 import { ToastViewport } from './components/common/ToastViewport';
+
+const ShopPage = lazy(() => import('./pages/ShopPage').then(module => ({ default: module.ShopPage })));
+const CategoryPage = lazy(() => import('./pages/CategoryPage').then(module => ({ default: module.CategoryPage })));
+const ProductPage = lazy(() => import('./pages/ProductPage').then(module => ({ default: module.ProductPage })));
+const CartPage = lazy(() => import('./pages/CartPage').then(module => ({ default: module.CartPage })));
+const WishlistPage = lazy(() => import('./pages/WishlistPage').then(module => ({ default: module.WishlistPage })));
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage').then(module => ({ default: module.CheckoutPage })));
+const BuyNowPage = lazy(() => import('./pages/BuyNowPage').then(module => ({ default: module.BuyNowPage })));
+const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage').then(module => ({ default: module.OrderSuccessPage })));
+const OrderTrackingPage = lazy(() => import('./pages/OrderTrackingPage').then(module => ({ default: module.OrderTrackingPage })));
+const ReceiptPage = lazy(() => import('./pages/ReceiptPage').then(module => ({ default: module.ReceiptPage })));
+const PaymentFailedPage = lazy(() => import('./pages/PaymentFailedPage').then(module => ({ default: module.PaymentFailedPage })));
+const OrderCancelledPage = lazy(() => import('./pages/OrderCancelledPage').then(module => ({ default: module.OrderCancelledPage })));
+const AccountPage = lazy(() => import('./pages/AccountPage').then(module => ({ default: module.AccountPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then(module => ({ default: module.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then(module => ({ default: module.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(module => ({ default: module.ForgotPasswordPage })));
+const InfoPage = lazy(() => import('./pages/InfoPage').then(module => ({ default: module.InfoPage })));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout').then(module => ({ default: module.AdminLayout })));
+const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage').then(module => ({ default: module.AdminUsersPage })));
+const AdminOffersPage = lazy(() => import('./pages/admin/AdminOffersPage').then(module => ({ default: module.AdminOffersPage })));
+const AdminSalesPage = lazy(() => import('./pages/admin/AdminSalesPage').then(module => ({ default: module.AdminSalesPage })));
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
+const AdminOrdersPage = lazy(() => import('./pages/admin/AdminOrdersPage').then(module => ({ default: module.AdminOrdersPage })));
+const AdminProductsPage = lazy(() => import('./pages/admin/AdminProductsPage').then(module => ({ default: module.AdminProductsPage })));
+const AdminInventoryPage = lazy(() => import('./pages/admin/AdminInventoryPage').then(module => ({ default: module.AdminInventoryPage })));
+const AdminCrmPage = lazy(() => import('./pages/admin/AdminCrmPage').then(module => ({ default: module.AdminCrmPage })));
+const AdminTicketsPage = lazy(() => import('./pages/admin/AdminTicketsPage').then(module => ({ default: module.AdminTicketsPage })));
+const AdminCouponsPage = lazy(() => import('./pages/admin/AdminCouponsPage').then(module => ({ default: module.AdminCouponsPage })));
+const AdminAuditPage = lazy(() => import('./pages/admin/AdminAuditPage').then(module => ({ default: module.AdminAuditPage })));
+const AdminCatalogPage = lazy(() => import('./pages/admin/AdminCatalogPage').then(module => ({ default: module.AdminCatalogPage })));
+const AdminBannersPage = lazy(() => import('./pages/admin/AdminBannersPage').then(module => ({ default: module.AdminBannersPage })));
+const AdminReviewsPage = lazy(() => import('./pages/admin/AdminReviewsPage').then(module => ({ default: module.AdminReviewsPage })));
 
 const ScrollToTop = () => {
   const { pathname, search } = useLocation();
@@ -73,6 +74,7 @@ export const App: React.FC = () => {
     <Router>
       <ToastViewport />
       <ScrollToTop />
+      <Suspense fallback={<div role="status" className="page-width py-12 text-slate-500">Loading...</div>}>
       <Routes>
         {/* Customer Storefront Routes */}
         <Route element={<StorefrontLayout />}>
@@ -116,6 +118,7 @@ export const App: React.FC = () => {
           <Route path="audit" element={<AdminAuditPage />} />
         </Route>
       </Routes>
+      </Suspense>
     </Router>
   );
 };
