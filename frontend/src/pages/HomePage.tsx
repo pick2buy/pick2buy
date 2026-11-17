@@ -107,12 +107,12 @@ export const HomePage = () => {
   </section>;
   return <div ref={homePageRef} className="home-page">
     <section className="page-width home-section home-section--seasonal home-scroll-reveal">
-      <Link to="/category/diwali" className="seasonal-banner" aria-label="Shop Diwali collection">
+      <Link to="/search?q=winter" className="seasonal-banner" aria-label="Shop winter collection">
         <span className="seasonal-banner__lights" aria-hidden="true" />
         <span className="seasonal-banner__diya seasonal-banner__diya--left" aria-hidden="true"><Flame /></span>
         <span className="seasonal-banner__diya seasonal-banner__diya--right" aria-hidden="true"><Flame /></span>
-        <div className="seasonal-banner__badge"><Sparkles size={23} /><strong>BIG<br />DIWALI<br />SALE</strong></div>
-        <div className="seasonal-banner__copy"><span>FESTIVE PICKS, BETTER PRICES</span><h2>Celebrate Diwali with<br /><em>extra savings.</em></h2><p>Discover festive essentials, gifts and everyday favourites at special prices.</p></div>
+        <div className="seasonal-banner__badge"><Sparkles size={23} /><strong>BIG<br />WINTER<br />SALE</strong></div>
+        <div className="seasonal-banner__copy"><span>WINTER PICKS, BETTER PRICES</span><h2>Warm up winter with<br /><em>extra savings.</em></h2><p>Discover cosy essentials, thoughtful gifts and everyday favourites at special prices.</p></div>
       </Link>
     </section>
     {renderSection(sections[0], 'home-section--first')}

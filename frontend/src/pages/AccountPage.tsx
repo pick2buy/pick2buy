@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   User, 
   Package, 
@@ -44,6 +44,7 @@ const returnDeadline = (order: any) => {
 
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
+  const { search } = useLocation();
   const { user, logout, fetchMe, hasCheckedAuth } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'wallet' | 'profile' | 'addresses' | 'support'>('orders');
@@ -84,6 +85,14 @@ export const AccountPage: React.FC = () => {
   const [ticketSubject, setTicketSubject] = useState('');
   const [ticketDesc, setTicketDesc] = useState('');
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(search).get('tab');
+    if (tab === 'support') {
+      setActiveTab('support');
+      setMobileSectionOpen(true);
+    }
+  }, [search]);
 
   const submitTicket = async (event: React.FormEvent) => {
     event.preventDefault();
