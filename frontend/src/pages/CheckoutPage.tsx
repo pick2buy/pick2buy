@@ -376,8 +376,8 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end">
-                {pendingPaymentOrder && <button type="button" onClick={() => { setErrorMessage(''); void handlePlaceOrder({ preventDefault() {} } as React.FormEvent); }} disabled={isSubmitting} className="text-xs font-bold text-brand-primary hover:underline">Retry payment</button>}
+              <div className="pt-4 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3">
+                {pendingPaymentOrder && <button type="button" onClick={() => { setErrorMessage(''); void handlePlaceOrder({ preventDefault() {} } as React.FormEvent); }} disabled={isSubmitting} className="w-full sm:w-auto rounded-2xl border border-brand-primary px-5 py-3 text-xs font-bold text-brand-primary hover:bg-orange-50 transition-colors">Retry payment</button>}
                 <button
                   type="button"
                   onClick={() => {
@@ -388,7 +388,7 @@ export const CheckoutPage: React.FC = () => {
                     setErrorMessage('');
                     setCurrentStep(2);
                   }}
-                  className="bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold px-6 py-3 rounded-2xl flex items-center gap-2 shadow-sm transition-all"
+                  className="w-full sm:w-auto justify-center bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold px-6 py-3 rounded-2xl flex items-center gap-2 shadow-sm transition-all"
                 >
                   <span>Continue to Payment</span>
                   <ArrowRight className="w-4 h-4" />

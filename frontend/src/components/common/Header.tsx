@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Search, 
   ArrowLeft,
+  Bell,
   ShoppingBag, 
   Heart, 
   User as UserIcon, 
@@ -94,6 +95,8 @@ export const Header: React.FC = () => {
   const [isCategoryNavCondensed, setIsCategoryNavCondensed] = useState(isProductDetailPage);
   const isCategoryNavCondensedRef = useRef(isProductDetailPage);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
 
   useEffect(() => {
     fetchCart();
@@ -105,6 +108,30 @@ export const Header: React.FC = () => {
       })));
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+    let active = true;
+    const loadNotifications = () => api.getMyNotifications().then((res) => {
+      if (active) setNotifications(res.data || []);
+    }).catch(() => {});
+    loadNotifications();
+    const interval = window.setInterval(loadNotifications, 30000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [user?.id]);
+
+  const unreadNotificationCount = notifications.filter((notification) => !notification.isRead).length;
+  const openNotification = async (notification: any) => {
+    if (!notification.isRead) {
+      await api.markNotificationRead(notification.id).catch(() => {});
+      setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, isRead: true } : item));
+    }
+    setIsNotificationMenuOpen(false);
+    if (notification.linkUrl) navigate(notification.linkUrl);
+  };
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -390,6 +417,35 @@ export const Header: React.FC = () => {
               )}
             </Link>
 
+            {user && (
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Notifications"
+                  aria-expanded={isNotificationMenuOpen}
+                  onClick={() => setIsNotificationMenuOpen((open) => !open)}
+                  className="relative rounded-full p-2 text-slate-700 transition-colors hover:bg-slate-100 hover:text-brand-primary"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadNotificationCount > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-accent px-1 text-[10px] font-bold text-white">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>}
+                </button>
+                {isNotificationMenuOpen && <div className="absolute right-0 top-full z-[100] mt-2 w-80 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-elevated max-sm:fixed max-sm:right-2 max-sm:top-[96px] max-sm:mt-0">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <p className="text-sm font-bold text-slate-900">Notifications</p>
+                    {unreadNotificationCount > 0 && <button type="button" className="text-[11px] font-semibold text-brand-primary" onClick={() => { api.markAllNotificationsRead().catch(() => {}); setNotifications((items) => items.map((item) => ({ ...item, isRead: true }))); }}>Mark all read</button>}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {!notifications.length && <p className="px-4 py-6 text-center text-xs text-slate-500">You’re all caught up.</p>}
+                    {notifications.map((notification) => <button type="button" key={notification.id} onClick={() => openNotification(notification)} className={`block w-full border-b border-slate-50 px-4 py-3 text-left hover:bg-slate-50 ${notification.isRead ? '' : 'bg-orange-50/60'}`}>
+                      <p className="text-xs font-bold text-slate-900">{notification.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{notification.message}</p>
+                      <p className="mt-1 text-[10px] text-slate-400">{new Date(notification.createdAt).toLocaleString('en-IN')}</p>
+                    </button>)}
+                  </div>
+                </div>}
+              </div>
+            )}
+
             {/* Shopping Cart Button */}
             <button
               onClick={() => setCartDrawerOpen(true)}
@@ -435,7 +491,7 @@ export const Header: React.FC = () => {
 
               {/* User Dropdown */}
               {user && isUserMenuOpen && (
-                <div className="absolute right-0 top-full w-52 bg-white rounded-xl shadow-elevated border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute right-0 top-full w-52 bg-white rounded-xl shadow-elevated border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 max-lg:fixed max-lg:top-[96px] max-lg:right-2 max-lg:z-[100]">
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
                     <p className="text-[11px] text-slate-500 truncate">{user.email}</p>

@@ -10,7 +10,7 @@ const localEnv = existsSync(localEnvPath)
   : {};
 const configuredUrl = process.env.DATABASE_URL?.startsWith('postgres')
   ? process.env.DATABASE_URL
-  : process.env.POSTGRES_DATABASE_URL || localEnv.POSTGRES_DATABASE_URL;
+  : process.env.POSTGRES_DATABASE_URL || localEnv.POSTGRES_DATABASE_URL || localEnv.DATABASE_URL;
 const command = process.argv.slice(2);
 const databaseUrl = configuredUrl || (command[0] === 'generate'
   ? 'postgresql://placeholder:placeholder@localhost:5432/pick2buy'

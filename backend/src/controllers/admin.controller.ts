@@ -309,6 +309,16 @@ export class AdminController {
         });
       });
 
+      await prisma.notification.create({
+        data: {
+          userId: updatedTicket.customerId,
+          title: 'Support ticket reply',
+          message: `Pick2Buy Support replied to “${updatedTicket.subject}”.`,
+          type: 'SUPPORT_REPLY',
+          linkUrl: '/account?tab=support',
+        },
+      });
+
       res.json({
         success: true,
         message: 'Reply sent successfully',
