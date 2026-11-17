@@ -7,6 +7,7 @@ import { config } from './config';
 import apiRoutes from './routes';
 import { authenticateJwt } from './middlewares/auth';
 import { errorHandler } from './middlewares/error';
+import { prisma } from './lib/prisma';
 
 const app = express();
 
@@ -59,6 +60,11 @@ app.use('/api', apiRoutes);
 app.use(errorHandler);
 
 const PORT = config.port;
+// Start the engine and establish the database connection while the frontend
+// loads, rather than making the first catalogue request pay that setup cost.
+void prisma.$connect().catch(() => {
+  console.warn('Database connection warmup failed; incoming requests will retry.');
+});
 app.listen(PORT, () => {
   console.log(`=======================================================`);
   console.log(`🚀 Pick2Buy Backend running at http://localhost:${PORT}`);

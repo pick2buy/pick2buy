@@ -1,6 +1,9 @@
 // Pick2Buy PostgreSQL Production Schema
 generator client {
   provider = "prisma-client-js"
+  // Fetch related catalogue records with PostgreSQL joins instead of a
+  // separate network round trip for every related table.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
