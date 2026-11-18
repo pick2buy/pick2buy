@@ -51,7 +51,7 @@ export const ProductCampaignBanners = ({ products }: { products: Product[] }) =>
   const jacket = products.find(product => /leather/.test(`${product.slug} ${product.name}`.toLowerCase()) && /jacket/.test(`${product.slug} ${product.name}`.toLowerCase()));
   const campaigns = [
     { key: 'winter-food-dispenser', image: '/banners/pick2buy/campaigns/winter-food-dispenser.webp', title: '6-compartment dry food dispenser', link: dispenser ? `/product/${dispenser.slug}` : '/search?q=dry%20food%20dispenser', product: dispenser, hideCopy: true },
-    { key: 'winter-leather-jacket', image: '/banners/pick2buy/campaigns/winter-leather-jacket.webp', title: "Men's leather jacket winter collection", link: jacket ? `/product/${jacket.slug}` : '/search?q=leather%20jacket', product: jacket, hideCopy: true },
+    { key: 'winter-leather-jacket', image: '/banners/pick2buy/campaigns/winter-leather-jacket.webp', title: "Men's leather jacket winter collection", link: '/product/men-riding-jacket', product: jacket, hideCopy: true },
     ...selectedProducts.filter(product => campaignArtwork(product) !== 'food-dispenser').map(product => ({ key: product.id, image: `/banners/pick2buy/campaigns/winter-${campaignArtwork(product)}.webp`, title: product.name, link: `/product/${product.slug}` })),
   ];
   const move = (direction: number) => {
