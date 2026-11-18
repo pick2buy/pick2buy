@@ -76,3 +76,7 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 - Shoe-cleaner and crystal string-light campaign images now match the uploaded blue winter artwork, with built-in titles and Shop Now buttons. All campaign cards display the full artwork without additional text overlays. Generated assets and prompts are saved in `frontend/public/banners/pick2buy/campaigns/`; the lights artwork has no packaging box.
 
 - On 2026-11-18, storefront refresh work on `codex/home-category-images` was synchronized with remote main commit `3f3f900`, preserving the remote winter hero and account changes. Product heading titles and collection links use shared text-baseline alignment. Production deployment remains separate from the feature-branch push.
+
+## Storefront integration status — 2026-11-18
+
+- The user explicitly requested merging `codex/home-category-images` into `main` and pushing. The branch was merged into synchronized main without conflicts, preserving the remote winter hero and account updates. Earlier storefront notes labeled local/not deployed describe implementation history; the merged storefront changes are now on local main. Production rollout success remains unverified until checked after the main push.
