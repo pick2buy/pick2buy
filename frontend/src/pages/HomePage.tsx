@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Flame, Headphones, RotateCcw, ShieldCheck, Sparkles, Truck } from 'lucide-react';
+import { ArrowRight, Flame, Sparkles } from 'lucide-react';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
 import { ProductCampaignBanners } from '../components/storefront/ProductCampaignBanners';
+import { ShopByBudget } from '../components/storefront/ShopByBudget';
+import { BrandMarquee } from '../components/storefront/BrandMarquee';
+import { HomeCategories } from '../components/storefront/HomeCategories';
 import { ProductCard } from '../components/common/ProductCard';
 import { api } from '../services/api';
 import { useCartStore } from '../store/useCartStore';
@@ -14,19 +17,13 @@ const questions = [
   ['Need a hand choosing or ordering?', 'Email pick2buy.in@gmail.com with your question or order number. Our team will help you with the next step.'],
 ];
 
-const shoppingBenefits = [
-  [Truck, 'Fast delivery', 'Reliable doorstep delivery across India.'],
-  [ShieldCheck, 'Secure payments', 'Your payment details stay protected.'],
-  [RotateCcw, 'Easy returns', 'Simple support when something is not right.'],
-  [Headphones, 'Helpful support', 'We are here when you need a hand.'],
-] as const;
-
 export const HomePage = () => {
   const homePageRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [openQuestions, setOpenQuestions] = useState<number[]>([]);
   const cart = useCartStore(state => state.cart);
   useEffect(() => {
     let active = true;
@@ -123,11 +120,21 @@ export const HomePage = () => {
     </section>
     {contextualSection && renderSection({ ...contextualSection, key: 'contextual' }, 'personalized-section')}
     {renderSection(sections[1])}
+    <HomeCategories />
     {renderSection(sections[2])}
-    <section className="page-width home-section benefits-section home-scroll-reveal">
-      <div className="benefits-section__heading"><span className="eyebrow">SHOP WITH CONFIDENCE</span><h2>Small details.<br /><em>Better shopping.</em></h2></div>
-      <div className="benefits-grid">{shoppingBenefits.map(([Icon, title, description]) => <div className="benefit-card" key={title}><span className="benefit-card__icon"><Icon size={20} /></span><div><h3>{title}</h3><p>{description}</p></div></div>)}</div>
+    <BrandMarquee />
+    <ShopByBudget />
+    <section className="page-width home-section faq-section home-scroll-reveal" aria-labelledby="faq-heading">
+      <h2 id="faq-heading">Frequently asked questions</h2>
+      <div className="faq-list">{questions.map(([question, answer], index) => {
+        const isOpen = openQuestions.includes(index);
+        return <div className={`faq-item${isOpen ? ' is-open' : ''}`} key={question}>
+          <h3><button type="button" id={`faq-question-${index}`} aria-expanded={isOpen} aria-controls={`faq-answer-${index}`} onClick={() => setOpenQuestions(current => current.includes(index) ? current.filter(item => item !== index) : [...current, index])}>
+            {question}<span aria-hidden="true">+</span>
+          </button></h3>
+          <div className="faq-answer" id={`faq-answer-${index}`} role="region" aria-labelledby={`faq-question-${index}`} aria-hidden={!isOpen}><div><p>{answer}</p></div></div>
+        </div>;
+      })}</div>
     </section>
-    <section className="page-width home-section faq-section home-scroll-reveal"><div><span className="eyebrow">A LITTLE HELP GOES A LONG WAY</span><h2>Good questions.<br /><em>Simple answers.</em></h2><a className="text-link" href="mailto:pick2buy.in@gmail.com">Talk to our team <ArrowRight size={16} /></a></div><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
   </div>;
 };

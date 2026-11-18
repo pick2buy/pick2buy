@@ -25,7 +25,17 @@ export const ShopPage: React.FC = () => {
 
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState(queryCategory);
-  const [maxPrice, setMaxPrice] = useState<number>(5000);
+  const priceParam = searchParams.get('maxPrice');
+  const parsedPrice = priceParam?.trim() ? Number(priceParam) : NaN;
+  const maxPrice = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? Math.min(parsedPrice, 5000) : 5000;
+  const setMaxPrice = (price: number) => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      if (price >= 5000) next.delete('maxPrice');
+      else next.set('maxPrice', String(price));
+      return next;
+    }, { replace: true });
+  };
   const [inStockOnly, setInStockOnly] = useState(false);
   const [outOfStockOnly, setOutOfStockOnly] = useState(false);
   const [sortOption, setSortOption] = useState(querySort);
@@ -66,7 +76,6 @@ export const ShopPage: React.FC = () => {
   const clearAllFilters = () => {
     setSelectedCategory('');
     setOutOfStockOnly(false);
-    setMaxPrice(5000);
     setInStockOnly(false);
     setSortOption('featured');
     setSearchParams({});
@@ -78,7 +87,7 @@ export const ShopPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            {queryQ ? `Results for "${queryQ}"` : 'All Products'}
+            {queryQ ? `Results for "${queryQ}"` : maxPrice < 5000 ? `Shop up to ${formatINR(maxPrice)}` : 'All Products'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Showing <strong className="text-slate-900">{totalCount}</strong> items
@@ -166,15 +175,15 @@ export const ShopPage: React.FC = () => {
             </div>
             <input
               type="range"
-              min="499"
+              min="0"
               max="5000"
-              step="100"
+              step="1"
               value={maxPrice}
               onChange={(e) => setMaxPrice(Number(e.target.value))}
               className="w-full accent-brand-primary cursor-pointer"
             />
             <div className="flex justify-between text-[11px] text-slate-400">
-              <span>₹499</span>
+              <span>₹0</span>
               <span>₹5,000+</span>
             </div>
           </div>
@@ -279,9 +288,9 @@ export const ShopPage: React.FC = () => {
                 </div>
                 <input
                   type="range"
-                  min="499"
+                  min="0"
                   max="5000"
-                  step="100"
+                  step="1"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(Number(e.target.value))}
                   className="w-full accent-brand-primary"
