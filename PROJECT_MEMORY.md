@@ -1,6 +1,6 @@
 # Pick2Buy project memory
 
-Last updated: 2026-11-17 (Asia/Kolkata).
+Last updated: 2026-11-18 (Asia/Kolkata).
 
 ## How to use this file
 
@@ -61,3 +61,18 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 - Reports use order creation dates and India calendar boundaries; historical orders without MRP snapshots cannot reconstruct old product-discount totals. Report refunds include pending refund obligations.
 - Production migration/deploy and live payment verification are separate from local build and isolated SQLite regression tests. Do not infer production readiness from those tests alone.
 - On 2026-11-17, support tickets now create persistent notifications for all active admins, and admin replies notify the ticket owner. Authenticated users can read/mark notifications through `/api/auth/me/notifications`; the storefront header displays a polling notification bell/dropdown for both customer and admin accounts.
+
+## Homepage category images - local work, not deployed
+
+- On 2026-11-17, the user requested category images in place of the homepage Shop with Confidence benefits section. Branch `codex/home-category-images` adds 10 linked category photo cards with five desktop columns and two mobile columns. Uploaded category images take priority over optimized local Unsplash fallback photos; provenance is in `frontend/public/categories/SOURCES.md`. No category records were modified.
+- Follow-up category redesign uses a warm ivory panel, circular photo frames, centered navy labels, orange arrow accents, and five/three/two columns for desktop/tablet/phone. Uploaded images, fallback handling, category visibility, and links remain in use. Changes are local, not deployed.
+- Superseding the category section above, the user chose Shop by Budget. The homepage now renders `ShopByBudget` with cream, peach, and navy cards for products up to INR299, INR499, and INR999, linking to `/shop?maxPrice=...`. Shop reads and validates the URL price limit, preserves it when reloading, and applies it to the product API; both price sliders support these lower budgets. Category data is unchanged. This work is local, not deployed.
+- The user subsequently requested categories back immediately after New Arrivals. `HomeCategories` now appears there as a compact single horizontal row with round photos, category labels, swipe/native scrolling, and left/right controls. Desktop cards are 124px wide with 96px photos; phone cards are 96px wide with 76px photos. Shop by Budget remains below Best Offers. This supersedes the larger category grid design; changes are local, not deployed.
+- Shop by Budget now uses product collages: up to three in-stock catalog photos per card with actual price labels and Shop Now links. Three bounded catalog requests fetch candidates within each budget; selection checks price limits, image availability, stock, and duplicate IDs. Loading placeholders and an empty-catalog message avoid invented product previews. Styling retains cream, peach, and navy. Changes are local, not deployed.
+- The homepage marquee now sits between Best Offers and Shop by Budget, replacing its previous position above the footer. It uses an ivory background, navy text, orange heart/tag/wallet icons, and a slow 40-second seamless loop. Copy: Find your next favourite; Explore the offers; Shop within your budget. It pauses on mouse hover and visible keyboard focus; touching on phones keeps it moving. Reduced-motion users see a static wrapping strip, and screen readers receive the text once. Local, not deployed.
+- Homepage section spacing now uses one flex-column layout gap: 40px desktop/tablet, 28px below 640px. Direct section margins are reset and older adjacent-section/marquee margin overrides removed so optional sections do not change the rhythm. Top clearance is 16px desktop/12px phone; bottom clearance matches the shared gap. Local, not deployed.
+
+- The product campaign carousel uses distinct product artwork, including user-uploaded winter dispenser and jacket designs without extra overlays. Auto-slide advances every five seconds when the carousel overflows, loops to the start, and pauses during hover, focus, touch interaction, hidden tabs, and reduced-motion preferences. The user requested removal of the Play/Pause slideshow button; auto-slide remains enabled. These carousel changes are local and not deployed.
+- Shoe-cleaner and crystal string-light campaign images now match the uploaded blue winter artwork, with built-in titles and Shop Now buttons. All campaign cards display the full artwork without additional text overlays. Generated assets and prompts are saved in `frontend/public/banners/pick2buy/campaigns/`; the lights artwork has no packaging box.
+
+- On 2026-11-18, storefront refresh work on `codex/home-category-images` was synchronized with remote main commit `3f3f900`, preserving the remote winter hero and account changes. Product heading titles and collection links use shared text-baseline alignment. Production deployment remains separate from the feature-branch push.
