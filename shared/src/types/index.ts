@@ -304,7 +304,8 @@ export interface SupportTicketDto {
 
 export interface BannerDto {
   id: string;
-  title: string;
+  placement: 'HERO' | 'CAMPAIGN' | 'ESSENTIALS';
+  title: string | null;
   subtitle?: string | null;
   desktopImageUrl: string;
   mobileImageUrl?: string | null;

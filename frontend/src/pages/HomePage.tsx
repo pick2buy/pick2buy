@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Flame, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { StorefrontBanners } from '../components/storefront/StorefrontBanners';
 import { ProductCampaignBanners } from '../components/storefront/ProductCampaignBanners';
+import { SeasonalHeroBanner } from '../components/storefront/SeasonalHeroBanner';
 import { ShopByBudget } from '../components/storefront/ShopByBudget';
 import { BrandMarquee } from '../components/storefront/BrandMarquee';
 import { HomeCategories } from '../components/storefront/HomeCategories';
@@ -103,15 +104,7 @@ export const HomePage = () => {
     {!loading && !error && !section.products.length && <p className="catalog-message">Products are on their way. <Link to={section.link}>Explore the full collection →</Link></p>}
   </section>;
   return <div ref={homePageRef} className="home-page">
-    <section className="page-width home-section home-section--seasonal home-scroll-reveal">
-      <Link to="/search?q=winter" className="seasonal-banner" aria-label="Shop winter collection">
-        <span className="seasonal-banner__lights" aria-hidden="true" />
-        <span className="seasonal-banner__diya seasonal-banner__diya--left" aria-hidden="true"><Flame /></span>
-        <span className="seasonal-banner__diya seasonal-banner__diya--right" aria-hidden="true"><Flame /></span>
-        <div className="seasonal-banner__badge"><Sparkles size={23} /><strong>BIG<br />WINTER<br />SALE</strong></div>
-        <div className="seasonal-banner__copy"><span>WINTER PICKS, BETTER PRICES</span><h2>Warm up winter with<br /><em>extra savings.</em></h2><p>Discover cosy essentials, thoughtful gifts and everyday favourites at special prices.</p></div>
-      </Link>
-    </section>
+    <SeasonalHeroBanner />
     {renderSection(sections[0], 'home-section--first')}
     <ProductCampaignBanners products={products} />
     <section className="home-banner-section home-scroll-reveal">

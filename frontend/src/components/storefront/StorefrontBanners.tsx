@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
+import { StorefrontBanner, useStorefrontBanners } from '../../hooks/useStorefrontBanners';
 
-type Banner = { id: string; title?: string | null; subtitle?: string | null; desktopImageUrl: string; mobileImageUrl?: string | null; buttonText?: string | null; linkUrl: string; hideCopy?: boolean };
+type Banner = StorefrontBanner & { hideCopy?: boolean };
 
 const fallbackBanners: Banner[] = [
-  { id: 'riding-jacket', title: 'Men Riding Jacket', desktopImageUrl: '/banners/riding-jacket.webp', linkUrl: '/product/men-riding-jacket', hideCopy: true },
-  { id: 'wooden-money-piggi', title: '1 Lakh Wooden Money Piggi', desktopImageUrl: '/banners/wooden-money-piggi.webp', linkUrl: '/product/1-lakh-wooden-money-piggi', hideCopy: true },
+  { id: 'riding-jacket', placement: 'ESSENTIALS', title: 'Men Riding Jacket', desktopImageUrl: '/banners/riding-jacket.webp', linkUrl: '/product/men-riding-jacket', hideCopy: true },
+  { id: 'wooden-money-piggi', placement: 'ESSENTIALS', title: '1 Lakh Wooden Money Piggi', desktopImageUrl: '/banners/wooden-money-piggi.webp', linkUrl: '/product/1-lakh-wooden-money-piggi', hideCopy: true },
 ];
 
 const BannerContent = ({ banner, priority = false }: { banner: Banner; priority?: boolean }) => {
@@ -19,22 +19,15 @@ const BannerContent = ({ banner, priority = false }: { banner: Banner; priority?
 const BannerLink = ({ banner, className, priority = false }: { banner: Banner; className: string; priority?: boolean }) => banner.linkUrl.startsWith('/') ? <Link to={banner.linkUrl} className={className}><BannerContent banner={banner} priority={priority} /></Link> : <a href={banner.linkUrl} className={className}><BannerContent banner={banner} priority={priority} /></a>;
 
 export const StorefrontBanners = () => {
-  const [banners, setBanners] = useState<Banner[] | null>(null);
+  const managedBanners = useStorefrontBanners('ESSENTIALS');
   const [activeIndex, setActiveIndex] = useState(0);
-  const displayedBanners = banners || [];
+  const displayedBanners: Banner[] = managedBanners?.length ? managedBanners : fallbackBanners;
 
-  useEffect(() => {
-    let active = true;
-    api.getActiveBanners()
-      .then(response => { if (active) setBanners(response.data?.length ? response.data : fallbackBanners); })
-      .catch(() => { if (active) setBanners(fallbackBanners); });
-    return () => { active = false; };
-  }, []);
   useEffect(() => { setActiveIndex(current => Math.min(current, displayedBanners.length - 1)); }, [displayedBanners.length]);
   useEffect(() => { if (displayedBanners.length < 2) return; const interval = window.setInterval(() => setActiveIndex(current => (current + 1) % displayedBanners.length), 6000); return () => window.clearInterval(interval); }, [displayedBanners.length]);
   const goTo = (index: number) => setActiveIndex((index + displayedBanners.length) % displayedBanners.length);
 
-  if (!banners || !displayedBanners.length) return null;
+  if (!displayedBanners.length) return null;
 
   return <section aria-label="Featured promotions" className="storefront-banner-shell">
     <div className="storefront-banner-desktop"><div className="storefront-banner-desktop-track" style={{ transform: `translateX(-${activeIndex * (100 / 3)}%)` }}>{[...displayedBanners, ...displayedBanners].map((banner, index) => <BannerLink key={`${banner.id}-${index}`} banner={banner} className="storefront-banner-card group" priority={index < 3} />)}</div></div>

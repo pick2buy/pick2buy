@@ -13,7 +13,10 @@ const bannerImage = z.string().trim()
   )
   .refine(value => value.length <= 700_000, 'Banner image is too large. Choose a smaller image.');
 
+const bannerPlacement = z.enum(['HERO', 'CAMPAIGN', 'ESSENTIALS']);
+
 const bannerFields = z.object({
+  placement: bannerPlacement.default('ESSENTIALS'),
   title: z.string().trim().max(160).nullable().optional(),
   subtitle: z.string().trim().max(300).nullable().optional(),
   desktopImageUrl: bannerImage,
@@ -400,13 +403,20 @@ export class AdminController {
   public static async getActiveBanners(req: Request, res: Response, next: NextFunction) {
     try {
       const now = new Date();
+      const placement = req.query?.placement === undefined
+        ? undefined
+        : bannerPlacement.parse(req.query.placement);
       // Cache active records, then check dates per response so scheduled banners
       // still start and stop on time while their database records are cached.
       const active = await storefrontCache.getOrLoad('banners', () => prisma.banner.findMany({
         where: { isActive: true },
         orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
       }), 30_000) as Banner[];
-      const banners = active.filter(banner => (!banner.startDate || banner.startDate <= now) && (!banner.endDate || banner.endDate >= now));
+      const banners = active.filter(banner =>
+        (!placement || banner.placement === placement) &&
+        (!banner.startDate || banner.startDate <= now) &&
+        (!banner.endDate || banner.endDate >= now)
+      );
       res.json({ success: true, data: banners });
     } catch (error) { next(error); }
   }

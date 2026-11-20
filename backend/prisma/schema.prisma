@@ -628,6 +628,7 @@ model Notification {
 
 model Banner {
   id              String    @id @default(uuid())
+  placement       String    @default("ESSENTIALS")
   title           String?
   subtitle        String?
   desktopImageUrl String
@@ -641,6 +642,7 @@ model Banner {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  @@index([placement, isActive, displayOrder])
   @@map("banners")
 }
 

@@ -445,7 +445,9 @@ class ApiClient {
     return this.request('/admin/banners');
   }
 
-  public getActiveBanners() { return this.request('/banners'); }
+  public getActiveBanners(placement?: 'HERO' | 'CAMPAIGN' | 'ESSENTIALS') {
+    return this.request(`/banners${placement ? `?placement=${placement}` : ''}`);
+  }
   public createBanner(payload: any) { return this.request('/admin/banners', { method: 'POST', body: JSON.stringify(payload) }); }
   public updateBanner(id: string, payload: any) { return this.request(`/admin/banners/${id}`, { method: 'PUT', body: JSON.stringify(payload) }); }
   public deleteBanner(id: string) { return this.request(`/admin/banners/${id}`, { method: 'DELETE' }); }

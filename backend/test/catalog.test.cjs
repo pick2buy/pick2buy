@@ -6,12 +6,12 @@ const { CategoryController } = require('../dist/controllers/category.controller'
 const { BrandController } = require('../dist/controllers/brand.controller');
 const { AdminController } = require('../dist/controllers/admin.controller');
 
-async function call(action, { body = {}, params = {} } = {}) {
+async function call(action, { body = {}, params = {}, query = {} } = {}) {
   let status = 200;
   let result;
   let failure;
   const response = { status(value) { status = value; return this; }, json(value) { result = value; return this; } };
-  await action({ body, params }, response, error => { failure = error; });
+  await action({ body, params, query }, response, error => { failure = error; });
   if (failure) throw failure;
   return { status, result };
 }
@@ -47,14 +47,16 @@ test('brand CRUD and duplicate name protection', async () => {
   assert.equal((await call(BrandController.remove, { params: { id: brand.id } })).status, 200);
 });
 
-test('banner CRUD and public visibility follow schedule and active state', async () => {
+test('banner CRUD, placement and public visibility follow schedule and active state', async () => {
   const suffix = randomUUID().slice(0, 8);
-  const input = { title: `Test Banner ${suffix}`, desktopImageUrl: 'https://example.com/banner.jpg', linkUrl: '/shop', displayOrder: 1, isActive: false };
+  const input = { placement: 'CAMPAIGN', title: `Test Banner ${suffix}`, desktopImageUrl: 'https://example.com/banner.jpg', linkUrl: '/shop', displayOrder: 1, isActive: false };
   const banner = (await call(AdminController.createBanner, { body: input })).result.data;
+  assert.equal(banner.placement, 'CAMPAIGN');
   assert.equal((await call(AdminController.getActiveBanners)).result.data.some(item => item.id === banner.id), false);
   const updated = (await call(AdminController.updateBanner, { params: { id: banner.id }, body: { isActive: true } })).result.data;
   assert.equal(updated.isActive, true);
-  assert.equal((await call(AdminController.getActiveBanners)).result.data.some(item => item.id === banner.id), true);
+  assert.equal((await call(AdminController.getActiveBanners, { query: { placement: 'CAMPAIGN' } })).result.data.some(item => item.id === banner.id), true);
+  assert.equal((await call(AdminController.getActiveBanners, { query: { placement: 'HERO' } })).result.data.some(item => item.id === banner.id), false);
   await call(AdminController.updateBanner, { params: { id: banner.id }, body: { startDate: new Date(Date.now() + 86_400_000).toISOString() } });
   assert.equal((await call(AdminController.getActiveBanners)).result.data.some(item => item.id === banner.id), false);
   assert.equal((await call(AdminController.deleteBanner, { params: { id: banner.id } })).status, 200);

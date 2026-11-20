@@ -1,5 +1,5 @@
 const { spawnSync } = require('node:child_process');
-const { readdirSync, writeFileSync } = require('node:fs');
+const { existsSync, readdirSync, renameSync, unlinkSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
 
 const backendDir = path.resolve(__dirname, '..');
@@ -21,9 +21,28 @@ function run(args, environment = testEnvironment) {
   if (result.status !== 0) throw new Error(`Command failed with exit code ${result.status}`);
 }
 
+function generateClient(schema, environment = testEnvironment) {
+  // Windows can retain Prisma's engine file briefly after a client exits.
+  // Move it aside first so generation never needs to replace a locked DLL.
+  const enginePath = path.resolve(backendDir, '..', 'node_modules', '.prisma', 'client', 'query_engine-windows.dll.node');
+  const engineBackupPath = `${enginePath}.test-backup`;
+  try {
+    if (process.platform === 'win32' && existsSync(enginePath)) {
+      if (existsSync(engineBackupPath)) unlinkSync(engineBackupPath);
+      renameSync(enginePath, engineBackupPath);
+    }
+    run([prismaCli, 'generate', '--schema', schema], environment);
+  } finally {
+    if (process.platform === 'win32' && existsSync(engineBackupPath)) {
+      if (existsSync(enginePath)) unlinkSync(engineBackupPath);
+      else renameSync(engineBackupPath, enginePath);
+    }
+  }
+}
+
 let failed = false;
 try {
-  run([prismaCli, 'generate', '--schema', 'prisma/schema.sqlite.prisma']);
+  generateClient('prisma/schema.sqlite.prisma');
   // Prisma needs the empty SQLite file to exist before db push on Windows.
   // This database contains test records only and never connects to Supabase.
   writeFileSync(path.join(backendDir, 'prisma', 'test.db'), '');
@@ -37,7 +56,7 @@ try {
   failed = true;
 } finally {
   try {
-    run([prismaCli, 'generate', '--schema', 'prisma/schema.prisma'], {
+    generateClient('prisma/schema.prisma', {
       ...testEnvironment,
       DATABASE_URL: 'postgresql://placeholder:placeholder@localhost:5432/pick2buy',
     });

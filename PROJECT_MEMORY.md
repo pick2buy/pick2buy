@@ -80,3 +80,9 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 ## Storefront integration status — 2026-11-18
 
 - The user explicitly requested merging `codex/home-category-images` into `main` and pushing. The branch was merged into synchronized main without conflicts, preserving the remote winter hero and account updates. Earlier storefront notes labeled local/not deployed describe implementation history; the merged storefront changes are now on local main. Production rollout success remains unverified until checked after the main push.
+
+## Storefront banner placements — local work, not deployed
+
+- On 2026-11-20, branch `codex/banner-placements` separated homepage banner management into three admin sections: main hero (`HERO`), square seasonal campaigns (`CAMPAIGN`), and the existing Everyday Essentials row (`ESSENTIALS`). Existing banner records default to `ESSENTIALS`, and built-in hero/campaign artwork remains as the storefront fallback until active managed banners are added.
+- The public banner API accepts an optional placement filter. Hero banners support a responsive desktop/mobile image carousel; campaign and Everyday Essentials placements also use their matching responsive images and retain existing fallback content when empty or unavailable.
+- Migration `20261120000000_banner_placements` adds the placement column and index. It has not been applied to the configured PostgreSQL database. Local verification passed typecheck, production build, all 29 isolated SQLite tests, and visual checks at 330px, 768px, and 1440px without horizontal overflow.

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useStorefrontBanners } from '../../hooks/useStorefrontBanners';
 import { optimizedImageUrl } from '../../lib/image';
 
 type Product = {
@@ -17,6 +18,8 @@ type Product = {
   isBestSeller?: boolean;
 };
 
+type Campaign = { key: string; image: string; mobileImage?: string | null; title: string; link: string };
+
 const priority = (product: Product) => Number(Boolean(product.isFlashDeal)) * 4 + Number(Boolean(product.isBestSeller)) * 3 + Number(Boolean(product.isTrending)) * 2;
 
 const campaignArtwork = (product: Product) => {
@@ -30,6 +33,7 @@ const campaignArtwork = (product: Product) => {
 export const ProductCampaignBanners = ({ products }: { products: Product[] }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ start: true, end: false });
+  const managedBanners = useStorefrontBanners('CAMPAIGN');
   // Similar catalog listings can share campaign artwork. Show each product
   // and artwork only once so variants do not repeat the same banner image.
   const seenProducts = new Set<string>();
@@ -48,12 +52,14 @@ export const ProductCampaignBanners = ({ products }: { products: Product[] }) =>
       return true;
     });
   const dispenser = selectedProducts.find(product => campaignArtwork(product) === 'food-dispenser');
-  const jacket = products.find(product => /leather/.test(`${product.slug} ${product.name}`.toLowerCase()) && /jacket/.test(`${product.slug} ${product.name}`.toLowerCase()));
-  const campaigns = [
-    { key: 'winter-food-dispenser', image: '/banners/pick2buy/campaigns/winter-food-dispenser.webp', title: '6-compartment dry food dispenser', link: dispenser ? `/product/${dispenser.slug}` : '/search?q=dry%20food%20dispenser', product: dispenser, hideCopy: true },
-    { key: 'winter-leather-jacket', image: '/banners/pick2buy/campaigns/winter-leather-jacket.webp', title: "Men's leather jacket winter collection", link: '/product/men-riding-jacket', product: jacket, hideCopy: true },
+  const fallbackCampaigns: Campaign[] = [
+    { key: 'winter-food-dispenser', image: '/banners/pick2buy/campaigns/winter-food-dispenser.webp', title: '6-compartment dry food dispenser', link: dispenser ? `/product/${dispenser.slug}` : '/search?q=dry%20food%20dispenser' },
+    { key: 'winter-leather-jacket', image: '/banners/pick2buy/campaigns/winter-leather-jacket.webp', title: "Men's leather jacket winter collection", link: '/product/men-riding-jacket' },
     ...selectedProducts.filter(product => campaignArtwork(product) !== 'food-dispenser').map(product => ({ key: product.id, image: `/banners/pick2buy/campaigns/winter-${campaignArtwork(product)}.webp`, title: product.name, link: `/product/${product.slug}` })),
   ];
+  const campaigns: Campaign[] = managedBanners?.length
+    ? managedBanners.map(banner => ({ key: banner.id, image: banner.desktopImageUrl, mobileImage: banner.mobileImageUrl, title: banner.title || 'Pick2Buy promotion', link: banner.linkUrl }))
+    : fallbackCampaigns;
   const move = (direction: number) => {
     const track = trackRef.current;
     if (!track) return;
@@ -116,10 +122,12 @@ export const ProductCampaignBanners = ({ products }: { products: Product[] }) =>
         const track = event.currentTarget;
         setPosition({ start: track.scrollLeft < 2, end: track.scrollLeft + track.clientWidth >= track.scrollWidth - 2 });
       }}>
-        {campaigns.map(({ key, image, title, link }, index) => {
-          return <Link key={key} to={link} aria-label={`Shop ${title}`} className={`product-campaign product-campaign--tone-${index % 4} product-campaign--artwork`}>
-            <img className="product-campaign__visual" src={optimizedImageUrl(image)} alt={title} loading="lazy" decoding="async" />
-          </Link>;
+        {campaigns.map(({ key, image, mobileImage, title, link }, index) => {
+          const artwork = <picture><source media="(max-width: 639px)" srcSet={optimizedImageUrl(mobileImage || image)} /><img className="product-campaign__visual" src={optimizedImageUrl(image)} alt={title} loading="lazy" decoding="async" /></picture>;
+          const className = `product-campaign product-campaign--tone-${index % 4} product-campaign--artwork`;
+          return link.startsWith('/')
+            ? <Link key={key} to={link} aria-label={`Shop ${title}`} className={className}>{artwork}</Link>
+            : <a key={key} href={link} aria-label={`Shop ${title}`} className={className}>{artwork}</a>;
         })}
       </div>
       {campaigns.length > 1 && <>
