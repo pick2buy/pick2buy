@@ -444,10 +444,14 @@ h1, h2, h3, p { overflow-wrap: break-word; }
 .seasonal-banner-carousel { position: relative; overflow: hidden; border-radius: 24px; box-shadow: 0 16px 30px #1d4f7a38; }
 .seasonal-banner-carousel__track { display: flex; transition: transform .65s cubic-bezier(.22, 1, .36, 1); }
 .seasonal-banner-carousel__slide { flex: 0 0 100%; min-width: 0; }
-.seasonal-banner.seasonal-banner--managed { display: block; min-height: 0; aspect-ratio: 3.8 / 1; border-radius: 0; padding: 0; box-shadow: none; background: #e8f3fa; }
+.seasonal-banner.seasonal-banner--managed { display: block; min-height: 0; aspect-ratio: 4.9 / 1; border-radius: 0; padding: 0; box-shadow: none; background: #e8f3fa; }
 .seasonal-banner--managed::before, .seasonal-banner--managed::after { display: none; }
 .seasonal-banner--managed picture, .seasonal-banner--managed img { display: block; width: 100%; height: 100%; }
-.seasonal-banner--managed img { object-fit: cover; object-position: center; }
+.seasonal-banner--managed img { object-fit: contain; object-position: center; }
+@media (min-width: 640px) {
+  .seasonal-banner.seasonal-banner--managed { aspect-ratio: auto; }
+  .seasonal-banner--managed picture, .seasonal-banner--managed img { height: auto; }
+}
 .seasonal-banner-carousel__dots { position: absolute; left: 50%; bottom: 14px; z-index: 2; display: flex; gap: 7px; transform: translateX(-50%); }
 .seasonal-banner-carousel__dots button { width: 8px; min-height: 8px; height: 8px; border-radius: 999px; background: #ffffffa8; box-shadow: 0 1px 4px #0004; transition: width .2s, background .2s; }
 .seasonal-banner-carousel__dots button.is-active { width: 24px; background: #fff; }
@@ -693,7 +697,7 @@ h1, h2, h3, p { overflow-wrap: break-word; }
   .seasonal-banner__copy > span { font-size: 8px; letter-spacing: .1em; }
   .seasonal-banner__diya { bottom: -6px; font-size: 29px; }.seasonal-banner__diya--left { left: 11px; }.seasonal-banner__diya--right { right: 11px; }
   .seasonal-banner-carousel { border-radius: 18px; }
-  .seasonal-banner.seasonal-banner--managed { min-height: 0; aspect-ratio: 1.6 / 1; border-radius: 0; padding: 0; }
+  .seasonal-banner.seasonal-banner--managed { min-height: 0; aspect-ratio: 800 / 408; border-radius: 0; padding: 0; }
   .seasonal-banner-carousel__dots { bottom: 9px; }
   .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 20px; }
   .footer-grid > :first-child, .footer-note { grid-column: 1 / -1; }

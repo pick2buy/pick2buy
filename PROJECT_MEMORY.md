@@ -83,6 +83,9 @@ Never store passwords, tokens, API keys, connection strings, environment file co
 
 ## Storefront banner placements — local work, not deployed
 
+- Banner desktop/mobile URL fields support copied-image paste (Ctrl+V/⌘V), sharing the existing validated/compressed storage upload flow. Ordinary URL paste remains supported; saving waits for uploads. Mobile artwork has its own preview. Added locally on 2026-11-21.
+
 - On 2026-11-20, branch `codex/banner-placements` separated homepage banner management into three admin sections: main hero (`HERO`), square seasonal campaigns (`CAMPAIGN`), and the existing Everyday Essentials row (`ESSENTIALS`). Existing banner records default to `ESSENTIALS`, and built-in hero/campaign artwork remains as the storefront fallback until active managed banners are added.
 - The public banner API accepts an optional placement filter. Hero banners support a responsive desktop/mobile image carousel; campaign and Everyday Essentials placements also use their matching responsive images and retain existing fallback content when empty or unavailable.
 - Migration `20261120000000_banner_placements` adds the placement column and index. On 2026-11-20, the user explicitly approved applying it to the configured PostgreSQL database; Prisma reported it applied successfully, and the local public API then returned the filtered `HERO` banner response without the previous missing-column error. Local verification passed typecheck, production build, all 29 isolated SQLite tests, and visual checks at 330px, 768px, and 1440px without horizontal overflow.
+- On 2026-11-21, desktop managed heroes were changed to full-width images with natural height, replacing the fixed frame that caused cropping or side gaps. The recommended slim desktop artwork is still 1600 × 325; taller artwork produces a taller banner. Mobile retains the approved 800 × 408 frame and contain fitting. These changes are local, not deployed.

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Edit3, ImagePlus, Plus, Trash2, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -13,7 +13,7 @@ type BannerForm = {
   startDate: string; endDate: string;
 };
 const placements: { key: BannerPlacement; title: string; description: string; size: string }[] = [
-  { key: 'HERO', title: 'Main hero banners', description: 'Large full-width promotion at the top of the storefront.', size: 'Recommended: 1600 × 420 desktop, 800 × 500 mobile' },
+  { key: 'HERO', title: 'Main hero banners', description: 'Large full-width promotion at the top of the storefront.', size: 'Recommended: 1600 × 325 desktop, 800 × 408 mobile. Desktop height follows the uploaded image proportions, without cropping or side gaps.' },
   { key: 'CAMPAIGN', title: 'Seasonal campaign banners', description: 'Square artwork carousel for seasonal products and collections.', size: 'Recommended: 1000 × 1000 desktop and mobile' },
   { key: 'ESSENTIALS', title: 'Everyday Essentials banners', description: 'Wide three-card promotional row shown below the campaign carousel.', size: 'Recommended: 1000 × 500 desktop, 800 × 500 mobile' },
 ];
@@ -48,6 +48,7 @@ export const AdminBannersPage = () => {
   const [form, setForm] = useState<BannerForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [uploadingTarget, setUploadingTarget] = useState<'desktop' | 'mobile' | null>(null);
+  const uploadBusy = useRef(false);
   const canManage = ['ADMIN', 'MANAGER'].includes(useAuthStore(s => s.user?.role || ''));
   const modalRef = useModal(open, () => setOpen(false));
 
@@ -71,6 +72,17 @@ export const AdminBannersPage = () => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    await uploadImageFile(target, file);
+  };
+  const pasteImage = (target: 'desktop' | 'mobile', event: React.ClipboardEvent) => {
+    const item = Array.from(event.clipboardData.items).find(item => item.kind === 'file' && item.type.startsWith('image/'));
+    if (!item) return; // Keep normal URL/text paste behavior.
+    event.preventDefault();
+    const file = item.getAsFile();
+    if (file) void uploadImageFile(target, file);
+  };
+  const uploadImageFile = async (target: 'desktop' | 'mobile', file: File) => {
+    if (uploadBusy.current || saving) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       setError('Choose a PNG, JPEG, or WebP image.');
       return;
@@ -79,6 +91,7 @@ export const AdminBannersPage = () => {
       setError('Choose an image smaller than 8 MB.');
       return;
     }
+    uploadBusy.current = true;
     setUploadingTarget(target); setError('');
     try {
       // Store the compressed banner in Supabase rather than keeping a Base64
@@ -89,10 +102,12 @@ export const AdminBannersPage = () => {
         ? { ...current, desktopImageUrl: imageUrl }
         : { ...current, mobileImageUrl: imageUrl });
     } catch (err: any) { setError(err.message || 'Could not prepare that image.'); }
-    finally { setUploadingTarget(null); }
+    finally { uploadBusy.current = false; setUploadingTarget(null); }
   };
   const save = async (event: React.FormEvent) => {
-    event.preventDefault(); setSaving(true); setError('');
+    event.preventDefault();
+    if (uploadBusy.current) { setError('Please wait for the image upload to finish before saving.'); return; }
+    setSaving(true); setError('');
     try {
       const payload = { placement: form.placement, title: form.title.trim() || null, subtitle: form.subtitle.trim() || null,
         desktopImageUrl: form.desktopImageUrl.trim(), mobileImageUrl: form.mobileImageUrl.trim() || null,
@@ -122,7 +137,7 @@ export const AdminBannersPage = () => {
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id={`banner-section-${section.key}`} className="text-lg font-black text-slate-900">{section.title}</h2><p className="mt-1 text-sm text-slate-500">{section.description}</p><p className="mt-1 text-xs font-semibold text-brand-primary">{section.size}</p></div>{canManage && <button type="button" onClick={() => beginCreate(section.key)} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-hover"><Plus size={17} /> Add to this section</button>}</div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {sectionBanners.map(banner => <article key={banner.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className={`bg-slate-100 ${section.key === 'CAMPAIGN' ? 'aspect-square' : section.key === 'HERO' ? 'aspect-[3.8/1]' : 'aspect-[2/1]'}`}><img src={banner.desktopImageUrl} alt="" className="h-full w-full object-cover" /></div>
+            <div className={`bg-slate-100 ${section.key === 'CAMPAIGN' ? 'aspect-square' : section.key === 'HERO' ? 'aspect-[4.9/1]' : 'aspect-[2/1]'}`}><img src={banner.desktopImageUrl} alt="" className="h-full w-full object-cover" /></div>
             <div className="space-y-2 p-4"><div className="flex items-start justify-between gap-2"><h3 className="font-bold text-slate-900">{banner.title || 'Image banner'}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-bold ${banner.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{banner.isActive ? 'Active' : 'Inactive'}</span></div>
               <p className="line-clamp-2 text-sm text-slate-500">{banner.subtitle || banner.linkUrl}</p>
               <p className="text-xs text-slate-500">Order {banner.displayOrder}{banner.startDate ? ` · Starts ${new Date(banner.startDate).toLocaleDateString()}` : ''}{banner.endDate ? ` · Ends ${new Date(banner.endDate).toLocaleDateString()}` : ''}</p>
@@ -141,14 +156,17 @@ export const AdminBannersPage = () => {
         <label className="block">Title (optional)<input maxLength={160} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className={inputClass} placeholder="Only needed when it is not already in the image" /></label>
         <label className="block">Subtitle<textarea rows={2} maxLength={300} value={form.subtitle} onChange={e => setForm({ ...form, subtitle: e.target.value })} className={inputClass} /></label>
         <div>
-          <label className="block">Desktop image URL *<input type="text" inputMode="url" value={isUploadedImage(form.desktopImageUrl) ? '' : form.desktopImageUrl} onChange={e => setForm({ ...form, desktopImageUrl: e.target.value })} className={inputClass} placeholder={isUploadedImage(form.desktopImageUrl) ? 'An image has been uploaded below' : 'https://…'} /></label>
+          <label className="block">Desktop image URL *<input type="text" inputMode="url" onPaste={event => pasteImage('desktop', event)} disabled={uploadingTarget !== null || saving} value={isUploadedImage(form.desktopImageUrl) ? '' : form.desktopImageUrl} onChange={e => setForm({ ...form, desktopImageUrl: e.target.value })} className={inputClass} placeholder="Paste an image with Ctrl+V, or enter https://…" /></label>
+          <p className="mt-1 text-xs font-normal text-slate-500">Copy an image, click the field above, then press Ctrl+V (Mac: ⌘V). It uploads automatically.</p>
           <div className="mt-2 flex flex-wrap items-center gap-2"><label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><ImagePlus size={15} />{uploadingTarget === 'desktop' ? 'Preparing image…' : 'Upload desktop image'}<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingTarget !== null} onChange={event => uploadImage('desktop', event)} /></label>{isUploadedImage(form.desktopImageUrl) && <><span className="text-xs font-medium text-emerald-700">Image uploaded</span><button type="button" onClick={() => setForm({ ...form, desktopImageUrl: '' })} className="text-xs font-bold text-slate-500 underline hover:text-slate-800">Remove</button></>}</div>
         </div>
         <div>
-          <label className="block">Mobile image URL<input type="text" inputMode="url" value={isUploadedImage(form.mobileImageUrl) ? '' : form.mobileImageUrl} onChange={e => setForm({ ...form, mobileImageUrl: e.target.value })} className={inputClass} placeholder={isUploadedImage(form.mobileImageUrl) ? 'An image has been uploaded below' : 'https://…'} /></label>
+          <label className="block">Mobile image URL<input type="text" inputMode="url" onPaste={event => pasteImage('mobile', event)} disabled={uploadingTarget !== null || saving} value={isUploadedImage(form.mobileImageUrl) ? '' : form.mobileImageUrl} onChange={e => setForm({ ...form, mobileImageUrl: e.target.value })} className={inputClass} placeholder="Paste an image with Ctrl+V, or enter https://…" /></label>
+          <p className="mt-1 text-xs font-normal text-slate-500">Paste a copied image here for mobile. PNG, JPEG and WebP up to 8 MB.</p>
+          {form.mobileImageUrl && <img src={form.mobileImageUrl} alt="Mobile banner preview" className="mt-2 max-h-40 max-w-full rounded-lg object-contain" />}
           <div className="mt-2 flex flex-wrap items-center gap-2"><label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><ImagePlus size={15} />{uploadingTarget === 'mobile' ? 'Preparing image…' : 'Upload mobile image'}<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingTarget !== null} onChange={event => uploadImage('mobile', event)} /></label>{isUploadedImage(form.mobileImageUrl) && <><span className="text-xs font-medium text-emerald-700">Image uploaded</span><button type="button" onClick={() => setForm({ ...form, mobileImageUrl: '' })} className="text-xs font-bold text-slate-500 underline hover:text-slate-800">Remove</button></>}</div>
         </div>
-        {form.desktopImageUrl && <div><p className="mb-1 text-xs text-slate-500">{placementLabel(form.placement)} preview</p><div className={`w-full overflow-hidden rounded-xl bg-slate-100 ${form.placement === 'CAMPAIGN' ? 'mx-auto max-w-xs aspect-square' : form.placement === 'HERO' ? 'aspect-[3.8/1]' : 'aspect-[2/1]'}`}><img src={form.desktopImageUrl} alt="Banner preview" className="h-full w-full object-cover" /></div></div>}
+        {form.desktopImageUrl && <div><p className="mb-1 text-xs text-slate-500">{placementLabel(form.placement)} preview</p><div className={`w-full overflow-hidden rounded-xl bg-slate-100 ${form.placement === 'CAMPAIGN' ? 'mx-auto max-w-xs aspect-square' : form.placement === 'HERO' ? 'aspect-[4.9/1]' : 'aspect-[2/1]'}`}><img src={form.desktopImageUrl} alt="Banner preview" className="h-full w-full object-cover" /></div></div>}
         <div className="grid gap-4 sm:grid-cols-2"><label className="block">Button text<input value={form.buttonText} maxLength={80} onChange={e => setForm({ ...form, buttonText: e.target.value })} className={inputClass} placeholder="Shop now" /></label><label className="block">Destination path or HTTPS URL *<input required value={form.linkUrl} onChange={e => setForm({ ...form, linkUrl: e.target.value })} className={inputClass} placeholder="/shop" /></label></div>
         <div className="grid gap-4 sm:grid-cols-2"><label className="block">Starts (optional)<input type="datetime-local" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className={inputClass} /></label><label className="block">Ends (optional)<input type="datetime-local" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className={inputClass} /></label></div>
         <div className="flex items-center gap-5"><label className="block">Display order<input type="number" min={0} step="1" value={form.displayOrder} onChange={e => setForm({ ...form, displayOrder: Number(e.target.value) })} className={`${inputClass} w-28`} /></label><label className="mt-5 flex items-center gap-2"><input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} /> Active</label></div>
